@@ -1,0 +1,1 @@
+/usr/bin/c++ -rdynamic CMakeFiles/universal_benchmark.dir/universal_benchmark.cc.o -o universal_benchmark  -pthread 

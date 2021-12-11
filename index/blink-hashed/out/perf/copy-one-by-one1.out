@@ -1,0 +1,21 @@
+7.12237 mops/sec
+Height of tree: 5
+44.8919 % of utilization
+
+ Performance counter stats for './bin/rdtsc_innode 50000000 1':
+
+       7383.458147      task-clock (msec)         #    0.998 CPUs utilized          
+                16      context-switches          #    0.002 K/sec                  
+                 3      cpu-migrations            #    0.000 K/sec                  
+            601016      page-faults               #    0.081 M/sec                  
+       21466638987      cycles                    #    2.907 GHz                      (49.76%)
+       46972136027      instructions              #    2.19  insn per cycle           (62.32%)
+       11363444009      branches                  # 1539.041 M/sec                    (62.41%)
+         158249519      branch-misses             #    1.39% of all branches          (62.55%)
+        7830369631      L1-dcache-loads           # 1060.529 M/sec                    (62.32%)
+         356465969      L1-dcache-load-misses     #    4.55% of all L1-dcache hits    (25.02%)
+          26300969      LLC-loads                 #    3.562 M/sec                    (24.91%)
+           5841608      LLC-load-misses           #   22.21% of all LL-cache hits     (37.32%)
+
+       7.400843092 seconds time elapsed
+

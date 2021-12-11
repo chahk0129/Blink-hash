@@ -1,0 +1,2 @@
+/usr/bin/ar qc libblob_blob_table.a CMakeFiles/blob_blob_table.dir/blob_blob_table.cc.o
+/usr/bin/ranlib libblob_blob_table.a

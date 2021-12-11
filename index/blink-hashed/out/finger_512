@@ -1,0 +1,21 @@
+thread 1
+3.92841 mops/sec
+34.1831 % of utilization
+thread 2
+4.63095 mops/sec
+34.1515 % of utilization
+thread 4
+5.39468 mops/sec
+34.1634 % of utilization
+thread 8
+6.0197 mops/sec
+34.1752 % of utilization
+thread 16
+6.1234 mops/sec
+34.1989 % of utilization
+thread 28
+5.39492 mops/sec
+34.2623 % of utilization
+thread 56
+5.39499 mops/sec
+34.3938 % of utilization

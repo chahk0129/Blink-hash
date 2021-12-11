@@ -1,0 +1,84 @@
+thread 1
+7.91862 mops/sec
+Height of tree: 5
+35.9988 % of utilization
+thread 2
+12.1381 mops/sec
+Height of tree: 5
+36.3401 % of utilization
+thread 4
+18.0942 mops/sec
+Height of tree: 5
+36.3602 % of utilization
+thread 8
+25.4647 mops/sec
+Height of tree: 5
+36.3883 % of utilization
+thread 16
+29.6603 mops/sec
+Height of tree: 5
+36.3722 % of utilization
+thread 28
+30.7521 mops/sec
+Height of tree: 5
+36.3602 % of utilization
+thread 56
+29.6757 mops/sec
+Height of tree: 5
+36.4365 % of utilization
+thread 1
+7.90706 mops/sec
+Height of tree: 5
+35.9556 % of utilization
+thread 2
+12.1341 mops/sec
+Height of tree: 5
+36.3361 % of utilization
+thread 4
+17.9911 mops/sec
+Height of tree: 5
+36.3642 % of utilization
+thread 8
+25.3176 mops/sec
+Height of tree: 5
+36.4084 % of utilization
+thread 16
+29.1825 mops/sec
+Height of tree: 5
+36.4003 % of utilization
+thread 28
+30.8067 mops/sec
+Height of tree: 5
+36.3883 % of utilization
+thread 56
+29.7424 mops/sec
+Height of tree: 5
+36.4204 % of utilization
+thread 1
+7.92174 mops/sec
+Height of tree: 5
+35.9713 % of utilization
+thread 2
+12.1203 mops/sec
+Height of tree: 5
+36.3081 % of utilization
+thread 4
+18.0814 mops/sec
+Height of tree: 5
+36.3682 % of utilization
+thread 8
+25.6362 mops/sec
+Height of tree: 5
+36.4124 % of utilization
+thread 16
+29.9175 mops/sec
+Height of tree: 5
+36.3963 % of utilization
+thread 28
+30.0476 mops/sec
+Height of tree: 5
+36.3602 % of utilization
+thread 56
+29.72 mops/sec
+Height of tree: 5
+36.4406 % of utilization

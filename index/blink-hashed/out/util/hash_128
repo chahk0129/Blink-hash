@@ -1,0 +1,9 @@
+thread 1
+inode_size(29), lnode_size(1091)
+Insertion starts
+elapsed time: 2.06621e+07 usec
+throughput: 2.41989 mops/sec
+Search starts
+elapsed time: 2.32622e+07 usec
+throughput: 2.14941 mops/sec
+utilization of leaf nodes: 54.4164 %
