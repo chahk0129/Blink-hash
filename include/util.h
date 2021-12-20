@@ -26,7 +26,7 @@ enum {
   TYPE_ARTROWEX,
   TYPE_HOT,
   TYPE_BLINKTREE,
-  TYPE_BLINKTREE_HASHED,
+  TYPE_BLINKHASH,
   TYPE_CUCKOO_HASH,
   TYPE_BTREEOLC,
   TYPE_NONE,
@@ -81,6 +81,8 @@ Index<KeyType, KeyComparator> *getInstance(const int type, const uint64_t kt) {
       return new BTreeOLCIndex<KeyType, KeyComparator>(kt);
   else if (type == TYPE_BLINKTREE)
       return new BlinkIndex<KeyType, KeyComparator>(kt);
+  else if (type == TYPE_BLINKHASH)
+      return new BlinkHashIndex<KeyType, KeyComparator>(kt);
 /*  else if (type == TYPE_CUCKOO_HASH)
       return new CuckooHashIndex<KeyType, KeyComparator>(kt);
       */
@@ -117,6 +119,7 @@ inline uint64_t Rdtsc()
 
 // This is the order of allocation
 static int core_alloc_map_hyper[] = {
+    /*
     0,  64,   1,  65,   2,  66,   3,  67,
     4,  68,   5,  69,   6,  70,   7,  71,
     8,  72,   9,  73,  10,  74,  11,  75,
@@ -133,7 +136,7 @@ static int core_alloc_map_hyper[] = {
    52, 116,  53, 117,  54, 118,  55, 119,
    56, 120,  57, 121,  58, 122,  59, 123,
    60, 124,  61, 125,  62, 126,  63, 127 // socket 1	// amd
-       
+      */ 
     /*
     0,   1,   2,   3,   4,   5,   6,   7, 	// intel
     8,   9,  10,  11,  12,  13,  14,  15,
@@ -171,7 +174,7 @@ static int core_alloc_map_hyper[] = {
   141, 142, 143, 144, 145, 146, 147, 148, 149, 150,
   151, 152, 153, 154, 155, 156, 157, 158, 159
   */
-	  /*
+	  
   0, 2, 4, 6, 8, 10, 12, 14,
   16, 18, 20, 22, 24, 26, 28, 30,
   32, 34, 36, 38, 40, 42, 44, 46, 
@@ -180,7 +183,7 @@ static int core_alloc_map_hyper[] = {
   17, 19, 21, 23, 25, 27, 29, 31,
   33, 35, 37, 39, 41, 43, 45, 47, 
   49, 51, 53, 55, 57, 59, 61, 63
-  */
+  
 };
 
 
@@ -192,9 +195,9 @@ static int core_alloc_map_numa[] = {
 };
 
 
-constexpr static size_t MAX_CORE_NUM = 128;
+//constexpr static size_t MAX_CORE_NUM = 128;
 //constexpr static size_t MAX_CORE_NUM = 56;
-//constexpr static size_t MAX_CORE_NUM = 64;
+constexpr static size_t MAX_CORE_NUM = 64;
 //constexpr static size_t MAX_CORE_NUM = 40;
 
 inline void PinToCore(size_t thread_id) {

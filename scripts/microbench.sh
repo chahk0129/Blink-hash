@@ -8,14 +8,14 @@ path_profile=output/microbench/profile
 mkdir $path_throughput
 mkdir $path_profile
 
-index="artolc artrowex hot masstree bwtree blink btreeolc"
-workloads="load update read scan delete"
+index="artolc masstree bwtree blinkhash"
+workloads="load update read scan"
 threads="1 64"
-iterations="1 2 3"
+iterations="1"
 
 init_num=100000000
 run_num=100000000
-
+"
 ## throughput
 for iter in $iterations; do
 	for wk in $workloads; do
@@ -28,7 +28,7 @@ for iter in $iterations; do
 	done
 done
 
-
+"
 ## perf profiling
 for iter in $iterations; do
 	for wk in $workloads; do

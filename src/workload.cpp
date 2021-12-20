@@ -679,7 +679,7 @@ inline void exec(int wl, int index_type, int num_thread, kvpair_t<keytype>* init
     else
         std::cout << "Load " << tput << std::endl;
 
-    if(measure_latency){
+    if(measure_latency && insert_only){
 	std::vector<uint64_t> global_latency;
 	for(auto& v: local_load_latency){
 	    for(auto i=0; i<v.size(); i+=2){
@@ -1220,6 +1220,8 @@ int main(int argc, char *argv[]) {
 	index_type = TYPE_BTREEOLC;
     else if(opt.index == "blink")
 	index_type = TYPE_BLINKTREE;
+    else if(opt.index == "blinkhash")
+	index_type = TYPE_BLINKHASH;
     else{
 	std::cout << "Invalid index type: " << opt.index << std::endl;
 	exit(0);

@@ -1,0 +1,18 @@
+inode_size(29), lnode_size(474), lnode_total_entry(15168)
+Insertion starts
+elapsed time: 1.47498e+06 usec
+throughput: 67.7974 mops/sec
+Height of tree: 4
+utilization of leaf nodes: 64.4775 %
+inode_size(29), lnode_size(474), lnode_total_entry(15168)
+Insertion starts
+elapsed time: 1.4858e+06 usec
+throughput: 67.304 mops/sec
+Height of tree: 4
+utilization of leaf nodes: 66.0207 %
+inode_size(29), lnode_size(474), lnode_total_entry(15168)
+Insertion starts
+elapsed time: 1.48867e+06 usec
+throughput: 67.174 mops/sec
+Height of tree: 4
+utilization of leaf nodes: 64.3328 %

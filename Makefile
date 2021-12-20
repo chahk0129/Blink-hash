@@ -6,7 +6,7 @@ DEPSDIR := index/masstree/.deps
 DEPCFLAGS = -MD -MF $(DEPSDIR)/$*.d -MP
 MEMMGR = -lpapi -latomic -ltcmalloc_minimal 
 LDFLAGS = -Wno-invalid-offsetof -Wno-deprecated-declarations -Wall -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -faligned-new $(DEPCFLAGS) -include index/masstree/config.h -I./
-LDFLAGS += -DBWTREE_NODEBUG -DNDEBUG -DSIMD -DAVX2 -mavx -mavx2 -mbmi2 -mlzcnt -mcx16
+LDFLAGS += -DBWTREE_NODEBUG -DNDEBUG -DSIMD -DAVX2 -mavx -mavx2 -mbmi2 -mlzcnt -mcx16 -DLINKED -DAVX2 -DSAMPLING
 MICROFLAGS = -Wno-invalid-offsetof -Wno-deprecated-declarations -Wall -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -faligned-new
 AMDuProfDIR = /opt/AMDuProf_3.4-502
 PROFFLAGS = #-I$(AMDuProfDIR)/include -L$(AMDuProfDIR)/lib/x64 -lAMDProfileController -lrt
@@ -44,7 +44,7 @@ workload_string.o: src/workload_string.cpp include/microbench.h include/index.h 
 	$(CXX) $(CFLAGS) -c -o obj/workload_string_breakdown.o src/workload_string.cpp $(LDFLAGS) $(PROFFLAGS) -DSTRING_KEY -DBREAKDOWN
 
 workload_string: workload_string.o bwtree.o artolc.o artrowex.o index/masstree/mtIndexAPI.a index/hot/build/src/libhot-rowex.a index/blink/tree_optimized.h
-	$(CXX) $(CFLAGS) -o bin/workload_string obj/workload_string.o obj/bwtree.o obj/artolc.o obj/artrowex.o index/masstree/mtIndexAPI.a index/hot/build/src/libhot-rowex.a index/blink/tree.h index/blink-hashed/tree.h $(MEMMGR) $(LDFLAGS) $(PROFFLAGS) -lpthread -lm -ltbb  -DSTRING_KEY -DUPDATE_LOCK
+	$(CXX) $(CFLAGS) -o bin/workload_string obj/workload_string.o obj/bwtree.o obj/artolc.o obj/artrowex.o index/masstree/mtIndexAPI.a index/hot/build/src/libhot-rowex.a index/blink/tree.h index/blink-hash/tree.h $(MEMMGR) $(LDFLAGS) $(PROFFLAGS) -lpthread -lm -ltbb  -DSTRING_KEY -DUPDATE_LOCK
 	$(CXX) $(CFLAGS) -o bin/breakdown_workload_string obj/workload_string_breakdown.o obj/bwtree_breakdown.o obj/artolc_breakdown.o obj/artrowex_breakdown.o index/masstree/mtIndexAPI.a index/hot/build/src/libhot-rowex-breakdown.a $(MEMMGR) $(LDFLAGS) $(PROFFLAGS) -lpthread -lm -ltbb  -DSTRING_KEY -DBREAKDOWN
 
 workload_url.o: src/workload_url.cpp include/microbench.h include/index.h include/util.h index/masstree/mtIndexAPI.hh index/BwTree/bwtree.h index/hot/src/wrapper.h index/blink/tree_optimized.h

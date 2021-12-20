@@ -9,6 +9,7 @@
 #include "index/BwTree/bwtree.h"
 #include "index/masstree/mtIndexAPI.hh"
 #include "index/hot/src/wrapper.h"
+#include "index/blink-hash/tree.h"
 #ifndef _INDEX_H
 #define _INDEX_H
 
@@ -946,68 +947,58 @@ class BTreeOLCIndex: public Index<KeyType, KeyComparator>
 
 
 /////////////////////////
-/// Blink-tree HASHED ///
+/// Blink-tree HASH ///
 /////////////////////////
-/*
-   template<typename KeyType, class KeyComparator>
-   class BlinkHashedIndex: public Index<KeyType, KeyComparator>
-   {
-   public:
+template<typename KeyType, class KeyComparator>
+class BlinkHashIndex: public Index<KeyType, KeyComparator>
+{
+    public:
 
-   bool insert(KeyType key, uint64_t value, threadinfo *ti) {
-   idx->insert(key, value);
-   return 0;
-   }
+	bool insert(KeyType key, uint64_t value, threadinfo *ti) {
+	    idx->insert(key, value);
+	    return 0;
+	}
 
-   uint64_t find(KeyType key, std::vector<uint64_t> *v, threadinfo *ti) {
-   auto ret = idx->lookup(key);
-   v->clear();
-   v->push_back(ret);
-   return 0;
-   }
+	uint64_t find(KeyType key, std::vector<uint64_t> *v, threadinfo *ti) {
+	    auto ret = idx->lookup(key);
+	    v->clear();
+	    v->push_back(ret);
+	    return 0;
+	}
 
-   bool upsert(KeyType key, uint64_t value, threadinfo *ti) {
-   return idx->update(key, value);
-   }
+	bool upsert(KeyType key, uint64_t value, threadinfo *ti) {
+	    return idx->update(key, value);
+	}
 
-   uint64_t scan(KeyType key, int range, threadinfo *ti) {
-   uint64_t buf[range];
-   auto ret = idx->range_lookup(key, range, buf);
-   return ret;
-   }
+	uint64_t scan(KeyType key, int range, threadinfo *ti) {
+	    uint64_t buf[range];
+	    auto ret = idx->range_lookup(key, range, buf);
+	    return ret;
+	}
 
-   BlinkHashedIndex(uint64_t kt){
-   idx = new BLINK_HASHED::btree_t<KeyType>();
-   }
+	BlinkHashIndex(uint64_t kt){
+	    idx = new BLINK_HASH::btree_t<KeyType>();
+	}
 
-   void getMemory() {
-   }
-   void find_depth(){
-   auto ret = idx->check_height();
-   std::cout << "height of blink-tree hashed: \t" << ret << std::endl;
-   }
+	void getMemory() { }
+	void find_depth(){
+	    auto ret = idx->check_height();
+	    std::cout << "height of blink-tree hashed: \t" << ret << std::endl;
+	}
 
-#ifdef TIME
-void get_time(uint64_t& internal_traversal_time, uint64_t& internal_sync_time, uint64_t& internal_write_time, uint64_t& leaf_traversal_time, uint64_t& leaf_sync_time, uint64_t& leaf_write_time){
-}
-#endif
-
-#ifdef BREAKDOWN
-void reset_breakdown(){
-}
-void get_breakdown(uint64_t& readlock_success_time, uint64_t& readlock_fail_time, uint64_t& readunlock_success_time, uint64_t& readunlock_fail_time, uint64_t& writelock_success_time, uint64_t& writelock_fail_time, uint64_t& writeunlock_time, uint64_t& sorting_time, uint64_t& splitting_time, uint64_t& writing_time, uint64_t& alloc_time, uint64_t& dealloc_time, uint64_t& check_prefix_time, uint64_t& key_comparison_time, uint64_t& ptr_dereference_time){ 
-}
-#endif
+	#ifdef BREAKDOWN
+	void get_breakdown(uint64_t& time_traversal, uint64_t& time_abort, uint64_t& time_latch, uint64_t& time_node, uint64_t& time_split, uint64_t& time_consolidation){
+	}
+	#endif
 
 
-void UpdateThreadLocal(size_t thread_num){ }
-void AssignGCID(size_t thread_id){ }
-void UnregisterThread(size_t thread_id) { }
+	void UpdateThreadLocal(size_t thread_num){ }
+	void AssignGCID(size_t thread_id){ }
+	void UnregisterThread(size_t thread_id) { }
 
-private:
-BLINK_HASHED::btree_t<KeyType>* idx;
+    private:
+	BLINK_HASH::btree_t<KeyType>* idx;
 };
- */
 ////////////////////
 /// Cuckoo hash ///
 ///////////////////
