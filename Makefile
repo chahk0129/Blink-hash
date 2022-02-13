@@ -6,7 +6,7 @@ DEPSDIR := index/masstree/.deps
 DEPCFLAGS = -MD -MF $(DEPSDIR)/$*.d -MP
 MEMMGR = -lpapi -latomic -ltcmalloc_minimal 
 LDFLAGS = -Wno-invalid-offsetof -Wno-deprecated-declarations -Wall -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -faligned-new $(DEPCFLAGS) -include index/masstree/config.h -I./
-LDFLAGS += -DBWTREE_NODEBUG -DNDEBUG -DSIMD -DAVX2 -mavx -mavx2 -mbmi2 -mlzcnt -mcx16 -DLINKED -DAVX2 -DSAMPLING
+LDFLAGS += -DBWTREE_NODEBUG -DNDEBUG -DSIMD -DAVX2 -mavx -mavx2 -mbmi2 -mlzcnt -mcx16 -DAVX2 
 MICROFLAGS = -Wno-invalid-offsetof -Wno-deprecated-declarations -Wall -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -faligned-new
 AMDuProfDIR = /opt/AMDuProf_3.4-502
 PROFFLAGS = #-I$(AMDuProfDIR)/include -L$(AMDuProfDIR)/lib/x64 -lAMDProfileController -lrt
@@ -26,17 +26,25 @@ ifdef STRING_KEY
 endif
 
 micro.o: src/microbench.cpp include/index.h include/util.h
-	$(CXX) $(CFLAGS) -c -o obj/microbench.o src/microbench.cpp $(LDFLAGS) -DUPDATE_LOCK
+	$(CXX) $(CFLAGS) -c -o obj/microbench.o src/microbench.cpp $(LDFLAGS) -DUPDATE_LOCK -DAVX2 -DSAMPLING -DLINKED -DOLD
+	$(CXX) $(CFLAGS) -c -o obj/microbench_new.o src/microbench.cpp $(LDFLAGS) -DUPDATE_LOCK -DAVX2 -DSAMPLING -DLINKED
 
 micro: micro.o bwtree.o artolc.o artrowex.o index/masstree/mtIndexAPI.a index/hot/build/src/libhot-rowex.a
-	$(CXX) $(CFLAGS) -o bin/microbench obj/microbench.o obj/bwtree.o obj/artolc.o obj/artrowex.o index/masstree/mtIndexAPI.a index/hot/build/src/libhot-rowex.a $(MEMMGR) $(LDFLAGS) -lpthread -lm -ltbb -DUPDATE_LOCK
+	$(CXX) $(CFLAGS) -o bin/microbench obj/microbench.o obj/bwtree.o obj/artolc.o obj/artrowex.o index/masstree/mtIndexAPI.a index/hot/build/src/libhot-rowex.a $(MEMMGR) $(LDFLAGS) -lpthread -lm -ltbb -DUPDATE_LOCK -DAVX2 -DSAMPLING -DLINKED -DOLD
+	$(CXX) $(CFLAGS) -o bin/microbench_new obj/microbench_new.o obj/bwtree.o obj/artolc.o obj/artrowex.o index/masstree/mtIndexAPI.a index/hot/build/src/libhot-rowex.a $(MEMMGR) $(LDFLAGS) -lpthread -lm -ltbb -DUPDATE_LOCK -DAVX2 -DSAMPLING -DLINKED
 
 workload.o: src/workload.cpp include/microbench.h include/index.h include/util.h index/masstree/mtIndexAPI.hh index/BwTree/bwtree.h index/hot/src/wrapper.h src/papi_util.cpp index/blink/tree_optimized.h pcm/pcm-memory.cpp pcm/pcm-numa.cpp
-	$(CXX) $(CFLAGS) -c -o obj/workload.o src/workload.cpp $(LDFLAGS) $(PROFFLAGS) -DUPDATE_LOCK
-	$(CXX) $(CFLAGS) -c -o obj/workload_breakdown.o src/workload.cpp $(LDFLAGS) $(PROFFLAGS) -DBREAKDOWN -DUPDATE_LOCK
+	$(CXX) $(CFLAGS) -c -o obj/workload.o src/workload.cpp $(LDFLAGS) $(PROFFLAGS) -DUPDATE_LOCK -DLINKED -DSAMPLING -DAVX2 -DOLD
+	$(CXX) $(CFLAGS) -c -o obj/workload_new.o src/workload.cpp $(LDFLAGS) $(PROFFLAGS) -DUPDATE_LOCK -DAVX2 -DSAMPLING -DLINKED
+#	$(CXX) $(CFLAGS) -c -o obj/workload_baseline.o src/workload.cpp $(LDFLAGS) $(PROFFLAGS) -DUPDATE_LOCK -DAVX2
+#	$(CXX) $(CFLAGS) -c -o obj/workload_sampling.o src/workload.cpp $(LDFLAGS) $(PROFFLAGS) -DUPDATE_LOCK -DAVX2 -DSAMPLING
+#	$(CXX) $(CFLAGS) -c -o obj/workload_breakdown.o src/workload.cpp $(LDFLAGS) $(PROFFLAGS) -DBREAKDOWN -DUPDATE_LOCK
 
 workload: workload.o bwtree.o artolc.o artrowex.o index/masstree/mtIndexAPI.a index/hot/build/src/libhot-rowex.a pcm/libPCM.a index/blink/tree_optimized.h
-	$(CXX) $(CFLAGS) -o bin/workload obj/workload.o obj/bwtree.o obj/artolc.o obj/artrowex.o index/masstree/mtIndexAPI.a index/hot/build/src/libhot-rowex.a pcm/libPCM.a $(MEMMGR) $(LDFLAGS) $(PROFFLAGS) -lpthread -lm -ltbb -DUPDATE_LOCK
+	$(CXX) $(CFLAGS) -o bin/workload obj/workload.o obj/bwtree.o obj/artolc.o obj/artrowex.o index/masstree/mtIndexAPI.a index/hot/build/src/libhot-rowex.a pcm/libPCM.a $(MEMMGR) $(LDFLAGS) $(PROFFLAGS) -lpthread -lm -ltbb -DUPDATE_LOCK -DLINKED -DSAMPLING -DAVX2 -DOLD
+	$(CXX) $(CFLAGS) -o bin/workload_linked_new obj/workload_linked.o obj/bwtree.o obj/artolc.o obj/artrowex.o index/masstree/mtIndexAPI.a index/hot/build/src/libhot-rowex.a pcm/libPCM.a $(MEMMGR) $(LDFLAGS) $(PROFFLAGS) -lpthread -lm -ltbb -DUPDATE_LOCK -DAVX2 -DSAMPLING -DLINKED
+#	$(CXX) $(CFLAGS) -o bin/workload_baseline obj/workload_baseline.o obj/bwtree.o obj/artolc.o obj/artrowex.o index/masstree/mtIndexAPI.a index/hot/build/src/libhot-rowex.a pcm/libPCM.a $(MEMMGR) $(LDFLAGS) $(PROFFLAGS) -lpthread -lm -ltbb -DUPDATE_LOCK -DAVX2
+#	$(CXX) $(CFLAGS) -o bin/workload_sampling obj/workload_sampling.o obj/bwtree.o obj/artolc.o obj/artrowex.o index/masstree/mtIndexAPI.a index/hot/build/src/libhot-rowex.a pcm/libPCM.a $(MEMMGR) $(LDFLAGS) $(PROFFLAGS) -lpthread -lm -ltbb -DUPDATE_LOCK -DAVX2 -DSAMPLING
 	$(CXX) $(CFLAGS) -o bin/breakdown_workload obj/workload_breakdown.o obj/bwtree.o obj/artolc_breakdown.o obj/artrowex_breakdown.o index/masstree/mtIndexAPI.a pcm/libPCM.a index/hot/build/src/libhot-rowex-breakdown.a $(MEMMGR) $(LDFLAGS) $(PROFFLAGS) -lpthread -lm -ltbb -DUPDATE_LOCK -DBREAKDOWN
 
 workload_string.o: src/workload_string.cpp include/microbench.h include/index.h include/util.h index/masstree/mtIndexAPI.hh index/BwTree/bwtree.h index/hot/src/wrapper.h index/blink/tree_optimized.h

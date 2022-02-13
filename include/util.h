@@ -83,9 +83,6 @@ Index<KeyType, KeyComparator> *getInstance(const int type, const uint64_t kt) {
       return new BlinkIndex<KeyType, KeyComparator>(kt);
   else if (type == TYPE_BLINKHASH)
       return new BlinkHashIndex<KeyType, KeyComparator>(kt);
-/*  else if (type == TYPE_CUCKOO_HASH)
-      return new CuckooHashIndex<KeyType, KeyComparator>(kt);
-      */
   else {
     fprintf(stderr, "Unknown index type: %d\n", type);
     exit(1);
@@ -196,9 +193,7 @@ static int core_alloc_map_numa[] = {
 
 
 //constexpr static size_t MAX_CORE_NUM = 128;
-//constexpr static size_t MAX_CORE_NUM = 56;
 constexpr static size_t MAX_CORE_NUM = 64;
-//constexpr static size_t MAX_CORE_NUM = 40;
 
 inline void PinToCore(size_t thread_id) {
   cpu_set_t cpu_set;

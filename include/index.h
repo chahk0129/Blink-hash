@@ -947,7 +947,7 @@ class BTreeOLCIndex: public Index<KeyType, KeyComparator>
 
 
 /////////////////////////
-/// Blink-tree HASH ///
+/////// Blink-hash //////
 /////////////////////////
 template<typename KeyType, class KeyComparator>
 class BlinkHashIndex: public Index<KeyType, KeyComparator>
@@ -977,7 +977,7 @@ class BlinkHashIndex: public Index<KeyType, KeyComparator>
 	}
 
 	BlinkHashIndex(uint64_t kt){
-	    idx = new BLINK_HASH::btree_t<KeyType>();
+	    idx = new BLINK_HASH::btree_t<KeyType, uint64_t>();
 	}
 
 	void getMemory() { }
@@ -997,119 +997,7 @@ class BlinkHashIndex: public Index<KeyType, KeyComparator>
 	void UnregisterThread(size_t thread_id) { }
 
     private:
-	BLINK_HASH::btree_t<KeyType>* idx;
+	BLINK_HASH::btree_t<KeyType, uint64_t>* idx;
 };
-////////////////////
-/// Cuckoo hash ///
-///////////////////
-/*
-#if !defined(STRING_KEY) && !defined(URL_KEYS)
-template<typename KeyType, class KeyComparator>
-class CuckooHashIndex: public Index<KeyType, KeyComparator>
-{
-    public:
-
-	bool insert(KeyType key, uint64_t value, threadinfo *ti) {
-	    idx->insert(key, value);
-	    return 0;
-	}
-
-	uint64_t find(KeyType key, std::vector<uint64_t> *v, threadinfo *ti) {
-	    uint64_t ret;
-	    idx->find(key, ret);
-	    v->clear();
-	    v->push_back(ret);
-	    return 0;
-	}
-
-	bool upsert(KeyType key, uint64_t value, threadinfo *ti) {
-	    return idx->update(key, value);
-	}
-
-	uint64_t scan(KeyType key, int range, threadinfo *ti) {
-	    return 0;
-	}
-
-	CuckooHashIndex(uint64_t kt){
-	    idx = new cuckoohash_map<KeyType, uint64_t>;
-	    idx->reserve(1000000u);
-	}
-
-	void getMemory() {
-	}
-	void find_depth(){
-	}
-
-	#ifdef BREAKDOWN
-	void reset_breakdown(){
-	    //idx->reset_breakdown();
-	}
-	void get_breakdown(uint64_t& time_traversal, uint64_t& time_abort, uint64_t& time_latch, uint64_t& time_node, uint64_t& time_split){
-	    //idx->get_breakdown(time_traversal, time_abort, time_latch, time_node, time_split);
-	}
-	#endif
-
-	void UpdateThreadLocal(size_t thread_num){ }
-	void AssignGCID(size_t thread_id){ }
-	void UnregisterThread(size_t thread_id) { }
-
-    private:
-	cuckoohash_map<KeyType, uint64_t>* idx;
-};
-#else
-template<typename KeyType, class KeyComparator>
-class CuckooHashIndex: public Index<KeyType, KeyComparator>
-{
-    public:
-
-	bool insert(KeyType key, uint64_t value, threadinfo *ti) {
-	    idx->insert(key.data, value);
-	    return 0;
-	}
-
-	uint64_t find(KeyType key, std::vector<uint64_t> *v, threadinfo *ti) {
-	    uint64_t ret;
-	    idx->find(key.data, ret);
-	    v->clear();
-	    v->push_back(ret);
-	    return 0;
-	}
-
-	bool upsert(KeyType key, uint64_t value, threadinfo *ti) {
-	    return idx->update(key.data, value);
-	}
-
-	uint64_t scan(KeyType key, int range, threadinfo *ti) {
-	    return 0;
-	}
-
-	CuckooHashIndex(uint64_t kt){
-	    idx = new cuckoohash_map<std::string, uint64_t>();
-	    idx->reserve(1000000u);
-	}
-
-	void getMemory() {
-	}
-	void find_depth(){
-	}
-
-	#ifdef BREAKDOWN
-	void reset_breakdown(){
-	    //idx->reset_breakdown();
-	}
-	void get_breakdown(uint64_t& time_traversal, uint64_t& time_abort, uint64_t& time_latch, uint64_t& time_node, uint64_t& time_split){
-	    //idx->get_breakdown(time_traversal, time_abort, time_latch, time_node, time_split);
-	}
-	#endif
-
-	void UpdateThreadLocal(size_t thread_num){ }
-	void AssignGCID(size_t thread_id){ }
-	void UnregisterThread(size_t thread_id) { }
-
-    private:
-	cuckoohash_map<std::string, uint64_t>* idx;
-};
-#endif
-*/
 
 #endif
