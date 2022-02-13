@@ -1,14 +1,17 @@
 #ifndef BLINK_HASH_TREE_H__
 #define BLINK_HASH_TREE_H__
 
-#ifdef LINKED
+#ifdef OLD
 #include "linked_node.h"
 #else
-#include "node.h"
+#include "linked_node2.h"
 #endif
+
+//#include "node.h"
+
 namespace BLINK_HASH{
 
-template <typename Key_t>
+template <typename Key_t, typename Value_t>
 class btree_t{
     public:
 	inline uint64_t _rdtsc(){
@@ -24,8 +27,7 @@ class btree_t{
 	}
 
 	btree_t(){ 
-	    invalid_initialize<Key_t>();
-	    root = static_cast<node_t*>(new lnode_t<Key_t>()); 
+	    root = static_cast<node_t*>(new lnode_t<Key_t, Value_t>()); 
 	}
 	~btree_t(){ }
 
@@ -35,10 +37,11 @@ class btree_t{
 	}
 
 	int check_height(){
+	    auto ret = utilization();
 	    return root->level;
 	}
 
-	void insert(Key_t key, uint64_t value){
+	void insert(Key_t key, Value_t value){
 	restart:
 	    auto cur = root;
 
@@ -72,11 +75,11 @@ class btree_t{
 	    }
 
 	    // found leaf
-	    auto leaf = static_cast<lnode_t<Key_t>*>(cur);
+	    auto leaf = static_cast<lnode_t<Key_t, Value_t>*>(cur);
 	    auto leaf_vstart = cur_vstart;
 
 	    while(leaf->sibling_ptr && (leaf->high_key < key)){
-		auto sibling = static_cast<lnode_t<Key_t>*>(leaf->sibling_ptr);
+		auto sibling = static_cast<lnode_t<Key_t, Value_t>*>(leaf->sibling_ptr);
 		auto sibling_v = sibling->try_readlock(need_restart);
 		if(need_restart){
 		    goto restart;
@@ -98,15 +101,16 @@ class btree_t{
 		return;
 	    else{ // leaf node split
 		Key_t split_key;
-		#ifdef LINKED
+		//#ifdef LINKED
 		auto new_leaf = leaf->split(split_key, key, value, leaf_vstart);
-		#else
-		auto new_leaf = leaf->split(split_key, leaf_vstart);
-		#endif
+		//#else
+		//auto new_leaf = leaf->split(split_key, leaf_vstart);
+		//#endif
 		if(new_leaf == nullptr){
 		    goto restart; // another thread has already splitted this leaf node
 		}
 
+		/*
 		#ifndef LINKED
 		if(key <= split_key){
 		    leaf->insert_after_split(key, value);
@@ -115,6 +119,7 @@ class btree_t{
 		    new_leaf->insert_after_split(key, value);
 		}
 		#endif
+		*/
 
 		if(stack_cnt){
 		    int stack_idx = stack_cnt-1;
@@ -157,7 +162,7 @@ class btree_t{
 			    original_node->write_unlock();
 			}
 			else{ // leaf node
-			    (static_cast<lnode_t<Key_t>*>(original_node))->_split_unlock();
+			    (static_cast<lnode_t<Key_t, Value_t>*>(original_node))->_split_unlock();
 			}
 
 
@@ -264,7 +269,7 @@ class btree_t{
 		prev->write_unlock();
 	    }
 	    else{
-		(static_cast<lnode_t<Key_t>*>(prev))->_split_unlock();
+		(static_cast<lnode_t<Key_t, Value_t>*>(prev))->_split_unlock();
 	    }
 
 	    auto node = static_cast<inode_t<Key_t>*>(cur);
@@ -296,7 +301,7 @@ class btree_t{
 
 
 
-	bool update(Key_t key, uint64_t value){
+	bool update(Key_t key, Value_t value){
 	restart:
 	    auto cur = root;
 	    bool need_restart = false;
@@ -318,7 +323,7 @@ class btree_t{
 	    }
 
 	    // found leaf
-	    auto leaf = static_cast<lnode_t<Key_t>*>(cur);
+	    auto leaf = static_cast<lnode_t<Key_t, Value_t>*>(cur);
 	    auto leaf_vstart = cur_vstart;
 
 	    // move right if necessary
@@ -330,24 +335,25 @@ class btree_t{
 		auto leaf_vend = leaf->get_version(need_restart);
 		if(need_restart || (leaf_vstart != leaf_vend)) goto restart;
 
-		leaf = static_cast<lnode_t<Key_t>*>(sibling);
+		leaf = static_cast<lnode_t<Key_t, Value_t>*>(sibling);
 		leaf_vstart = sibling_v;
 	    }
 
-	    auto ret = leaf->update(key, value);
-	    if(ret == 0)
-		return true;
-	    else if(ret == -1)
+	    auto ret = leaf->update(key, value, leaf_vstart);
+	    if(ret == -1)
 		goto restart;
 
-	    //auto leaf_vend = leaf->get_version(need_restart);
-	    //if(need_restart || (leaf_vstart != leaf_vend))
-		//goto restart;
+	    auto leaf_vend = leaf->get_version(need_restart);
+	    if(need_restart || (leaf_vstart != leaf_vend))
+		goto restart;
+
+	    if(ret == 0)
+		return true;
 	    return false;
 	}
 
 
-	uint64_t lookup(Key_t key){
+	Value_t lookup(Key_t key){
 	restart:
 	    auto cur = root;
 	    bool need_restart = false;
@@ -370,7 +376,7 @@ class btree_t{
 	    }
 
 	    // found leaf
-	    auto leaf = static_cast<lnode_t<Key_t>*>(cur);
+	    auto leaf = static_cast<lnode_t<Key_t, Value_t>*>(cur);
 	    auto leaf_vstart = cur_vstart;
 
 	    // move right if necessary
@@ -383,19 +389,21 @@ class btree_t{
 		auto leaf_vend = leaf->get_version(need_restart);
 		if(need_restart || (leaf_vstart != leaf_vend)) goto restart;
 
-		leaf = static_cast<lnode_t<Key_t>*>(sibling);
+		leaf = static_cast<lnode_t<Key_t, Value_t>*>(sibling);
 		leaf_vstart = sibling_v;
 	    }
 	    auto ret = leaf->find(key, need_restart);
 	    if(need_restart) goto restart;
-	    //auto leaf_vend = leaf->get_version(need_restart);
-	    //if(need_restart || (leaf_vstart != leaf_vend)) goto restart;
+	    
+	    auto leaf_vend = leaf->get_version(need_restart);
+	    if(need_restart || (leaf_vstart != leaf_vend)) 
+		goto restart;
 
 	    return ret;
 	}
 
 
-	int range_lookup(Key_t min_key, int range, uint64_t* buf){
+	int range_lookup(Key_t min_key, int range, Value_t* buf){
 
 	restart:
 	    auto cur = root;
@@ -418,7 +426,7 @@ class btree_t{
 
 	    // found leaf
 	    int count = 0;
-	    auto leaf = static_cast<lnode_t<Key_t>*>(cur);
+	    auto leaf = static_cast<lnode_t<Key_t, Value_t>*>(cur);
 	    auto leaf_vstart = cur_vstart;
 
 	    while(count < range){
@@ -433,7 +441,7 @@ class btree_t{
 		    auto leaf_vend = leaf->get_version(need_restart);
 		    if(need_restart || (leaf_vstart != leaf_vend)) goto restart;
 
-		    leaf = static_cast<lnode_t<Key_t>*>(sibling);
+		    leaf = static_cast<lnode_t<Key_t, Value_t>*>(sibling);
 		    leaf_vstart = sibling_v;
 		}
 
@@ -443,12 +451,12 @@ class btree_t{
 
 		auto sibling = leaf->sibling_ptr;
 
-		//auto leaf_vend = leaf->get_version(need_restart);
-		//if(need_restart || (leaf_vstart != leaf_vend)) goto restart;
+		auto leaf_vend = leaf->get_version(need_restart);
+		if(need_restart || (leaf_vstart != leaf_vend))
+		    goto restart;
 
-		if(ret == range){
+		if(ret == range)
 		    return ret;
-		}
 
 		// reaches to the rightmost leaf
 		if(!sibling) break;
@@ -456,7 +464,7 @@ class btree_t{
 		auto sibling_vstart = sibling->try_readlock(need_restart);
 		if(need_restart) goto restart;
 
-		leaf = static_cast<lnode_t<Key_t>*>(sibling);
+		leaf = static_cast<lnode_t<Key_t, Value_t>*>(sibling);
 		leaf_vstart = sibling_vstart;
 		count = ret;
 	    }
@@ -468,13 +476,13 @@ class btree_t{
 	    while(cur->level != 0){
 		cur = cur->leftmost_ptr;
 	    }
-	    auto leaf = static_cast<lnode_t<Key_t>*>(cur);
+	    auto leaf = static_cast<lnode_t<Key_t, Value_t>*>(cur);
 	    int cnt = 1;
 	    do{
 		std::cout << "L" << cnt << "(" << leaf << ": ";
 		leaf->print();
 		cnt++;
-	    }while((leaf = static_cast<lnode_t<Key_t>*>(leaf->sibling_ptr)));
+	    }while((leaf = static_cast<lnode_t<Key_t, Value_t>*>(leaf->sibling_ptr)));
 	}
 
 	void print_internal(){
@@ -496,6 +504,11 @@ class btree_t{
 	    }
 	}
 
+	void print(){
+	    print_internal();
+	    print_leaf();
+	}
+
 	void sanity_check(){
 	    auto cur = root;
 	    while(cur->level != 0){
@@ -504,18 +517,18 @@ class btree_t{
 		cur = cur->leftmost_ptr;
 	    }
 
-	    auto l = static_cast<lnode_t<Key_t>*>(cur);
+	    auto l = static_cast<lnode_t<Key_t, Value_t>*>(cur);
 	    l->sanity_check(l->high_key, true);
 	}
 
-	uint64_t find_anyway(Key_t key){
+	Value_t find_anyway(Key_t key){
 	    auto cur = root;
 	    while(cur->level != 0){
 		cur = cur->leftmost_ptr;
 	    }
 
-	    auto leaf = static_cast<lnode_t<Key_t>*>(cur);
-	    lnode_t<Key_t>* before;
+	    auto leaf = static_cast<lnode_t<Key_t, Value_t>*>(cur);
+	    lnode_t<Key_t, Value_t>* before;
 	    do{
 		auto ret = leaf->find(key);
 		if(ret){
@@ -526,7 +539,7 @@ class btree_t{
 		    return ret; 
 		}
 		before = leaf;
-		leaf = static_cast<lnode_t<Key_t>*>(leaf->sibling_ptr);
+		leaf = static_cast<lnode_t<Key_t, Value_t>*>(leaf->sibling_ptr);
 	    }while(leaf);
 
 	    return 0;
@@ -534,25 +547,37 @@ class btree_t{
 
 	double utilization(){
 	    auto cur = root;
+	    auto node = cur;
 	    while(cur->level != 0){
+		uint64_t total = 0;
+		uint64_t count = 0;
+		while(node){
+		    total += inode_t<Key_t>::cardinality;
+		    count += node->get_cnt();
+		    node = node->sibling_ptr;
+		}
+		std::cout << "inode lv " << cur->level-1 << ": " << (double)count/total*100.0 << " \%" << std::endl;
 		cur = cur->leftmost_ptr;
+		node = cur;
 	    }
 
-	    auto leaf = static_cast<lnode_t<Key_t>*>(cur);
+	    auto leaf = static_cast<lnode_t<Key_t, Value_t>*>(cur);
 	    int leaf_cnt = 0;
 	    double util = 0;
 	    do{
 		leaf_cnt++;
 		util += leaf->utilization();
 
-		leaf = static_cast<lnode_t<Key_t>*>(leaf->sibling_ptr);
+		leaf = static_cast<lnode_t<Key_t, Value_t>*>(leaf->sibling_ptr);
 	    }while(leaf);
+	    std::cout << "leaf " << (double)util/leaf_cnt*100.0 << " \%" << std::endl;
 	    return util/leaf_cnt*100.0;
 	}
 
 	int height(){
 	    auto cur = root;
 	    return cur->level;
+
 	}
 
 	friend class leaf_allocator_t;

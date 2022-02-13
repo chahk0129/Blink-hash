@@ -9,6 +9,7 @@
 #include <algorithm>
 
 using Key_t = uint64_t;
+using Value_t = uint64_t;
 
 inline uint64_t _Rdtsc(){
     uint32_t lo, hi;
@@ -121,7 +122,7 @@ inline void pin_to_core(size_t thread_id){
 }
 
 template <typename Fn, typename... Args>
-void start_threads(btree_t<Key_t>* tree, uint64_t num_threads, Fn&& fn, Args&& ...args){
+void start_threads(btree_t<Key_t, Value_t>* tree, uint64_t num_threads, Fn&& fn, Args&& ...args){
     std::vector<std::thread> threads;
     auto fn2 = [&fn](uint64_t thread_id, Args ...args){
         pin_to_core(thread_id);
@@ -150,16 +151,16 @@ int main(int argc, char* argv[]){
     for(int i=0; i<num_data; i++){
 	keys[i] = i+1;
     }
-    std::random_shuffle(keys, keys+num_data);
+    //std::random_shuffle(keys, keys+num_data);
 
     std::vector<std::thread> inserting_threads;
     std::vector<std::thread> searching_threads;
     std::vector<std::thread> mixed_threads;
 
-    std::vector<uint64_t> notfound_keys[num_threads];
+    std::vector<Key_t> notfound_keys[num_threads];
 
-    btree_t<Key_t>* tree = new btree_t<Key_t>();
-    std::cout << "inode_size(" << inode_t<Key_t>::cardinality << "), lnode_size(" << lnode_t<Key_t>::cardinality << "), lnode_total_entry(" << lnode_t<Key_t>::cardinality * entry_num << ")" << std::endl;
+    btree_t<Key_t, Value_t>* tree = new btree_t<Key_t, Value_t>();
+    std::cout << "inode_size(" << inode_t<Key_t>::cardinality << "), lnode_size(" << lnode_t<Key_t, Value_t>::cardinality << "), lnode_total_entry(" << lnode_t<Key_t, Value_t>::cardinality * entry_num << ")" << std::endl;
 
     struct timespec start, end;
 
@@ -181,13 +182,13 @@ int main(int argc, char* argv[]){
 	    int ratio = rand() % 10;
 	    if(ratio < insert_ratio)
 		#ifdef THREAD_ALLOC
-		tree->insert(keys[i+half], (uint64_t)&keys[i+half], ti);
+		tree->insert(keys[i+half], (Value_t)&keys[i+half], ti);
 		#else
-		tree->insert(keys[i+half], (uint64_t)&keys[i+half]);
+		tree->insert(keys[i+half], (Value_t)&keys[i+half]);
 		#endif
 	    else{
 		auto ret = tree->lookup(keys[i]);
-		if(ret != (uint64_t)&keys[i]){
+		if(ret != (Value_t)&keys[i]){
 		    notfound_keys[tid].push_back(i);
 		}
 	    }
@@ -196,7 +197,7 @@ int main(int argc, char* argv[]){
 
     std::cout << "wramup starts" << std::endl;
     for(int i=0; i<half; i++){
-	tree->insert(keys[i], (uint64_t)&keys[i]);
+	tree->insert(keys[i], (Value_t)&keys[i]);
     }
     std::cout << "mixed starts" << std::endl;
     clock_gettime(CLOCK_MONOTONIC, &start);
@@ -219,9 +220,9 @@ int main(int argc, char* argv[]){
 	int to = chunk * (tid + 1);
 	for(int i=from; i<to; i++){
 	    #ifdef THREAD_ALLOC
-	    tree->insert(keys[i], (uint64_t)&keys[i], ti);
+	    tree->insert(keys[i], (Value_t)&keys[i], ti);
 	    #else
-	    tree->insert(keys[i], (uint64_t)&keys[i]);
+	    tree->insert(keys[i], (Value_t)&keys[i]);
 	    #endif
 	}
     };
@@ -231,7 +232,7 @@ int main(int argc, char* argv[]){
 	int to = chunk * (tid + 1);
 	for(int i=from; i<to; i++){
 	    auto ret = tree->lookup(keys[i]);
-	    if(ret != (uint64_t)&keys[i]){
+	    if(ret != (Value_t)&keys[i]){
 		notfound_keys[tid].push_back(i);
 	    }
 	}
@@ -245,6 +246,7 @@ int main(int argc, char* argv[]){
     std::cout << "elapsed time: " << elapsed/1000.0 << " usec" << std::endl;
     std::cout << "throughput: " << num_data / (double)(elapsed/1000000000.0) / 1000000 << " mops/sec" << std::endl;
 
+    //tree->print();
 
     if(insert_only){
 	std::cout << "Search starts" << std::endl;
@@ -256,39 +258,23 @@ int main(int argc, char* argv[]){
 	std::cout << "throughput: " << num_data / (double)(elapsed/1000000000.0) / 1000000 << " mops/sec" << std::endl;
 
 	bool not_found = false;
+	uint64_t not_found_num = 0;
 	for(int i=0; i<num_threads; i++){
 	    for(auto& it: notfound_keys[i]){
+		not_found_num++;
 		auto ret = tree->lookup(keys[it]);
-		if(ret != (uint64_t)&keys[it]){
+		if(ret != (Value_t)&keys[it]){
 		    not_found = true;
 		    std::cout << "key " << keys[it] << " not found" << std::endl;
-		    std::cout << "returned " << ret << "\toriginal " << (uint64_t)&keys[it] << std::endl;
+		    std::cout << "returned " << ret << "\toriginal " << (Value_t)&keys[it] << std::endl;
 		}
 	    }
 	}
+	std::cout << "# of not found keys: " << not_found_num << std::endl;
 
-		/*
-	std::cout << "finding it anyway\n\n" << std::endl;
-	for(int i=0; i<num_threads; i++){
-	    for(auto& it: notfound_keys[i]){
-		auto ret = tree->find_anyway(keys[it]);
-		if(ret != (uint64_t)&keys[it])
-		    std::cout << "key " << keys[it] << " not found" << std::endl;
-		   else{
-		// lower key
-		std::cout << "lower key find_anyway" << std::endl;
-		ret = tree->find_anyway(keys[it]-1);
-		if(ret != (uint64_t)&keys[it]-1)
-		std::cout << "key " << keys[it]-1 << " not found" << std::endl;
-		}
-	    }
-	}*/
-	/*
 	if(not_found){
-	    tree->print_internal();
-	    tree->print_leaf();
+	    tree->print();
 	}
-	*/
     }
 
 #endif
@@ -299,49 +285,5 @@ int main(int argc, char* argv[]){
 
     auto util = tree->utilization();
     std::cout << "utilization of leaf nodes: " << util << " %" << std::endl;
-
-#ifdef BREAKDOWN
-    auto inode_traversal = tree->time_inode_traversal.load();
-    auto inode_alloc = tree->time_inode_allocation.load();
-    auto inode_write = tree->time_inode_write.load();
-    auto inode_sync = tree->time_inode_sync.load();
-    auto inode_split = tree->time_inode_split.load();
-    auto lnode_traversal = tree->time_lnode_traversal.load();
-    auto lnode_alloc = tree->time_lnode_allocation.load();
-    auto lnode_write = tree->time_lnode_write.load();
-    auto lnode_sync = tree->time_lnode_sync.load();
-    auto lnode_split = tree->time_lnode_split.load();
-    
-    auto lnode_key_copy = tree->time_lnode_key_copy.load();
-    auto lnode_find_median = tree->time_lnode_find_median.load();
-    auto lnode_copy = tree->time_lnode_copy.load();
-    auto lnode_update = tree->time_lnode_update.load();
-
-    auto total = inode_traversal + inode_alloc + inode_write + inode_sync + inode_split +
-		 lnode_traversal + lnode_alloc + lnode_write + lnode_sync + lnode_split + lnode_key_copy + lnode_find_median + lnode_copy + lnode_update;
-    //auto total = inode_traversal + inode_alloc + inode_write + inode_sync + inode_split +
-	//	 lnode_traversal + lnode_alloc + lnode_write + lnode_sync + lnode_split;
-
-    auto leaf_split_total = lnode_key_copy + lnode_find_median + lnode_copy + lnode_update;
-
-    std::cout << "inode traversal: \t" << inode_traversal << "\t " << (double)inode_traversal/total * 100 << " \% out of total" << std::endl;
-    std::cout << "inode alloc: \t" << inode_alloc << "\t " << (double)inode_alloc/total * 100 << " \% out of total" << std::endl;
-    std::cout << "inode write: \t" << inode_write << "\t " << (double)inode_write/total * 100 << " \% out of total" << std::endl;
-    std::cout << "inode sync: \t" << inode_sync << "\t " << (double)inode_sync/total * 100 << " \% out of total" << std::endl;
-    std::cout << "inode split: \t" << inode_split << "\t " << (double)inode_split/total * 100 << " \% out of total" << std::endl;
-    std::cout << "lnode traversal: \t" << lnode_traversal << "\t " << (double)lnode_traversal/total * 100 << " \% out of total" << std::endl;
-    std::cout << "lnode alloc: \t" << lnode_alloc << "\t " << (double)lnode_alloc/total * 100 << " \% out of total" << std::endl;
-    std::cout << "lnode write: \t" << lnode_write << "\t " << (double)lnode_write/total * 100 << " \% out of total" << std::endl;
-    std::cout << "lnode sync: \t" << lnode_sync << "\t " << (double)lnode_sync/total * 100 << " \% out of total" << std::endl;
-    std::cout << "lnode split: \t" << lnode_split << "\t " << (double)lnode_split/total * 100 << " \% out of total" << std::endl;
-
-    std::cout << "\n\n";
-    std::cout << "lnode key copy: \t" << lnode_key_copy << "\t " << (double)lnode_key_copy/total * 100 << " \% out of total\t in leaf split total: " << (double)lnode_key_copy/leaf_split_total * 100 << std::endl;
-    std::cout << "lnode find median: \t" << lnode_find_median << "\t " << (double)lnode_find_median/total * 100 << " \% out of total\t in leaf split total: " << (double)lnode_find_median/leaf_split_total * 100 << std::endl;
-    std::cout << "lnode copy: \t" << lnode_copy << "\t " << (double)lnode_copy/total * 100 << " \% out of total\t in leaf split total: " << (double)lnode_copy/leaf_split_total * 100 << std::endl;
-    std::cout << "lnode update: \t" << lnode_update<< "\t " << (double)lnode_update/total * 100 << " \% out of total\t in leaf split total: " << (double)lnode_update/leaf_split_total * 100 << std::endl;
-
-#endif
-
     return 0;
 }

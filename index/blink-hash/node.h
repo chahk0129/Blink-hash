@@ -79,6 +79,10 @@ class node_t{
 	    level = level_;
 	}
 
+	int get_cnt(){
+	    return cnt;
+	}
+
 	bool is_locked(uint64_t version){
 	    return ((version & 0b10) == 0b10);
 	}
@@ -277,14 +281,6 @@ class inode_t: public node_t{
 	    return lower-1;
 	}
 };
-
-template <typename Key_t>
-Key_t INVALID;
-
-template <typename Key_t>
-void invalid_initialize(){
-    memset(&INVALID<Key_t>, 0, sizeof(Key_t));
-}
 
 /*
 static constexpr size_t entry_num = 32;

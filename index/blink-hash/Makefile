@@ -7,17 +7,21 @@ LDLIBS = -lpthread -latomic -ltcmalloc_minimal #-ljemalloc
 all: test rdtsc
 
 rdtsc: rdtsc.cpp
-	$(CXX) $(CFLAGS) -o bin/rdtsc_linked rdtsc.cpp $(LDLIBS)  -DLINKED -DAVX2 -DSAMPLING
-	$(CXX) $(CFLAGS) -o bin/rdtsc_baseline rdtsc.cpp $(LDLIBS)
-	$(CXX) $(CFLAGS) -o bin/rdtsc_simd rdtsc.cpp $(LDLIBS) -DAVX2
-	$(CXX) $(CFLAGS) -o bin/rdtsc_sample rdtsc.cpp $(LDLIBS) -DAVX2 -DSAMPLING
+	$(CXX) $(CFLAGS) -o bin/rdtsc_linked_old rdtsc.cpp $(LDLIBS)  -DLINKED -DAVX2 -DSAMPLING -DOLD
+	$(CXX) $(CFLAGS) -o bin/rdtsc_linked_new rdtsc.cpp $(LDLIBS)  -DLINKED -DAVX2 -DSAMPLING
+#	$(CXX) $(CFLAGS) -o bin/rdtsc_baseline rdtsc.cpp $(LDLIBS)
+#	$(CXX) $(CFLAGS) -o bin/rdtsc_simd rdtsc.cpp $(LDLIBS) -DAVX2
+#	$(CXX) $(CFLAGS) -o bin/rdtsc_simd512 rdtsc.cpp $(LDLIBS) -DAVX512
+#	$(CXX) $(CFLAGS) -o bin/rdtsc_sample rdtsc.cpp $(LDLIBS) -DAVX2 -DSAMPLING
+#	$(CXX) $(CFLAGS) -o bin/rdtsc_sample512 rdtsc.cpp $(LDLIBS) -DAVX512 -DSAMPLING
 
 
 test: test.cpp
-	$(CXX) $(CFLAGS) -o bin/test_linked test.cpp $(LDLIBS)  -DLINKED -DAVX2 -DSAMPLING
-	$(CXX) $(CFLAGS) -o bin/test_baseline test.cpp $(LDLIBS)
-	$(CXX) $(CFLAGS) -o bin/test_simd test.cpp $(LDLIBS) -DAVX2
-	$(CXX) $(CFLAGS) -o bin/test_sample test.cpp $(LDLIBS) -DAVX2 -DSAMPLING
+	$(CXX) $(CFLAGS) -o bin/test_linked_old test.cpp $(LDLIBS)  -DLINKED -DAVX2 -DSAMPLING -DOLD
+	$(CXX) $(CFLAGS) -o bin/test_linked_new test.cpp $(LDLIBS)  -DLINKED -DAVX2 -DSAMPLING
+#	$(CXX) $(CFLAGS) -o bin/test_baseline test.cpp $(LDLIBS) -DAVX
+#	$(CXX) $(CFLAGS) -o bin/test_simd test.cpp $(LDLIBS) -DAVX2
+#	$(CXX) $(CFLAGS) -o bin/test_sample test.cpp $(LDLIBS) -DAVX2 -DSAMPLING
 
 clean:
 	rm bin/*

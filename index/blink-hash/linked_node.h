@@ -81,6 +81,10 @@ class node_t{
 	    level = level_;
 	}
 
+	int get_cnt(){
+	    return cnt;
+	}
+
 	bool is_locked(uint64_t version){
 	    return ((version & 0b10) == 0b10);
 	}
@@ -296,30 +300,23 @@ class inode_t: public node_t{
 	}
 };
 
-template <typename Key_t>
-Key_t INVALID;
-
-template <typename Key_t>
-void invalid_initialize(){
-    memset(&INVALID<Key_t>, 0, sizeof(Key_t));
-}
 
 static constexpr size_t seed = 0xc70697UL;
 static constexpr int hash_funcs_num = 2;
 static constexpr int num_slot = 4;
 
-template <typename Key_t>
+template <typename Key_t, typename Value_t>
 class lnode_t : public node_t{
     public: 
 	static constexpr size_t leaf_size = 1024 * 256;
-	static constexpr size_t cardinality = (leaf_size - sizeof(node_t) - sizeof(Key_t) - sizeof(lnode_t<Key_t>*))/ (sizeof(bucket_t<Key_t, uint64_t>));
+	static constexpr size_t cardinality = (leaf_size - sizeof(node_t) - sizeof(Key_t) - sizeof(lnode_t<Key_t, Value_t>*))/ (sizeof(bucket_t<Key_t, Value_t>));
 
-	lnode_t<Key_t>* left_sibling_ptr;
+	lnode_t<Key_t, Value_t>* left_sibling_ptr;
 	Key_t high_key;
 
 
     private:
-	bucket_t<Key_t, uint64_t> bucket[cardinality];
+	bucket_t<Key_t, Value_t> bucket[cardinality];
     public:
 
 	bool _try_splitlock(uint64_t version){
@@ -372,7 +369,7 @@ class lnode_t : public node_t{
 	int find_lowerbound(Key_t key){
 	    return lowerbound_linear(key);
 	}
-	uint64_t find(Key_t key, bool& need_restart){
+	Value_t find(Key_t key, bool& need_restart){
 	    return find_linear(key, need_restart);
 	}
 
@@ -380,7 +377,7 @@ class lnode_t : public node_t{
 	    return (uint8_t)(key % 256);
 	}
 
-	int insert(Key_t key, uint64_t value, uint64_t version){
+	int insert(Key_t key, Value_t value, uint64_t version){
 	    bool need_restart = false;
 	    #ifdef AVX512
 	    __m256i empty = _mm256_setzero_si256();
@@ -396,14 +393,14 @@ class lnode_t : public node_t{
 		    loc = (loc + j) % cardinality;
 		    if(!bucket[loc].try_lock())
 			return -1;
-		    if(bucket[loc].state == bucket_t<Key_t, uint64_t>::LINKED_LEFT){
+		    if(bucket[loc].state == bucket_t<Key_t, Value_t>::LINKED_LEFT){
 			auto ret = stabilize_bucket_left(loc, true);
 			if(!ret){
 			    bucket[loc].unlock();
 			    return -1;
 			}
 		    }
-		    else if(bucket[loc].state == bucket_t<Key_t, uint64_t>::LINKED_RIGHT){
+		    else if(bucket[loc].state == bucket_t<Key_t, Value_t>::LINKED_RIGHT){
 			auto ret = stabilize_bucket_right(loc, true);
 			if(!ret){
 			    bucket[loc].unlock();
@@ -467,12 +464,12 @@ class lnode_t : public node_t{
 	    return 1; // return split flag
 	}
 	    
-	lnode_t<Key_t>* split(Key_t& split_key, Key_t key, uint64_t value, uint64_t version){ 
-	    auto new_right = new lnode_t<Key_t>(sibling_ptr, 0, level);
+	lnode_t<Key_t, Value_t>* split(Key_t& split_key, Key_t key, Value_t value, uint64_t version){ 
+	    auto new_right = new lnode_t<Key_t, Value_t>(sibling_ptr, 0, level);
 	    new_right->high_key = high_key;
 	    new_right->left_sibling_ptr = this;
 	    for(int i=0; i<cardinality; i++){
-		new_right->bucket[i].state = bucket_t<Key_t, uint64_t>::LINKED_LEFT;
+		new_right->bucket[i].state = bucket_t<Key_t, Value_t>::LINKED_LEFT;
 	    }
 
 	    struct target_t{
@@ -508,13 +505,13 @@ class lnode_t : public node_t{
 	    Key_t temp[cardinality];
 	    int valid_num = 0;
 	    for(int j=0; j<cardinality; j++){
-		if(bucket[j].state == bucket_t<Key_t, uint64_t>::LINKED_LEFT){
+		if(bucket[j].state == bucket_t<Key_t, Value_t>::LINKED_LEFT){
 		    bool ret;
 		    while(!(ret = stabilize_bucket_left(j, true))){
 			_mm_pause();
 		    }
 		}
-		else if(bucket[j].state == bucket_t<Key_t, uint64_t>::LINKED_RIGHT) // lazy buckets decreases the accuracy of median key prediction
+		else if(bucket[j].state == bucket_t<Key_t, Value_t>::LINKED_RIGHT) // lazy buckets decreases the accuracy of median key prediction
 		    continue;
 
 	        #ifdef AVX512
@@ -619,7 +616,7 @@ FIND_MEDIAN:
 #endif
 
 	    for(int j=0; j<cardinality; j++){
-		if(bucket[j].state == bucket_t<Key_t, uint64_t>::LINKED_LEFT){
+		if(bucket[j].state == bucket_t<Key_t, Value_t>::LINKED_LEFT){
 		    bool ret;
 		    while(!(ret = stabilize_bucket_left(j, true))){
 			_mm_pause();
@@ -634,8 +631,7 @@ FIND_MEDIAN:
 		    auto bit = (bitfield >> i);
 		    if((bit & 0x1) == 0){
 			if(split_key < bucket[j].entry[i].key){
-			    bucket[j].state = bucket_t<Key_t, uint64_t>::LINKED_RIGHT;
-			    //new_right->bucket[j].state = bucket_t<Key_t, uint64_t>::LINKED_LEFT;
+			    bucket[j].state = bucket_t<Key_t, Value_t>::LINKED_RIGHT;
 			    goto INSERT_CHECK;
 			}
 		    }
@@ -650,8 +646,7 @@ FIND_MEDIAN:
 			if((bit & 0x1) == 0){
 			    auto idx = k*16 + i;
 			    if(split_key < bucket[j].entry[idx].key){
-				bucket[j].state = bucket_t<Key_t, uint64_t>::LINKED_RIGHT;
-				//new_right->bucket[j].state = bucket_t<Key_t, uint64_t>::LINKED_LEFT;
+				bucket[j].state = bucket_t<Key_t, Value_t>::LINKED_RIGHT;
 				goto INSERT_CHECK;
 			    }
 			}
@@ -661,21 +656,20 @@ FIND_MEDIAN:
 		for(int i=0; i<entry_num; i++){
 		    if(bucket[j].fingerprints[i] != 0){
 			if(split_key < bucket[j].entry[i].key){
-			    bucket[j].state = bucket_t<Key_t, uint64_t>::LINKED_RIGHT;
-			    //new_right->bucket[j].state = bucket_t<Key_t, uint64_t>::LINKED_LEFT;
+			    bucket[j].state = bucket_t<Key_t, Value_t>::LINKED_RIGHT;
 			    goto INSERT_CHECK;
 			}
 		    }
 		}
 		#endif
-		new_right->bucket[j].state = bucket_t<Key_t, uint64_t>::STABLE;
+		new_right->bucket[j].state = bucket_t<Key_t, Value_t>::STABLE;
 	    INSERT_CHECK:
 		(void) need_insert;
 	    }
 
 	    if(split_key < key){
 		for(int m=0; m<hash_funcs_num; m++){
-		    if(new_right->bucket[target[m].loc].state == bucket_t<Key_t, uint64_t>::LINKED_LEFT){
+		    if(new_right->bucket[target[m].loc].state == bucket_t<Key_t, Value_t>::LINKED_LEFT){
 			bool ret;
 			while(!(ret = new_right->stabilize_bucket_left(target[m].loc, false))){
 			    _mm_pause();
@@ -728,8 +722,8 @@ FIND_MEDIAN:
 	    }
 	    else{
 		for(int m=0; m<hash_funcs_num; m++){
-		    if(bucket[target[m].loc].state == bucket_t<Key_t, uint64_t>::LINKED_RIGHT){
-			auto state = bucket_t<Key_t, uint64_t>::STABLE;
+		    if(bucket[target[m].loc].state == bucket_t<Key_t, Value_t>::LINKED_RIGHT){
+			auto state = bucket_t<Key_t, Value_t>::STABLE;
 			#ifdef AVX512
 			__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(bucket[target[m].loc].fingerprints));
 			__m256i cmp = _mm256_cmpeq_epi8(empty, fingerprints_);
@@ -739,12 +733,12 @@ FIND_MEDIAN:
 			    if((bit & 0x1) == 0){
 				if(high_key < bucket[target[m].loc].entry[i].key){
 				    new_right->bucket[target[m].loc].fingerprints[i] = bucket[target[m].loc].fingerprints[i];
-				    memcpy(&new_right->bucket[target[m].loc].entry[i], &bucket[target[m].loc].entry[i], sizeof(entry_t<Key_t, uint64_t>));
+				    memcpy(&new_right->bucket[target[m].loc].entry[i], &bucket[target[m].loc].entry[i], sizeof(entry_t<Key_t, Value_t>));
 				    bucket[target[m].loc].fingerprints[i] = 0;
-				    if(state == bucket_t<Key_t, uint64_t>::STABLE){
+				    if(state == bucket_t<Key_t, Value_t>::STABLE){
 					if(sibling_ptr != nullptr){
 					    if(new_right->high_key < new_right->bucket[target[m].loc].entry[i].key){
-						state = bucket_t<Key_t, uint64_t>::LINKED_RIGHT;
+						state = bucket_t<Key_t, Value_t>::LINKED_RIGHT;
 					    }
 					}
 				    }
@@ -762,12 +756,12 @@ FIND_MEDIAN:
 				    auto idx = k*16 + i;
 				    if(high_key < bucket[target[m].loc].entry[idx].key){
 					new_right->bucket[target[m].loc].fingerprints[idx] = bucket[target[m].loc].fingerprints[idx];
-					memcpy(&new_right->bucket[target[m].loc].entry[idx], &bucket[target[m].loc].entry[idx], sizeof(entry_t<Key_t, uint64_t>));
+					memcpy(&new_right->bucket[target[m].loc].entry[idx], &bucket[target[m].loc].entry[idx], sizeof(entry_t<Key_t, Value_t>));
 					bucket[target[m].loc].fingerprints[idx] = 0;
-					if(state == bucket_t<Key_t, uint64_t>::STABLE){
+					if(state == bucket_t<Key_t, Value_t>::STABLE){
 					    if(sibling_ptr != nullptr){
 						if(new_right->high_key < new_right->bucket[target[m].loc].entry[idx].key){
-						    state = bucket_t<Key_t, uint64_t>::LINKED_RIGHT;
+						    state = bucket_t<Key_t, Value_t>::LINKED_RIGHT;
 						}
 					    }
 					}
@@ -780,12 +774,12 @@ FIND_MEDIAN:
 			    if(bucket[target[m].loc].fingerprints[i] != 0){
 				if(high_key < bucket[target[m].loc].entry[i].key){
 				    new_right->bucket[target[m].loc].fingerprints[i] = bucket[target[m].loc].fingerprints[i];
-				    memcpy(&new_right->bucket[target[m].loc].entry[i], &bucket[target[m].loc].entry[i], sizeof(entry_t<Key_t, uint64_t>));
+				    memcpy(&new_right->bucket[target[m].loc].entry[i], &bucket[target[m].loc].entry[i], sizeof(entry_t<Key_t, Value_t>));
 				    bucket[target[m].loc].fingerprints[i] = 0;
-				    if(state == bucket_t<Key_t, uint64_t>::STABLE){
+				    if(state == bucket_t<Key_t, Value_t>::STABLE){
 					if(sibling_ptr != nullptr){
 					    if(new_right->high_key < new_right->bucket[target[m].loc].entry[i].key){
-						state = bucket_t<Key_t, uint64_t>::LINKED_RIGHT;
+						state = bucket_t<Key_t, Value_t>::LINKED_RIGHT;
 					    }
 					}
 				    }
@@ -795,7 +789,7 @@ FIND_MEDIAN:
 			#endif
 
 			new_right->bucket[target[m].loc].state = state;
-			bucket[target[m].loc].state = bucket_t<Key_t, uint64_t>::STABLE;
+			bucket[target[m].loc].state = bucket_t<Key_t, Value_t>::STABLE;
 		    }
 
 		    #ifdef AVX512
@@ -846,7 +840,7 @@ FIND_MEDIAN:
 	    (void) need_insert;
 	RETRY:
 	    if(sibling_ptr != nullptr){
-		auto right_sibling = static_cast<lnode_t<Key_t>*>(sibling_ptr);
+		auto right_sibling = static_cast<lnode_t<Key_t, Value_t>*>(sibling_ptr);
 		auto old = this;
 		while(!CAS(&right_sibling->left_sibling_ptr, &old, new_right)){
 		    old = this;
@@ -865,14 +859,14 @@ FIND_MEDIAN:
 	}
 
 
-	int update(Key_t key, uint64_t value){
-	    return update_linear(key, value);
+	int update(Key_t key, Value_t value, uint64_t version){
+	    return update_linear(key, value, version);
 	}
 
-	int range_lookup(Key_t key, uint64_t* buf, int count, int range){
+	int range_lookup(Key_t key, Value_t* buf, int count, int range){
 	    bool need_restart = false;
 
-	    entry_t<Key_t, uint64_t> _buf[cardinality];
+	    entry_t<Key_t, Value_t> _buf[cardinality * entry_num];
 	    int _count = count;
 	    int idx = 0;
 
@@ -882,22 +876,22 @@ FIND_MEDIAN:
 	    __m128i empty = _mm_setzero_si128();
 	    #endif
 
-	    for(int j=0; j<num_slot; j++){
+	    for(int j=0; j<cardinality; j++){
 		auto bucket_vstart = bucket[j].get_version(need_restart);
 		if(need_restart) return -1;
 
-		if(bucket[j].state != bucket_t<Key_t, uint64_t>::STABLE){
+		if(bucket[j].state != bucket_t<Key_t, Value_t>::STABLE){
 		    if(!bucket[j].upgrade_lock(bucket_vstart))
 			return -1;
 
-		    if(bucket[j].state == bucket_t<Key_t, uint64_t>::LINKED_LEFT){
+		    if(bucket[j].state == bucket_t<Key_t, Value_t>::LINKED_LEFT){
 			auto ret = stabilize_bucket_left(j, true);
 			if(!ret){
 			    bucket[j].unlock();
 			    return -1;
 			}
 		    }
-		    else if(bucket[j].state == bucket_t<Key_t, uint64_t>::LINKED_RIGHT){
+		    else if(bucket[j].state == bucket_t<Key_t, Value_t>::LINKED_RIGHT){
 			auto ret = stabilize_bucket_right(j, true);
 			if(!ret){
 			    bucket[j].unlock();
@@ -956,7 +950,7 @@ FIND_MEDIAN:
 		    return -1;
 	    }
 
-	    std::sort(_buf, _buf+idx, [](entry_t<Key_t, uint64_t>& a, entry_t<Key_t, uint64_t>& b){
+	    std::sort(_buf, _buf+idx, [](entry_t<Key_t, Value_t>& a, entry_t<Key_t, Value_t>& b){
 		    return a.key < b.key;
 		    });
 
@@ -1000,8 +994,8 @@ FIND_MEDIAN:
 	bool stabilize_bucket_left(int bucket_idx, bool is_normal){
 	RETRY:
 	    bool need_restart = false;
-	    lnode_t<Key_t>* left = left_sibling_ptr;
-	    bucket_t<Key_t, uint64_t>* left_bucket = &left->bucket[bucket_idx];
+	    lnode_t<Key_t, Value_t>* left = left_sibling_ptr;
+	    bucket_t<Key_t, Value_t>* left_bucket = &left->bucket[bucket_idx];
 
 	    if(is_normal){
 		auto left_vstart = left->get_version(need_restart);
@@ -1019,8 +1013,8 @@ FIND_MEDIAN:
 		}
 	    }
 
-	    if(left_bucket->state == bucket_t<Key_t, uint64_t>::LINKED_RIGHT){
-		auto state = bucket_t<Key_t, uint64_t>::STABLE;
+	    if(left_bucket->state == bucket_t<Key_t, Value_t>::LINKED_RIGHT){
+		auto state = bucket_t<Key_t, Value_t>::STABLE;
 		#ifdef AVX512
 		__m256i empty = _mm256_setzero_si256();
 		__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(left_bucket->fingerprints));
@@ -1031,12 +1025,12 @@ FIND_MEDIAN:
 		    if((bit & 0x1) == 0){
 			if(left->high_key < left_bucket->entry[i].key){
 			    bucket[bucket_idx].fingerprints[i] = left_bucket->fingerprints[i];
-			    memcpy(&bucket[bucket_idx].entry[i], &left_bucket->entry[i], sizeof(entry_t<Key_t, uint64_t>));
+			    memcpy(&bucket[bucket_idx].entry[i], &left_bucket->entry[i], sizeof(entry_t<Key_t, Value_t>));
 			    left_bucket->fingerprints[i] = 0;
-			    if(state == bucket_t<Key_t, uint64_t>::STABLE){
+			    if(state == bucket_t<Key_t, Value_t>::STABLE){
 				if(sibling_ptr != nullptr){
 				    if(high_key < bucket[bucket_idx].entry[i].key){
-					state = bucket_t<Key_t, uint64_t>::LINKED_RIGHT;
+					state = bucket_t<Key_t, Value_t>::LINKED_RIGHT;
 				    }
 				}
 			    }
@@ -1055,12 +1049,12 @@ FIND_MEDIAN:
 			    auto idx = m*16 + i;
 			    if(left->high_key < left_bucket->entry[idx].key){
 				bucket[bucket_idx].fingerprints[idx] = left_bucket->fingerprints[idx];
-				memcpy(&bucket[bucket_idx].entry[idx], &left_bucket->entry[idx], sizeof(entry_t<Key_t, uint64_t>));
+				memcpy(&bucket[bucket_idx].entry[idx], &left_bucket->entry[idx], sizeof(entry_t<Key_t, Value_t>));
 				left_bucket->fingerprints[idx] = 0;
-				if(state == bucket_t<Key_t, uint64_t>::STABLE){
+				if(state == bucket_t<Key_t, Value_t>::STABLE){
 				    if(sibling_ptr != nullptr){
 					if(high_key < bucket[bucket_idx].entry[idx].key){
-					    state = bucket_t<Key_t, uint64_t>::LINKED_RIGHT;
+					    state = bucket_t<Key_t, Value_t>::LINKED_RIGHT;
 					}
 				    }
 				}
@@ -1073,12 +1067,12 @@ FIND_MEDIAN:
 		    if(left_bucket->fingerprints[i] != 0){
 			if(left->high_key < left_bucket->entry[i].key){
 			    bucket[bucket_idx].fingerprints[i] = left_bucket->fingerprints[i];
-			    memcpy(&bucket[bucket_idx].entry[i], &left_bucket->entry[i], sizeof(entry_t<Key_t, uint64_t>));
+			    memcpy(&bucket[bucket_idx].entry[i], &left_bucket->entry[i], sizeof(entry_t<Key_t, Value_t>));
 			    left_bucket->fingerprints[i] = 0;
-			    if(state == bucket_t<Key_t, uint64_t>::STABLE){
+			    if(state == bucket_t<Key_t, Value_t>::STABLE){
 				if(sibling_ptr != nullptr){
 				    if(high_key < bucket[bucket_idx].entry[i].key){
-					state = bucket_t<Key_t, uint64_t>::LINKED_RIGHT;
+					state = bucket_t<Key_t, Value_t>::LINKED_RIGHT;
 				    }
 				}
 			    }
@@ -1087,21 +1081,21 @@ FIND_MEDIAN:
 		}
 		#endif
 
-		left_bucket->state = bucket_t<Key_t, uint64_t>::STABLE;
+		left_bucket->state = bucket_t<Key_t, Value_t>::STABLE;
 		if(is_normal){
 		    left_bucket->unlock();
 		}
 		bucket[bucket_idx].state = state;
 		return true;
 	    }
-	    else if(left_bucket->state == bucket_t<Key_t, uint64_t>::LINKED_LEFT){
+	    else if(left_bucket->state == bucket_t<Key_t, Value_t>::LINKED_LEFT){
 		auto ret = left->stabilize_bucket_left(bucket_idx, true);
 		if(!ret){
 		    left_bucket->unlock();
 		    return false;
 		}
 
-		auto state = bucket_t<Key_t, uint64_t>::STABLE;
+		auto state = bucket_t<Key_t, Value_t>::STABLE;
 		#ifdef AVX512
 		__m256i empty = _mm256_setzero_si256();
 		__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(left_bucket->fingerprints));
@@ -1112,12 +1106,12 @@ FIND_MEDIAN:
 		    if((bit & 0x1) == 0){
 			if(left->high_key < left_bucket->entry[i].key){
 			    bucket[bucket_idx].fingerprints[i] = left_bucket->fingerprints[i];
-			    memcpy(&bucket[bucket_idx].entry[i], &left_bucket->entry[i], sizeof(entry_t<Key_t, uint64_t>));
+			    memcpy(&bucket[bucket_idx].entry[i], &left_bucket->entry[i], sizeof(entry_t<Key_t, Value_t>));
 			    left_bucket->fingerprints[i] = 0;
-			    if(state == bucket_t<Key_t, uint64_t>::STABLE){
+			    if(state == bucket_t<Key_t, Value_t>::STABLE){
 				if(sibling_ptr != nullptr){
 				    if(high_key < bucket[bucket_idx].entry[i].key){
-					state = bucket_t<Key_t, uint64_t>::LINKED_RIGHT;
+					state = bucket_t<Key_t, Value_t>::LINKED_RIGHT;
 				    }
 				}
 			    }
@@ -1136,12 +1130,12 @@ FIND_MEDIAN:
 			    auto idx = m*16 + i;
 			    if(left->high_key < left_bucket->entry[idx].key){
 				bucket[bucket_idx].fingerprints[idx] = left_bucket->fingerprints[idx];
-				memcpy(&bucket[bucket_idx].entry[idx], &left_bucket->entry[idx], sizeof(entry_t<Key_t, uint64_t>));
+				memcpy(&bucket[bucket_idx].entry[idx], &left_bucket->entry[idx], sizeof(entry_t<Key_t, Value_t>));
 				left_bucket->fingerprints[idx] = 0;
-				if(state == bucket_t<Key_t, uint64_t>::STABLE){
+				if(state == bucket_t<Key_t, Value_t>::STABLE){
 				    if(sibling_ptr != nullptr){
 					if(high_key < bucket[bucket_idx].entry[idx].key){
-					    state = bucket_t<Key_t, uint64_t>::LINKED_RIGHT;
+					    state = bucket_t<Key_t, Value_t>::LINKED_RIGHT;
 					}
 				    }
 				}
@@ -1154,12 +1148,12 @@ FIND_MEDIAN:
 		    if(left_bucket->fingerprints[i] != 0){
 			if(left->high_key < left_bucket->entry[i].key){
 			    bucket[bucket_idx].fingerprints[i] = left_bucket->fingerprints[i];
-			    memcpy(&bucket[bucket_idx].entry[i], &left_bucket->entry[i], sizeof(entry_t<Key_t, uint64_t>));
+			    memcpy(&bucket[bucket_idx].entry[i], &left_bucket->entry[i], sizeof(entry_t<Key_t, Value_t>));
 			    left_bucket->fingerprints[i] = 0;
-			    if(state == bucket_t<Key_t, uint64_t>::STABLE){
+			    if(state == bucket_t<Key_t, Value_t>::STABLE){
 				if(sibling_ptr != nullptr){
 				    if(high_key < bucket[bucket_idx].entry[i].key){
-					state = bucket_t<Key_t, uint64_t>::LINKED_RIGHT;
+					state = bucket_t<Key_t, Value_t>::LINKED_RIGHT;
 				    }
 				}
 			    }
@@ -1168,7 +1162,7 @@ FIND_MEDIAN:
 		}
 		#endif
 
-		left_bucket->state = bucket_t<Key_t, uint64_t>::STABLE;
+		left_bucket->state = bucket_t<Key_t, Value_t>::STABLE;
 		left_bucket->unlock();
 		bucket[bucket_idx].state = state;
 		return true;
@@ -1179,8 +1173,8 @@ FIND_MEDIAN:
 	}
 	bool stabilize_bucket_right(int bucket_idx, bool is_normal){
 	RETRY:
-	    lnode_t<Key_t>* right = static_cast<lnode_t<Key_t>*>(sibling_ptr);
-	    bucket_t<Key_t, uint64_t>* right_bucket = &right->bucket[bucket_idx];
+	    lnode_t<Key_t, Value_t>* right = static_cast<lnode_t<Key_t, Value_t>*>(sibling_ptr);
+	    bucket_t<Key_t, Value_t>* right_bucket = &right->bucket[bucket_idx];
 
 	    bool need_restart = false;
 	    if(is_normal){
@@ -1200,8 +1194,8 @@ FIND_MEDIAN:
 		}
 	    }
 
-	    if(right_bucket->state == bucket_t<Key_t, uint64_t>::LINKED_LEFT){
-		auto state = bucket_t<Key_t, uint64_t>::STABLE;
+	    if(right_bucket->state == bucket_t<Key_t, Value_t>::LINKED_LEFT){
+		auto state = bucket_t<Key_t, Value_t>::STABLE;
 		#ifdef AVX512
 		__m256i empty = _mm256_setzero_si256();
 		__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(bucket[bucket_idx].fingerprints));
@@ -1212,12 +1206,12 @@ FIND_MEDIAN:
 		    if((bit & 0x1) == 0){
 			if(high_key < bucket[bucket_idx].entry[i].key){
 			    right_bucket->fingerprints[i] = bucket[bucket_idx].fingerprints[i];
-			    memcpy(&right_bucket->entry[i], &bucket[bucket_idx].entry[i], sizeof(entry_t<Key_t, uint64_t>));
+			    memcpy(&right_bucket->entry[i], &bucket[bucket_idx].entry[i], sizeof(entry_t<Key_t, Value_t>));
 			    bucket[bucket_idx].fingerprints[i] = 0;
-			    if(state == bucket_t<Key_t, uint64_t>::STABLE){
+			    if(state == bucket_t<Key_t, Value_t>::STABLE){
 				if(right->sibling_ptr != nullptr){
 				    if(right->high_key < right_bucket->entry[i].key){
-					state = bucket_t<Key_t, uint64_t>::LINKED_RIGHT;
+					state = bucket_t<Key_t, Value_t>::LINKED_RIGHT;
 				    }
 				}
 			    }
@@ -1236,12 +1230,12 @@ FIND_MEDIAN:
 			    auto idx = m*16 + i;
 			    if(high_key < bucket[bucket_idx].entry[idx].key){
 				right_bucket->fingerprints[idx] = bucket[bucket_idx].fingerprints[idx];
-				memcpy(&right_bucket->entry[idx], &bucket[bucket_idx].entry[idx], sizeof(entry_t<Key_t, uint64_t>));
+				memcpy(&right_bucket->entry[idx], &bucket[bucket_idx].entry[idx], sizeof(entry_t<Key_t, Value_t>));
 				bucket[bucket_idx].fingerprints[idx] = 0;
-				if(state == bucket_t<Key_t, uint64_t>::STABLE){
+				if(state == bucket_t<Key_t, Value_t>::STABLE){
 				    if(right->sibling_ptr != nullptr){
 					if(right->high_key < right_bucket->entry[idx].key){
-					    state = bucket_t<Key_t, uint64_t>::LINKED_RIGHT;
+					    state = bucket_t<Key_t, Value_t>::LINKED_RIGHT;
 					}
 				    }
 				}
@@ -1254,12 +1248,12 @@ FIND_MEDIAN:
 		    if(bucket[bucket_idx].fingerprints[i] != 0){
 			if(high_key < bucket[bucket_idx].entry[i].key){
 			    right_bucket->fingerprints[i] = bucket[bucket_idx].fingerprints[i];
-			    memcpy(&right_bucket->entry[i], &bucket[bucket_idx].entry[i], sizeof(entry_t<Key_t, uint64_t>));
+			    memcpy(&right_bucket->entry[i], &bucket[bucket_idx].entry[i], sizeof(entry_t<Key_t, Value_t>));
 			    bucket[bucket_idx].fingerprints[i] = 0;
-			    if(state == bucket_t<Key_t, uint64_t>::STABLE){
+			    if(state == bucket_t<Key_t, Value_t>::STABLE){
 				if(right->sibling_ptr != nullptr){
 				    if(right->high_key < right_bucket->entry[i].key){
-					state = bucket_t<Key_t, uint64_t>::LINKED_RIGHT;
+					state = bucket_t<Key_t, Value_t>::LINKED_RIGHT;
 				    }
 				}
 			    }
@@ -1272,7 +1266,7 @@ FIND_MEDIAN:
 		if(is_normal){
 		    right_bucket->unlock();
 		}
-		bucket[bucket_idx].state = bucket_t<Key_t, uint64_t>::STABLE;
+		bucket[bucket_idx].state = bucket_t<Key_t, Value_t>::STABLE;
 		return true;
 	    }
 	    else{ 
@@ -1289,7 +1283,8 @@ FIND_MEDIAN:
 	    return 0;
 	}
 
-	int update_linear(Key_t key, uint64_t value){
+	int update_linear(Key_t key, Value_t value, uint64_t version){
+	    bool need_restart = false;
 	    for(int k=0; k<hash_funcs_num; k++){
 		auto hash_key = h(&key, sizeof(Key_t), k);
 		auto loc = hash_key % cardinality;
@@ -1307,14 +1302,20 @@ FIND_MEDIAN:
 		    if(!bucket[loc].try_lock())
 			return -1;
 
-		    if(bucket[loc].state == bucket_t<Key_t, uint64_t>::LINKED_LEFT){
+		    auto _version = get_version(need_restart);
+		    if(need_restart || (version != _version)){
+			bucket[loc].unlock();
+			return -1;
+		    }
+
+		    if(bucket[loc].state == bucket_t<Key_t, Value_t>::LINKED_LEFT){
 			auto ret = stabilize_bucket_left(loc, true);
 			if(!ret){
 			    bucket[loc].unlock();
 			    return -1;
 			}
 		    }
-		    else if(bucket[loc].state == bucket_t<Key_t, uint64_t>::LINKED_RIGHT){
+		    else if(bucket[loc].state == bucket_t<Key_t, Value_t>::LINKED_RIGHT){
 			auto ret = stabilize_bucket_right(loc, true);
 			if(!ret){
 			    bucket[loc].unlock();
@@ -1373,7 +1374,7 @@ FIND_MEDIAN:
 	    return 1; // key not found
 	}
 
-	uint64_t find_linear(Key_t key, bool& need_restart){
+	Value_t find_linear(Key_t key, bool& need_restart){
 	    for(int k=0; k<hash_funcs_num; k++){
 		auto hash_key = h(&key, sizeof(Key_t), k);
 		auto loc = hash_key % cardinality;
@@ -1392,11 +1393,11 @@ FIND_MEDIAN:
 		    if(need_restart)
 			return 0;
 
-		    if(bucket[loc].state != bucket_t<Key_t, uint64_t>::STABLE){
+		    if(bucket[loc].state != bucket_t<Key_t, Value_t>::STABLE){
 			if(!bucket[loc].upgrade_lock(bucket_vstart))
 			    return 0;
 
-			if(bucket[loc].state == bucket_t<Key_t, uint64_t>::LINKED_LEFT){
+			if(bucket[loc].state == bucket_t<Key_t, Value_t>::LINKED_LEFT){
 			    auto ret = stabilize_bucket_left(loc, true);
 			    if(!ret){
 				bucket[loc].unlock();
@@ -1404,7 +1405,7 @@ FIND_MEDIAN:
 				return 0;
 			    }
 			}
-			else if(bucket[loc].state == bucket_t<Key_t, uint64_t>::LINKED_RIGHT){
+			else if(bucket[loc].state == bucket_t<Key_t, Value_t>::LINKED_RIGHT){
 			    auto ret = stabilize_bucket_right(loc, true);
 			    if(!ret){
 				bucket[loc].unlock();

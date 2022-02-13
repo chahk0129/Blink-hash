@@ -12,6 +12,7 @@
 using namespace std;
 using namespace BLINK_HASH;
 using Key_t = uint64_t;
+using Value_t = uint64_t;
 
 /*
 static int* core_alloc_map_hyper;
@@ -115,7 +116,7 @@ inline void pin_to_core(size_t thread_id){
 
 
 template <typename Fn, typename... Args>
-void start_threads(btree_t<Key_t>* tree, uint64_t num_threads, Fn&& fn, Args&& ...args){
+void start_threads(btree_t<Key_t, Value_t>* tree, uint64_t num_threads, Fn&& fn, Args&& ...args){
     std::vector<std::thread> threads;
     auto fn2 = [&fn](uint64_t thread_id, Args ...args){
         pin_to_core(thread_id);
@@ -142,13 +143,13 @@ int main(int argc, char* argv[]){
 
     //cpuinfo();
 
-    btree_t<Key_t>* tree = new btree_t<Key_t>();
+    btree_t<Key_t, Value_t>* tree = new btree_t<Key_t, Value_t>();
 
     auto func = [tree, num_data, num_threads](uint64_t tid, bool){
 	size_t chunk = num_data / num_threads;
 	for(int i=0; i<chunk; i++){
 	    auto key = (Rdtsc() << 6) | tid;
-	    tree->insert(key, (uint64_t)&key);
+	    tree->insert(key, (Value_t)&key);
 	}
     };
 
