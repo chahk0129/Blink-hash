@@ -62,9 +62,9 @@ done
 for iter in $iterations; do
 	for t in $threads; do
 		echo "---------------- running with threads $t ----------------" >> ${output_rdtsc}/blinkhash
-		./bin/workload --workload load --key_type rdtsc --index $idx --num 100 --threads $t --hyper --earliest >> ${output_rdtsc}/blinkhash
+		./bin/workload --workload load --key_type rdtsc --index blinkhash --num 100 --threads $t --hyper --earliest >> ${output_rdtsc}/blinkhash
 		echo "---------------- running with threads $t ----------------" >> ${output_rdtsc}/blinkhash_new
-		./bin/workload_new --workload load --key_type rdtsc --index $idx --num 100 --threads $t --hyper --earliest >> ${output_rdtsc}/blinkhash_new
+		./bin/workload_new --workload load --key_type rdtsc --index blinkhash --num 100 --threads $t --hyper --earliest >> ${output_rdtsc}/blinkhash_new
 	done
 done
 "

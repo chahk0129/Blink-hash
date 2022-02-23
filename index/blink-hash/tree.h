@@ -10,6 +10,15 @@
 //#include "node.h"
 
 namespace BLINK_HASH{
+#ifdef RANGE_BREAKDOWN
+static thread_local uint64_t time_travel;
+static thread_local uint64_t time_collect;
+static thread_local uint64_t time_sort;
+static thread_local uint64_t time_copy;
+static thread_local uint64_t time_stabilization;
+
+#endif
+
 
 template <typename Key_t, typename Value_t>
 class btree_t{
@@ -25,6 +34,25 @@ class btree_t{
             return val;
 	    #endif
 	}
+
+	#ifdef RANGE_BREAKDOWN
+	void update_range_breakdown(uint64_t t_travel, uint64_t t_collect, uint64_t t_sort, uint64_t t_copy, uint64_t t_stabilization){
+	    time_travel += t_travel;
+	    time_collect += t_collect;
+	    time_sort += t_sort;
+	    time_copy += t_copy;
+	    time_stabilization += t_stabilization;
+	}
+
+	void get_range_breakdown(uint64_t& t_travel, uint64_t& t_collect, uint64_t& t_sort, uint64_t& t_copy, uint64_t& t_stabilization){
+	    t_travel = time_travel;
+	    t_collect = time_collect;
+	    t_sort = time_sort;
+	    t_copy = time_copy;
+	    t_stabilization = time_stabilization;
+	}
+	#endif
+
 
 	btree_t(){ 
 	    root = static_cast<node_t*>(new lnode_t<Key_t, Value_t>()); 
@@ -404,8 +432,14 @@ class btree_t{
 
 
 	int range_lookup(Key_t min_key, int range, Value_t* buf){
-
+	    #ifdef RANGE_BREAKDOWN
+	    uint64_t start, end;
+	    uint64_t t_travel=0, t_collect=0, t_sort=0, t_copy=0, t_stabilization=0;
+	    #endif
 	restart:
+	    #ifdef RANGE_BREAKDOWN
+	    start = _rdtsc();
+	    #endif
 	    auto cur = root;
 	    bool need_restart = false;
 	    auto cur_vstart = cur->try_readlock(need_restart);
@@ -429,7 +463,14 @@ class btree_t{
 	    auto leaf = static_cast<lnode_t<Key_t, Value_t>*>(cur);
 	    auto leaf_vstart = cur_vstart;
 
+	    #ifdef RANGE_BREAKDOWN
+	    end = _rdtsc();
+	    t_travel += (end - start);
+	    start = _rdtsc();
+	    #endif
+
 	    while(count < range){
+		
 
 		// move right if necessary
 		while(leaf->sibling_ptr && (leaf->high_key < min_key)){
@@ -444,8 +485,14 @@ class btree_t{
 		    leaf = static_cast<lnode_t<Key_t, Value_t>*>(sibling);
 		    leaf_vstart = sibling_v;
 		}
-
+		#ifdef RANGE_BREAKDOWN
+		end = _rdtsc();
+		t_travel += (end - start);
+		auto ret = leaf->range_lookup(min_key, buf, count, range, t_collect, t_sort, t_copy, t_stabilization);
+		start = _rdtsc();
+		#else
 		auto ret = leaf->range_lookup(min_key, buf, count, range);
+		#endif
 		if(ret == -1)
 		    goto restart;
 
@@ -455,8 +502,12 @@ class btree_t{
 		if(need_restart || (leaf_vstart != leaf_vend))
 		    goto restart;
 
-		if(ret == range)
+		if(ret == range){
+		    #ifdef RANGE_BREAKDOWN
+		    update_range_breakdown(t_travel, t_collect, t_sort, t_copy, t_stabilization);
+		    #endif
 		    return ret;
+		}
 
 		// reaches to the rightmost leaf
 		if(!sibling) break;
@@ -468,6 +519,11 @@ class btree_t{
 		leaf_vstart = sibling_vstart;
 		count = ret;
 	    }
+	    #ifdef RANGE_BREAKDOWN
+	    end = _rdtsc();
+	    t_travel += (end - start);
+	    update_range_breakdown(t_travel, t_collect, t_sort, t_copy, t_stabilization);
+	    #endif
 	    return count;
 	}
 

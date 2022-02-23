@@ -25,6 +25,7 @@
 #define BITS_PER_LONG 64
 #define BITOP_WORD(nr) ((nr) / BITS_PER_LONG)
 
+//#define PAGE_SIZE (1024)
 #define PAGE_SIZE (512)
 
 #define CACHELINE_SIZE 64
@@ -309,6 +310,7 @@ template <typename Key_t, typename Value_t>
 class lnode_t : public node_t{
     public: 
 	static constexpr size_t leaf_size = 1024 * 256;
+	//static constexpr size_t leaf_size = 1024 * 256;
 	static constexpr size_t cardinality = (leaf_size - sizeof(node_t) - sizeof(Key_t) - sizeof(lnode_t<Key_t, Value_t>*))/ (sizeof(bucket_t<Key_t, Value_t>));
 
 	lnode_t<Key_t, Value_t>* left_sibling_ptr;
@@ -781,7 +783,16 @@ class lnode_t : public node_t{
 	    return 0;
 	}
 
+	#ifdef RANGE_BREAKDOWN
+	int range_lookup(Key_t key, Value_t* buf, int count, int range, uint64_t& t_collect, uint64_t& t_sort, uint64_t& t_copy, uint64_t t_stabilization){
+	#else
 	int range_lookup(Key_t key, Value_t* buf, int count, int range){
+	#endif
+	    #ifdef RANGE_BREAKDOWN
+	    uint64_t start, end;
+	    start = _rdtsc();
+	    #endif
+
 	    bool need_restart = false;
 
 	    entry_t<Key_t, Value_t> _buf[cardinality * entry_num];
@@ -801,27 +812,71 @@ class lnode_t : public node_t{
 		if(need_restart) return -1;
 
 		if(bucket[j].state != bucket_t<Key_t, Value_t>::STABLE){
-		    if(!stabilize_bucket(j, bucket_vstart))
+		    if(!stabilize_bucket(j, bucket_vstart)){
+			#ifdef RANGE_BREAKDOWN
+			end = _rdtsc();
+			t_stabilization += (end - start);
+			#endif
 			return -1;
+		    }
+		    #ifdef RANGE_BREAKDOWN
+		    end = _rdtsc();
+		    t_stabilization += (end - start);
+		    start = _rdtsc();
+		    #endif
 
 		    bucket_vstart += 0b100;
 		}
 
 		bucket[j].collect(key, _buf, idx, empty);
+		#ifdef RANGE_BREAKDOWN
+		t_collect += (end - start);
+		start = _rdtsc();
+		#endif
 
 		auto bucket_vend = bucket[j].get_version(need_restart);
 		if(need_restart || (bucket_vstart != bucket_vend))
 		    return -1;
 	    }
+	    #ifdef RANGE_BREAKDOWN
+	    start = _rdtsc();
+	    #endif
 
 	    std::sort(_buf, _buf+idx, [](entry_t<Key_t, Value_t>& a, entry_t<Key_t, Value_t>& b){
 		    return a.key < b.key;
 		    });
+	    #ifdef RANGE_BREAKDOWN
+	    end = _rdtsc();
+	    t_sort += (end - start);
+	    start = _rdtsc();
+	    #endif
 
+	    bool lower_bound = true;
 	    for(int i=0; i<idx; i++){
+		#ifdef KEY_COMP
 		buf[_count++] = _buf[i].value;
-		if(_count == range) return _count;
+		#else
+		if(lower_bound){
+		    if(key <= _buf[i].key){
+			lower_bound = false;
+			buf[_count++] = _buf[i].value;
+		    }
+		}
+		else
+		    buf[_count++] = _buf[i].value;
+		#endif
+		if(_count == range){
+		    #ifdef RANGE_BREAKDOWN
+		    end = _rdtsc();
+		    t_copy += (end - start);
+		    #endif
+		    return _count;
+		}
 	    }
+	    #ifdef RANGE_BREAKDOWN
+	    end = _rdtsc();
+	    t_copy += (end - start);
+	    #endif
 	    return _count;
 	}
 
@@ -1240,6 +1295,68 @@ class lnode_t : public node_t{
 		ret = (a+b)/2;
 	    }
 	    return ret;
+	}
+
+
+	void merge(entry_t<Key_t, Value_t>* array, int left, int mid, int right){
+	    auto subArrayOne = mid - left + 1;
+	    auto subArrayTwo = right - mid;
+	    entry_t<Key_t, Value_t> leftArray[subArrayOne];
+	    entry_t<Key_t, Value_t> rightArray[subArrayTwo];
+
+	    // Copy data to temp arrays leftArray[] and rightArray[]
+	    for (auto i = 0; i < subArrayOne; i++)
+		memcpy(&leftArray[i], &array[left+i], sizeof(entry_t<Key_t, Value_t>));
+		//leftArray[i] = array[left + i];
+		
+	    for (auto j = 0; j < subArrayTwo; j++)
+		memcpy(&rightArray[j], &array[mid+1+j], sizeof(entry_t<Key_t, Value_t>));
+		//rightArray[j] = array[mid + 1 + j];
+
+	    auto indexOfSubArrayOne = 0, // Initial index of first sub-array
+		 indexOfSubArrayTwo = 0; // Initial index of second sub-array
+	    int indexOfMergedArray = left; // Initial index of merged array
+
+	    // Merge the temp arrays back into array[left..right]
+	    while (indexOfSubArrayOne < subArrayOne && indexOfSubArrayTwo < subArrayTwo) {
+		if (leftArray[indexOfSubArrayOne].key <= rightArray[indexOfSubArrayTwo].key) {
+		    array[indexOfMergedArray] = leftArray[indexOfSubArrayOne];
+		    indexOfSubArrayOne++;
+		}
+		else {
+		    array[indexOfMergedArray] = rightArray[indexOfSubArrayTwo];
+		    indexOfSubArrayTwo++;
+		}
+		indexOfMergedArray++;
+	    }
+	    // Copy the remaining elements of
+	    // left[], if there are any
+	    while (indexOfSubArrayOne < subArrayOne) {
+		array[indexOfMergedArray] = leftArray[indexOfSubArrayOne];
+		indexOfSubArrayOne++;
+		indexOfMergedArray++;
+	    }
+	    // Copy the remaining elements of
+	    // right[], if there are any
+	    while (indexOfSubArrayTwo < subArrayTwo) {
+		array[indexOfMergedArray] = rightArray[indexOfSubArrayTwo];
+		indexOfSubArrayTwo++;
+		indexOfMergedArray++;
+	    }
+	}
+
+	// begin is for left index and end is
+	// right index of the sub-array
+	// of arr to be sorted */
+	void mergeSort(entry_t<Key_t, Value_t>* array, int begin, int end)
+	{
+	    if (begin >= end)
+		return; // Returns recursively
+
+	    auto mid = begin + (end - begin) / 2;
+	    mergeSort(array, begin, mid);
+	    mergeSort(array, mid + 1, end);
+	    merge(array, begin, mid, end);
 	}
 
 	inline void prefetch_range(void* addr, size_t len){

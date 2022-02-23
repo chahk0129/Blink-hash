@@ -194,7 +194,7 @@ struct bucket_t{
 		auto bit = (bitfield >> i);
 		if((bit & 0x1) == 0){
 		    auto idx = m*16 + i;
-		    if(entry[idx].key >= key){
+		    if(key <= entry[idx].key){
 			memcpy(&buf[num++], &entry[idx], sizeof(entry_t<Key_t, Value_t>));
 		    }
 		}
@@ -224,7 +224,6 @@ struct bucket_t{
 	    if((bit & 0x1) == 1){
 		if(entry[i].key == key){
 		    entry[i].value = value;
-		    unlock();
 		    return true;
 		}
 	    }
@@ -243,7 +242,6 @@ struct bucket_t{
 		    auto idx = m*16 + i;
 		    if(entry[idx].key == key){
 			entry[idx].value = value;
-			unlock();
 			return true;
 		    }
 		}
@@ -257,7 +255,6 @@ struct bucket_t{
 	    if(fingerprints[i] == fingerprint){
 		if(entry[i].key == key){
 		    entry[i].value = value;
-		    unlock();
 		    return true;
 		}
 	    }

@@ -23,5 +23,11 @@ test: test.cpp
 #	$(CXX) $(CFLAGS) -o bin/test_simd test.cpp $(LDLIBS) -DAVX2
 #	$(CXX) $(CFLAGS) -o bin/test_sample test.cpp $(LDLIBS) -DAVX2 -DSAMPLING
 
+range: range.cpp
+	$(CXX) $(CFLAGS) -o bin/range range.cpp $(LDLIBS)  -DLINKED -DAVX2 -DSAMPLING
+	$(CXX) $(CFLAGS) -o bin/range_breakdown range.cpp $(LDLIBS)  -DLINKED -DAVX2 -DSAMPLING -DRANGE_BREAKDOWN
+	$(CXX) $(CFLAGS) -o bin/range_comp range.cpp $(LDLIBS)  -DLINKED -DAVX2 -DSAMPLING -DKEY_COMP
+	$(CXX) $(CFLAGS) -o bin/range_comp_breakdown range.cpp $(LDLIBS)  -DLINKED -DAVX2 -DSAMPLING -DKEY_COMP -DRANGE_BREAKDOWN
+	
 clean:
 	rm bin/*
