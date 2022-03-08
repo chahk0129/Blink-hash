@@ -428,6 +428,9 @@ inline void exec(int wl, int index_type, int num_thread, kvpair_t<keytype>* init
 	return;
     }
 
+    #ifdef OPTIMAL
+    idx->convert();
+    #endif
     //READ/UPDATE/SCAN TEST----------------
     //int txn_num = GetTxnCount(ops, index_type);
     uint64_t sum = 0;

@@ -8,21 +8,29 @@ path_profile=output/microbench/profile
 mkdir $path_throughput
 mkdir $path_profile
 
-index="artolc masstree bwtree blink"
+#index="artolc masstree bwtree blink"
+index="blinkhash"
 #index="artolc masstree bwtree blinkhash"
 #workloads="scan"
-workloads="load update read scan"
+workloads="scan"
+#workloads="load update read scan"
 threads="1 4 8 16 32 64"
 iterations="1 2 3"
 
-init_num=100000000
-run_num=100000000
+init_num=10000000
+run_num=10000000
+#init_num=100000000
+#run_num=100000000
 
 ## throughput
 for iter in $iterations; do
 	for wk in $workloads; do
 		for idx in $index; do
 			for t in $threads; do
+				echo "------------------- running with $t threads -------------------------" >> ${path_throughput}/${idx}_baseline_${wk}
+				./bin/microbench_baseline --workload $wk --init_num $init_num --run_num $run_num --index $idx --threads $t --hyper --earliest >> ${path_throughput}/${idx}_baseline_${wk}
+				echo "------------------- running with $t threads -------------------------" >> ${path_throughput}/${idx}_optimal_${wk}
+				./bin/microbench_optimal --workload $wk --init_num $init_num --run_num $run_num --index $idx --threads $t --hyper --earliest >> ${path_throughput}/${idx}_optimal_${wk}
 				echo "------------------- running with $t threads -------------------------" >> ${path_throughput}/${idx}_${wk}
 				./bin/microbench --workload $wk --init_num $init_num --run_num $run_num --index $idx --threads $t --hyper --earliest >> ${path_throughput}/${idx}_${wk}
 			done
@@ -30,6 +38,7 @@ for iter in $iterations; do
 	done
 done
 
+"
 for iter in $iterations; do
 	for wk in $workloads; do
 		for t in $threads; do
@@ -40,7 +49,7 @@ for iter in $iterations; do
 		done
 	done
 done
-
+"
 "
 ## perf profiling
 for iter in $iterations; do

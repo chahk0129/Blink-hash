@@ -5,6 +5,9 @@ LDLIBS = -lpthread -latomic -ltcmalloc_minimal
 
 all: test
 
+range: range.cpp
+	$(CXX) $(CFLAGS) -o bin/range range.cpp $(LDLIBS)  -DBLINK_TREE
+
 test: test.cpp
 	$(CXX) $(CFLAGS) -o bin/blink test.cpp $(LDLIBS)  -DBLINK_TREE
 	$(CXX) $(CFLAGS) -o bin/blink2 test.cpp $(LDLIBS) 
