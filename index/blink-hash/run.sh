@@ -1,10 +1,11 @@
 #!/bin/bash
-num=100000000
+num=10000000
 
 mkdir out
-mkdir out/random2 out/rdtsc3
+mkdir out/scan
+#mkdir out/random2 out/rdtsc3
 threads="1 2 4 8 16 32 64"
-repeat="1 2 3"
+repeat="1 2"
 "
 for r in $repeat; do
 	for t in $threads; do
@@ -18,7 +19,7 @@ for r in $repeat; do
 		./bin/rdtsc_linked $num $t >> out/rdtsc3/linked
 	done
 done
-"
+
 for r in $repeat; do
 	for t in $threads; do
 		echo "------------- threads $t -----------------" >> out/random2/baseline
@@ -29,3 +30,14 @@ for r in $repeat; do
 		./bin/test_linked $num $t 1 >> out/random2/linked
 	done
 done
+"
+
+for r in $repeat; do
+	for t in $threads; do
+		echo "------------- threads $t ---------------" >> out/scan/baseline
+		./bin/range $num $t >> out/scan/baseline
+		echo "------------- threads $t ---------------" >> out/scan/adjustment
+		./bin/range_adjustment $num $t >> out/scan/adjustment
+	done
+done
+
