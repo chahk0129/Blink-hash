@@ -95,10 +95,12 @@ int main(int argc, char* argv[]){
 	int to = chunk * (tid + 1);
 	if(tid == num_threads - 1)
 	    to = num_data;
+	uint64_t buf[100];
+	int range = 50;
 
 	for(int i=from; i<to; i++){
-	    int range = rand() % 100;
-	    uint64_t buf[range];
+	    //int range = rand() % 100;
+	    //std::cout << range << std::endl;
 	    auto ret = tree->range_lookup(keys[i], range, buf);
 	}
     };

@@ -102,8 +102,8 @@ int main(int argc, char* argv[]){
 	if(tid == num_threads - 1)
 	    to = num_data;
 
+	int range = 50;
 	for(size_t i=from; i<to; i++){
-	    int range = rand() % 100;
 	    uint64_t buf[range];
 	    auto ret = tree->range_lookup(keys[i], range, buf);
 	}

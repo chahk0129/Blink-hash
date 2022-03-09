@@ -9,8 +9,7 @@
 #include "index/BwTree/bwtree.h"
 #include "index/masstree/mtIndexAPI.hh"
 #include "index/hot/src/wrapper.h"
-#include "index/blink-hash-final/src/tree.h"
-//#include "index/blink-hash/tree.h"
+#include "index/blink-hash/src/tree.h"
 #ifndef _INDEX_H
 #define _INDEX_H
 

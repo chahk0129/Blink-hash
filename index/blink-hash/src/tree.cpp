@@ -472,6 +472,8 @@ void btree_t<Key_t, Value_t>::batch_insert(Key_t* key, node_t** value, int num, 
 
 template <typename Key_t, typename Value_t>
 int btree_t<Key_t, Value_t>::range_lookup(Key_t min_key, int range, Value_t* buf){
+    struct timespec start, end;
+
     restart:
     auto cur = root;
     bool need_restart = false;
@@ -526,7 +528,11 @@ int btree_t<Key_t, Value_t>::range_lookup(Key_t min_key, int range, Value_t* buf
 	    goto restart;
 	}
 	else if(ret == -2){
+//	    clock_gettime(CLOCK_MONOTONIC, &start);
 	    auto ret_ = convert(leaf, leaf_vstart);
+//	    clock_gettime(CLOCK_MONOTONIC, &end);
+//	    auto time = end.tv_nsec - start.tv_nsec + (end.tv_sec - start.tv_sec) * 1000000000;
+//	    std::cout << time/1000.0 << std::endl;
 	    goto restart;
 	}
 	continued = true;
