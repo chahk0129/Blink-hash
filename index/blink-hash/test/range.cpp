@@ -114,7 +114,7 @@ int main(int argc, char* argv[]){
 
     auto height = tree->height();
     std::cout << "height of three: " << height+1 << std::endl;
-    #ifdef OPTIMAL
+    #ifdef CONVERT 
     std::cout << "converting... " << std::endl;
     tree->convert_all();
     #endif
@@ -136,5 +136,7 @@ int main(int argc, char* argv[]){
 
     height = tree->height();
     std::cout << "height of three: " << height+1 << std::endl;
+
+//    tree->print();
     return 0;
 }

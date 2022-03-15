@@ -4,7 +4,7 @@
 #include "node.h"
 #include "bucket.h"
 
-//#define LEAF_BTREE_SIZE (512)
+//#define LEAF_BTREE_SIZE (2048)
 #define LEAF_BTREE_SIZE (4096)
 //#define LEAF_HASH_SIZE (1024*16)
 #define LEAF_HASH_SIZE (1024 * 256)
@@ -26,18 +26,19 @@ template <typename Key_t, typename Value_t>
 class lnode_t : public node_t{
     public:
 	enum node_type_t{
-	    BTREE_NODE,
+	    BTREE_NODE = 0,
 	    HASH_NODE
 	};
 
 	node_type_t type;
+	char dummy[4];
 	Key_t high_key;
 
 	// initial constructor
 	lnode_t(node_type_t _type): node_t(0), type(_type) { }
 
 	// constructor when leaf split
-	lnode_t(node_t* sibling, int _cnt, uint32_t _level, node_type_t _type): node_t(sibling, nullptr, 0, _level, true), type(_type){ }
+	lnode_t(node_t* sibling, int _cnt, uint32_t _level, node_type_t _type): node_t(sibling, nullptr, _cnt, _level, true), type(_type){ }
 
 	//bool is_full();
 
@@ -53,7 +54,7 @@ class lnode_t : public node_t{
 
 	int range_lookup(Key_t key, Value_t* buf, int count, int range, bool continued);
 
-	void sanity_check(Key_t key, bool);
+	void sanity_check(Key_t key, bool first);
 
 	void print();
 
@@ -115,8 +116,11 @@ class lnode_btree_t : public lnode_t<Key_t, Value_t>{
 
         Value_t find_linear(Key_t key);
 
+        Value_t find_binary(Key_t key);
+
 	int find_pos_linear(Key_t key);
 
+	int find_pos_binary(Key_t key);
 };
 
 template <typename Key_t, typename Value_t>

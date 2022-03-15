@@ -597,6 +597,8 @@ void btree_t<Key_t, Value_t>::convert_all(){
 	    leaf = static_cast<lnode_t<Key_t, Value_t>*>(leaf->sibling_ptr);
 	    continue;
 	}
+	if(leaf->sibling_ptr == nullptr)
+	    break;
 
 	cur_vstart = leaf->get_version(need_restart);
 	auto ret = convert(leaf, cur_vstart);

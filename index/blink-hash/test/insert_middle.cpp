@@ -17,15 +17,6 @@ inline uint64_t _Rdtsc(){
     return (((uint64_t)hi << 32 ) | lo);
 }
 
-//using namespace BLINK_HASH;
-
-/*
-static int* core_alloc_map_hyper;
-static int* core_alloc_map_numa;
-int max_core_count;
-int num_socket;
-int cores_per_socket;
-*/
 static int core_alloc_map_hyper[] = {
   0, 2, 4, 6, 8, 10, 12, 14,
   16, 18, 20, 22, 24, 26, 28, 30,
@@ -38,73 +29,6 @@ static int core_alloc_map_hyper[] = {
 };
 
 constexpr static size_t MAX_CORE_NUM = 64;
-
-/*
-void cpuinfo(){
-    FILE* fp;
-    std::string cmd = "lscpu";
-
-    fp = popen("lscpu", "r");
-    if(!fp){
-        std::cerr << "failed to collect cpu information" << std::endl;
-        exit(0);
-    }
-
-    int cores_per_socket;
-    int num_sockets;
-    char temp[1024];
-    while(fgets(temp, 1024, fp) != NULL){
-        if(strncmp(temp, "CPU(s):", 7) == 0){
-            char _temp[100];
-            char _temp_[100];
-            sscanf(temp, "%s %s\n", _temp, _temp_);
-            max_core_count = atoi(_temp_);
-
-            core_alloc_map_hyper = new int[max_core_count]; // hyperthreading
-            core_alloc_map_numa = new int[max_core_count]; // hyperthreading
-        }
-        if(strncmp(temp, "Core(s) per socket:", 19) == 0){
-            char _temp[100];
-            char _temp_[100];
-            sscanf(temp, "%s %s %s %s\n", _temp, _temp, _temp, _temp_);
-            cores_per_socket = atoi(_temp_);
-        }
-        if(strncmp(temp, "Socket(s):", 10) == 0){
-            char _temp[100];
-            char _temp_[100];
-            sscanf(temp, "%s %s\n", _temp, _temp_);
-            num_socket = atoi(_temp_);
-        }
-
-
-        if(strncmp(temp, "NUMA node", 9) == 0){
-            if(strncmp(temp, "NUMA node(s)", 12) == 0) continue;
-            char _temp[64];
-            char _temp_[64];
-            char __temp[64];
-            char __temp_[64];
-            sscanf(temp, "%s %s %s %s\n", _temp, _temp_, __temp, __temp_);
-            int num_node;
-            char dummy[4], nodes[4];
-            sscanf(_temp_, "%c%c%c%c%s", &dummy[0], &dummy[1], &dummy[2], &dummy[3], nodes);
-            num_node = atoi(nodes);
-            char* node;
-            char* ptr = __temp_;
-            int idx= num_node*cores_per_socket*2;
-            node = strtok(ptr, ",");
-            while(node != nullptr){
-                core_alloc_map_hyper[idx++] = atoi(node);
-                node = strtok(NULL, ",");
-            }
-        }
-
-    }
-
-    for(int i=0; i<max_core_count; i++){
-        core_alloc_map_numa[i] = i;
-    }
-
-}*/
 
 inline void pin_to_core(size_t thread_id){
     cpu_set_t cpu_set;
@@ -145,9 +69,12 @@ int main(int argc, char* argv[]){
     //cpuinfo();
 
     Key_t* keys = new Key_t[num_data];
-    for(int i=0; i<num_data; i++){
+    int half = num_data / 2;
+    for(int i=0; i<half; i++)
 	keys[i] = i+1;
-    }
+    for(int i=half; i<num_data; i++)
+	keys[i] = i+1 + num_data + half;
+
     std::random_shuffle(keys, keys+num_data);
 
     std::vector<std::thread> inserting_threads;
@@ -194,20 +121,8 @@ int main(int argc, char* argv[]){
     std::cout << "throughput: " << num_data / (double)(elapsed/1000000000.0) / 1000000 << " mops/sec" << std::endl;
 
     #ifdef CONVERT
-    uint64_t convert_threads = 64;
-    auto range = [&tree, keys, num_data, convert_threads](uint64_t tid, bool){
-	size_t chunk = num_data / convert_threads;
-	int from = chunk * tid;
-	int to = chunk * (tid + 1);
-	int num = 5;
-	uint64_t buf[num];
-	for(int i=from; i<to; i++){
-	    auto ret = tree->range_lookup(keys[i], num, buf);
-	}
-    };
     std::cout << "Converting ... " << std::endl;
-    start_threads(tree, convert_threads, range, false);
-    //tree->convert_all();
+    tree->convert_all();
     //tree->print();
     #endif
 
@@ -234,11 +149,25 @@ int main(int argc, char* argv[]){
 	    }
 	}
 	std::cout << "# of not found keys: " << not_found_num << std::endl;
-/*
+
 	if(not_found){
 	    tree->print();
 	}
-	*/
+
+	for(int i=0; i<num_data; i++){
+	    keys[i] = i+1 + half;
+	}
+	std::random_shuffle(keys, keys+num_data);
+	std::cout << "Extra Insertion starts" << std::endl;
+	clock_gettime(CLOCK_MONOTONIC, &start);
+	start_threads(tree, num_threads, insert, false);
+	clock_gettime(CLOCK_MONOTONIC, &end);
+	elapsed = end.tv_nsec - start.tv_nsec + (end.tv_sec - start.tv_sec)*1000000000;
+	std::cout << "elapsed time: " << elapsed/1000.0 << " usec" << std::endl;
+	std::cout << "throughput: " << num_data / (double)(elapsed/1000000000.0) / 1000000 << " mops/sec" << std::endl;
+
+	start_threads(tree, num_threads, insert, false);
+	std::cout << "# of not found keys: " << not_found_num << std::endl;
     }
 
     tree->sanity_check();

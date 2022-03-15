@@ -6,17 +6,18 @@ namespace BLINK_HASH{
 template <typename Key_t, typename Value_t>
 inline bool lnode_hash_t<Key_t, Value_t>::_try_splitlock(uint64_t version){
     bool need_restart = false;
-    node_t::try_upgrade_writelock(version, need_restart);
+    this->try_upgrade_writelock(version, need_restart);
     if(need_restart) return false;
     for(int i=0; i<cardinality; i++){
-	while(!bucket[i].try_lock());
+	while(!bucket[i].try_lock())
+	    _mm_pause();
     }
     return true;
 }
 
 template <typename Key_t, typename Value_t>
 inline void lnode_hash_t<Key_t, Value_t>::_split_unlock(){
-    node_t::write_unlock();
+    (static_cast<node_t*>(this))->write_unlock();
     for(int i=0; i<cardinality; i++){
 	bucket[i].unlock();
     }
@@ -554,15 +555,15 @@ lnode_btree_t<Key_t, Value_t>** lnode_hash_t<Key_t, Value_t>::convert(int& num, 
 	if(i < num-1)
 	    leaf[i]->sibling_ptr = static_cast<node_t*>(leaf[i+1]);
 	else
-	    leaf[i]->sibling_ptr = node_t::sibling_ptr;
+	    leaf[i]->sibling_ptr = this->sibling_ptr;
 	leaf[i]->batch_insert(buf, batch_size, from, idx);
     }
-    leaf[num-1]->high_key = lnode_t<Key_t, Value_t>::high_key;
+    leaf[num-1]->high_key = this->high_key;
 
     if(left_sibling_ptr)
 	left_sibling_ptr->sibling_ptr = static_cast<node_t*>(leaf[0]);
-    if(node_t::sibling_ptr){
-	auto right_sibling = static_cast<lnode_t<Key_t, Value_t>*>(node_t::sibling_ptr);
+    if(this->sibling_ptr){
+	auto right_sibling = static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr);
 	if(right_sibling->type == lnode_t<Key_t, Value_t>::HASH_NODE)
 	    (static_cast<lnode_hash_t<Key_t, Value_t>*>(right_sibling))->left_sibling_ptr = reinterpret_cast<lnode_hash_t<Key_t, Value_t>*>(leaf[num-1]);
     }
@@ -573,8 +574,8 @@ lnode_btree_t<Key_t, Value_t>** lnode_hash_t<Key_t, Value_t>::convert(int& num, 
 template <typename Key_t, typename Value_t>
 void lnode_hash_t<Key_t, Value_t>::print(){
     std::cout << "left_sibling: " << left_sibling_ptr << std::endl;
-    std::cout << "right_sibling: " << lnode_t<Key_t, Value_t>::sibling_ptr << std::endl;
-    std::cout << "node_high_key: " << lnode_t<Key_t, Value_t>::high_key << std::endl;
+    std::cout << "right_sibling: " << this->sibling_ptr << std::endl;
+    std::cout << "node_high_key: " << this->high_key << std::endl;
     for(int i=0; i<cardinality; i++){
 	std::cout << "Bucket " << i << std::endl;
 	bucket[i].print();
@@ -616,7 +617,7 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_all(uint64_t version){
 	}
 	else continue;
 
-	auto cur_version = lnode_t<Key_t, Value_t>::get_version(need_restart);
+	auto cur_version = this->get_version(need_restart);
 	if(need_restart || (version != cur_version)){
 	    bucket[j].unlock();
 	    return false;
@@ -680,7 +681,7 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_all(uint64_t version){
 	    bucket[j].unlock();
 	}
 	else if(bucket[j].state == bucket_t<Key_t, Value_t>::LINKED_RIGHT){
-	    auto right = static_cast<lnode_hash_t<Key_t, Value_t>*>(lnode_t<Key_t, Value_t>::sibling_ptr);
+	    auto right = static_cast<lnode_hash_t<Key_t, Value_t>*>(this->sibling_ptr);
 	    auto right_bucket = &right->bucket[j];
 	    if(!right_bucket->try_lock()){
 		bucket[j].unlock();
@@ -835,7 +836,7 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_bucket(int loc , uint64_t bucket_ve
 	}
     }
     else if(bucket[loc].state == bucket_t<Key_t, Value_t>::LINKED_RIGHT){
-	auto right = static_cast<lnode_hash_t<Key_t, Value_t>*>(lnode_t<Key_t, Value_t>::sibling_ptr);
+	auto right = static_cast<lnode_hash_t<Key_t, Value_t>*>(this->sibling_ptr);
 	auto right_bucket = &right->bucket[loc];
 	auto right_vstart = right->get_version(need_restart);
 	if(need_restart){
