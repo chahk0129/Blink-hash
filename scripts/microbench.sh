@@ -14,12 +14,10 @@ index="artolc masstree bwtree blink blinkhash"
 workloads="scan"
 #workloads="load update read scan"
 threads="1 4 8 16 32 64"
-iterations="1 2 3"
+iterations="1"
 
-init_num=10000000
-run_num=10000000
-#init_num=100000000
-#run_num=100000000
+init_num=100000000
+run_num=100000000
 
 ## throughput
 for iter in $iterations; do
@@ -30,10 +28,10 @@ for iter in $iterations; do
 #				./bin/microbench_baseline --workload $wk --init_num $init_num --run_num $run_num --index $idx --threads $t --hyper --earliest >> ${path_throughput}/${idx}_baseline_${wk}
 #				echo "------------------- running with $t threads -------------------------" >> ${path_throughput}/${idx}_optimal_${wk}
 #				./bin/microbench_optimal --workload $wk --init_num $init_num --run_num $run_num --index $idx --threads $t --hyper --earliest >> ${path_throughput}/${idx}_optimal_${wk}
-#				echo "------------------- running with $t threads -------------------------" >> ${path_throughput}/${idx}_${wk}
-#				./bin/microbench --workload $wk --init_num $init_num --run_num $run_num --index $idx --threads $t --hyper --earliest >> ${path_throughput}/${idx}_${wk}
-				echo "------------------- running with $t threads -------------------------" >> ${path_latency}/${idx}_${wk}
-				./bin/microbench --workload $wk --init_num $init_num --run_num $run_num --index $idx --threads $t --latency 0.3 --hyper --earliest >> ${path_latency}/${idx}_${wk}
+				echo "------------------- running with $t threads -------------------------" >> ${path_throughput}/${idx}_${wk}
+				./bin/microbench --workload $wk --init_num $init_num --run_num $run_num --index $idx --threads $t --hyper --earliest >> ${path_throughput}/${idx}_${wk}
+#				echo "------------------- running with $t threads -------------------------" >> ${path_latency}/${idx}_${wk}
+#				./bin/microbench --workload $wk --init_num $init_num --run_num $run_num --index $idx --threads $t --latency 0.3 --hyper --earliest >> ${path_latency}/${idx}_${wk}
 			done
 		done
 	done

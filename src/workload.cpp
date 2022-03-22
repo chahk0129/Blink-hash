@@ -959,6 +959,9 @@ inline void exec(int wl, int index_type, int num_thread, kvpair_t<keytype>* init
 	return;
     };
 
+    #ifdef CONVERT
+    idx->convert();
+    #endif
 
     if(memory_bandwidth){
 	std::cerr << "Ready to profile" << std::endl;
