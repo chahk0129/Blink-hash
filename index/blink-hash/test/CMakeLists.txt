@@ -5,14 +5,11 @@ add_executable(test_convert test.cpp)
 add_executable(range_convert range.cpp)
 add_executable(insert_middle insert_middle.cpp)
 add_executable(insert_middle_convert insert_middle.cpp)
-add_executable(insert_left insert_left.cpp)
-add_executable(insert_left_convert insert_left.cpp)
 
 target_link_libraries(test blinkhash pthread)
 target_link_libraries(range blinkhash pthread)
 target_link_libraries(rdtsc blinkhash pthread)
 target_link_libraries(insert_middle blinkhash pthread)
-target_link_libraries(insert_left blinkhash pthread)
 
 target_compile_definitions(range_convert PUBLIC -DCONVERT)
 target_link_libraries(test_convert blinkhash pthread)
@@ -20,8 +17,6 @@ target_compile_definitions(test_convert PUBLIC -DCONVERT)
 target_link_libraries(range_convert blinkhash pthread)
 target_compile_definitions(insert_middle_convert PUBLIC -DCONVERT)
 target_link_libraries(insert_middle_convert blinkhash pthread)
-target_compile_definitions(insert_left_convert PUBLIC -DCONVERT)
-target_link_libraries(insert_left_convert blinkhash pthread)
 
 add_test(NAME blinkhash_test 
         COMMAND blinkhash_test)

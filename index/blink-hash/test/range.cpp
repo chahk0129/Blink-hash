@@ -117,6 +117,8 @@ int main(int argc, char* argv[]){
     #ifdef CONVERT 
     std::cout << "converting... " << std::endl;
     tree->convert_all();
+    //tree->print();
+    tree->sanity_check();
     #endif
 
     std::cout << "scan starts" << std::endl;
@@ -137,6 +139,16 @@ int main(int argc, char* argv[]){
     height = tree->height();
     std::cout << "height of three: " << height+1 << std::endl;
 
-//    tree->print();
+    #ifndef CONVERT
+    //tree->print();
+    tree->sanity_check();
+    #endif
+    int update_fail = 0;
+    for(int i=0; i<num_data; i++){
+	auto ret = tree->update(keys[i], keys[i]+1);
+	if(ret != 0)
+	    update_fail++;
+    }
+    std::cout << update_fail << std::endl;
     return 0;
 }
