@@ -62,67 +62,57 @@ inode_t<Key_t>* inode_t<Key_t>::split(Key_t& split_key){
     return new_node;
 }
 
+// batch insert with migration and movement
 template <typename Key_t>
-void inode_t<Key_t>::batch_insert(Key_t* key, node_t** value, node_t* left, int& idx, int num, int batch_size){
-    std::cout << "inode_t::" << __func__ << ": this should not be called" << std::endl;
-    leftmost_ptr = left;
-    for(; cnt<batch_size, idx < num-1; cnt++, idx++){
-	entry[cnt].key = key[idx];
-	entry[cnt].value = value[idx];
-	//if(idx == num-1) return;
-    }
-    high_key = key[idx++];
-}
-
-
-template <typename Key_t>
-void inode_t<Key_t>::insert_for_root(Key_t* key, node_t** value, node_t* left, int num){
-//    std::cout << "inode_t::" << __func__ << ": inserting in root " << num << " records at " << this << std::endl;
-    leftmost_ptr = left;
-//    std::cout << "leftmost_ptr: " << left << std::endl;
-    for(int i=0; i<num; i++, cnt++){
-	entry[cnt].key = key[i];
-//	std::cout << "entry[" << cnt << "].key: " << entry[cnt].key << " ---- from key[" << i << "]: " << key[i] << std::endl;
-	entry[cnt].value = value[i];
-//	std::cout << "entry[" << cnt << "].value : " << entry[cnt].value << " ---- from value[" << i << "]: " << value[i] << std::endl;
-    }
-//    if(leftmost_ptr == nullptr) std::cout << "assigned null for root!! " <<std::endl;
-}
-
-// batch insert
-template <typename Key_t>
-void inode_t<Key_t>::batch_insert_last_level(Key_t* key, node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num, Key_t prev_high_key){
-//    std::cout << "inode_t::" << __func__ << "1: inserting from " << idx << " out of " << num << " with buf_idx " << buf_idx << " out of " << buf_num << " until " << batch_size << " at " << this << std::endl;
+void inode_t<Key_t>::batch_insert_last_level(entry_t<Key_t, node_t*>* migrate, int& migrate_idx, int migrate_num, Key_t* key, node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num){
+    //std::cout << "inode_t::" << __func__ << "1: size " << batch_size << ", migrate idx " << migrate_idx << " / " << migrate_num << ", kv idx " << idx << " / " << num << ", buf idx " << buf_idx << " / " << buf_num << " in line " << __LINE__ << " at " << this << std::endl;
     bool from_start = true;
-    if(idx < num){
+    if(migrate_idx < migrate_num){
 	from_start = false;
-	leftmost_ptr = value[idx];
-//	std::cout << "leftmost_ptr: " << leftmost_ptr << " ---- from value[" << idx << "]" << std::endl;
-	for(; cnt<batch_size && idx<num-1; cnt++){
-	    entry[cnt].key = key[idx++];
-//	    std::cout << "entry[" << cnt << "].key: " << entry[cnt].key << " ---- from key[" << idx-1 << "]" << std::endl;
-	    entry[cnt].value = value[idx];
-//	    std::cout << "entry[" << cnt << "].value: " << entry[cnt].value << " ---- from value[" << idx << "]" << std::endl;
+	leftmost_ptr = migrate[migrate_idx++].value;
+	//std::cout << "    leftmost_ptr: " << leftmost_ptr << " ---- from migrate[" << migrate_idx-1 << "]" << std::endl;
+	int copy_num = migrate_num - migrate_idx;
+	memcpy(entry, &migrate[migrate_idx], sizeof(entry_t<Key_t, node_t*>) * copy_num);
+	/*
+	for(int i=0; i<copy_num; i++){
+	    std::cout << "    entry[" << i << "].key: " << entry[i].key << " ---- from migrate[" << migrate_idx+i << "]" << std::endl;
+	    std::cout << "    entry[" << i << "].value: " << entry[i].value << " ---- from migrate[" << migrate_idx+i << "]" << std::endl;
 	}
+	 */
+	cnt += copy_num;
+	migrate_idx += copy_num;
+    }
 
-	if(cnt == batch_size){
-	    if(sibling_ptr != nullptr){
-		high_key = key[idx++];
-//		std::cout << "high_key: " << high_key << " ---- from key[" << idx-1 << "]" << std::endl;
-	    }
-	    else{
-//		std::cout << "just increasing idx" << std::endl;
-		idx++;
-	    }
+    if(idx < num && cnt < batch_size){
+	if(from_start){
+	    leftmost_ptr = value[idx++];
+	    //std::cout << "    leftmost ptr: " << leftmost_ptr << " ---- from value[" << idx-1 << "]" << std::endl;
 	}
-	else{
-	    if(buf_num == 0){
-		high_key = key[idx++];
-//		std::cout << "high_key: " << high_key << " ---- from key[" << idx-1 << "]" << std::endl;
+	from_start = false;
+	if(idx < num){
+	    for(; cnt<batch_size && idx<num-1; cnt++, idx++){
+		entry[cnt].key = key[idx];
+		//std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from key[" << idx << "]" << std::endl;
+		entry[cnt].value = value[idx];
+		//std::cout << "    entry[" << cnt << "].value: " << entry[cnt].value << " ---- from value[" << idx << "]" << std::endl;
+	    }
+
+	    if(cnt == batch_size){ // insert in next node
+		high_key = key[idx];
+		//std::cout << "    high_key: " << high_key << " ---- from key[" << idx << "]" << std::endl;
+		return;
 	    }
 	    else{
-		entry[cnt].key = key[idx++];
-//		std::cout << "entry[" << cnt << "].key: " <<entry[cnt].key << " ---- from key[" << idx-1 << "]" << std::endl;
+		entry[cnt].key = key[idx];
+		//std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from key[" << idx << "]" << std::endl;
+		entry[cnt].value = value[idx];
+		//std::cout << "    entry[" << cnt << "].value: " << entry[cnt].value << " ---- from value[" << idx << "]" << std::endl;
+		cnt++, idx++;
+		if(idx == num && cnt == batch_size && buf_num != 0){
+		    high_key = buf[buf_idx].key;
+		    //std::cout << "    high_key: " << high_key << " ---- from buf[" << buf_idx << "]" << std::endl;
+		    return;
+		}
 	    }
 	}
     }
@@ -130,87 +120,110 @@ void inode_t<Key_t>::batch_insert_last_level(Key_t* key, node_t** value, int& id
     if(buf_idx < buf_num && cnt < batch_size){
 	if(from_start){
 	    leftmost_ptr = buf[buf_idx++].value;
-//	    std::cout << "leftmost_ptr: " << buf[buf_idx].value << " ---- from buf[" << buf_idx-1 << "]" << std::endl;
+	    //std::cout << "    leftmost_ptr: " << leftmost_ptr << " ---- from buf[" << buf_idx-1 << "]" << std::endl;
+	}
+	int copy_num = 0;
+	for(; cnt<batch_size && buf_idx<buf_num-1; cnt++, buf_idx++){
+	    entry[cnt].key = buf[buf_idx].key;
+	    //std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from buf[" << buf_idx << "]" << std::endl;
+	    entry[cnt].value = buf[buf_idx].value;
+	    //std::cout << "    entry[" << cnt << "].value: " << entry[cnt].value << " ---- from buf[" << buf_idx << "]" << std::endl;
+	}
 
-	    int copy_num = batch_size;
-	    if(buf_num - buf_idx < batch_size - cnt)
-		copy_num = buf_num - buf_idx;
-	    memcpy(entry, &buf[buf_idx], sizeof(entry_t<Key_t, node_t*>) * copy_num);
-	    //memcpy(entry, &buf[buf_idx], sizeof(entry_t<Key_t, node_t*>) * batch_size);
-//	    for(int i=cnt, j=0; i<copy_num; i++, j++){
-//		std::cout << "entry[" << i << "].key: " << entry[i].key << " ---- from buf[" << buf_idx+j << "]" << std::endl;
-//		std::cout << "entry[" << i << "].value: " << entry[i].value << " ---- from buf[" << buf_idx+j << "]" << std::endl;
-//	    }
-	    buf_idx += copy_num;
-	    cnt += copy_num;
-
-	    /*
-	    //if(buf_idx == 0) buf_idx++;
-	    for(; cnt<batch_size && buf_idx<buf_num-1; cnt++){
-		entry[cnt].key = buf[buf_idx++].key;
-		std::cout << "entry[" << cnt << "].key: " << entry[cnt].key << " ---- from buf[" << buf_idx-1 << "]" << std::endl;
-		entry[cnt].value = buf[buf_idx].value;
-		std::cout << "entry[" << cnt << "].value: " << entry[cnt].value << " ---- from buf[" << buf_idx << "]" << std::endl;
-	    }
-
-	    */
-	    if(buf_idx < buf_num){
-//		high_key = buf[buf_idx++].key;
-		high_key = buf[buf_idx].key;
-//		std::cout << "high_key: " << high_key << " ---- from buf[" << buf_idx-1 << "]" << std::endl;
-	    }
-	    else{
-		high_key = prev_high_key;
-//		std::cout << "high_key: " << prev_high_key << " ---- from prev_high_key" << std::endl;
-		//std::cout << "just increasing buf_idx" << std::endl;
-		//buf_idx++;
-	    }
+	if(cnt == batch_size){ // insert in next node
+	    high_key = buf[buf_idx].key;
+	    //std::cout << "    high_key: " << high_key << " ---- from buf[" << buf_idx << "]" << std::endl;
+	    return;
 	}
 	else{
-	    int copy_num = batch_size - cnt;
-	    if(buf_num - buf_idx < batch_size - cnt)
-		copy_num = buf_num - buf_idx;
-	    memcpy(&entry[cnt], &buf[buf_idx], sizeof(entry_t<Key_t, node_t*>) * copy_num);
-//	    for(int i=cnt, j=0; i<cnt+copy_num; i++, j++){
-//		std::cout << "entry[" << i << "].key: " << entry[i].key << " ---- from buf[" << buf_idx+j << "]" << std::endl;
-//		std::cout << "entry[" << i << "].value: " << entry[i].value << " ---- from buf[" << buf_idx+j << "]" << std::endl;
-//	    }
-	    buf_idx += copy_num;
-	    cnt += copy_num;
-	    /*
-	    entry[cnt++].value = buf[buf_idx].value;
-//	    entry[cnt].key = prev_high_key;
-	    std::cout << "entry[" << cnt-1 << "].value: " << entry[cnt-1].value << " ---- from buf[" << buf_idx << "]" << std::endl;
-	    if(buf_idx == 0) buf_idx++;
-	    for(; cnt<batch_size && buf_idx<buf_num-1; cnt++){
-		entry[cnt].key = buf[buf_idx++].key;
-		std::cout << "entry[" << cnt << "].key: " << entry[cnt].key << " ---- from buf[" << buf_idx << "]" << std::endl;
-		entry[cnt].value = buf[buf_idx].value;
-		std::cout << "entry[" << cnt << "].value: " << entry[cnt].value << " ---- from buf[" << buf_idx << "]" << std::endl;
-	    }*/
+	    entry[cnt].key = buf[buf_idx].key;
+	    entry[cnt].value = buf[buf_idx].value;
+	    //std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from buf[" << buf_idx << "]" << std::endl;
+	    //std::cout << "    entry[" << cnt << "].value: " << entry[cnt].value << " ---- from buf[" << buf_idx << "]" << std::endl;
+	    cnt++, buf_idx++;
+	}
+    }
+    //std::cout << "\n";
+}
 
-	    if(buf_idx < buf_num){
-		high_key = buf[buf_idx].key;
-//		std::cout << "high_key: " << high_key << " ---- from buf[" << buf_idx-1 << "]" << std::endl;
+
+
+// batch insert with and movement
+template <typename Key_t>
+void inode_t<Key_t>::batch_insert_last_level(Key_t* key, node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num){
+    //std::cout << "inode_t::" << __func__ << "1.5: size " << batch_size << ", kv idx " << idx << " / " << num << ", buf idx " << buf_idx << " / " << buf_num << " in line " << __LINE__ << " at " << this << std::endl;
+    bool from_start = true;
+    if(idx < num){
+	leftmost_ptr = value[idx++];
+	//std::cout << "    leftmost ptr: " << leftmost_ptr << " ---- from value[" << idx << "]" << std::endl;
+	from_start = false;
+	if(idx < num){
+	    for(; cnt<batch_size && idx<num-1; cnt++, idx++){
+		entry[cnt].key = key[idx];
+		//std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from key[" << idx << "]" << std::endl;
+		entry[cnt].value = value[idx];
+		//std::cout << "    entry[" << cnt << "].value : " << entry[cnt].value << " ---- from value[" << idx << "]" << std::endl;
+	    }
+
+	    if(cnt == batch_size){ // insert in next node
+		high_key = key[idx];
+		//std::cout << "    high_key: " << high_key << " ---- from key[" << idx << "]" << std::endl;
+		return;
 	    }
 	    else{
-		high_key = prev_high_key;
-//		std::cout << "high_key: " << prev_high_key << " ---- from prev_high_key" << std::endl;
-		//buf_idx++;
+		entry[cnt].key = key[idx];
+		//std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from key[" << idx << "]" << std::endl;
+		entry[cnt].value = value[idx];
+		//std::cout << "    entry[" << cnt << "].value : " << entry[cnt].value << " ---- from value[" << idx << "]" << std::endl;
+		idx++, cnt++;
+		if(idx == num && cnt == batch_size && buf_num != 0){
+		    high_key = buf[buf_idx].key;
+		    //std::cout << "    high_key: " << high_key << " ---- from buf[" << buf_idx << "]" << std::endl;
+		    return;
+		}
 	    }
 	}
     }
 
-//    std::cout << "\n";
+    if(buf_idx < buf_num && cnt < batch_size){
+	if(from_start){
+	    leftmost_ptr = buf[buf_idx++].value;
+	    //std::cout << "    leftmost_ptr: " << leftmost_ptr << " ---- from buf[" << buf_idx-1 << "]" << std::endl;
+	}
+
+	int copy_num = batch_size - cnt;
+	for(; cnt<batch_size && buf_idx<buf_num-1; cnt++, buf_idx++){
+	    entry[cnt].key = buf[buf_idx].key;
+	    //std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from buf[" << buf_idx << "]" << std::endl;
+	    entry[cnt].value = buf[buf_idx].value;
+	    //std::cout << "    entry[" << cnt << "].value: " << entry[cnt].value << " ---- from buf[" << buf_idx << "]" << std::endl;
+	}
+	if(cnt == batch_size){ // insert in next node
+	    high_key = buf[buf_idx].key;
+	    //std::cout << "    high_key: " << high_key << " ---- from buf[" << buf_idx << "]" << std::endl;
+	    return;
+	}
+	else{
+	    entry[cnt].key = buf[buf_idx].key;
+	    entry[cnt].value = buf[buf_idx].value;
+	    //std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from buf[" << buf_idx << "]" << std::endl;
+	    //std::cout << "    entry[" << cnt << "].value: " << entry[cnt].value << " ---- from buf[" << buf_idx << "]" << std::endl;
+	    cnt++, buf_idx++;
+	}
+    }
+    //std::cout << "\n";
 }
+
 
 template <typename Key_t>
 inode_t<Key_t>** inode_t<Key_t>::batch_insert_last_level(Key_t* key, node_t** value, int num, int& new_num){
-//    std::cout << "inode_t::" << __func__ << ": inserting " << num << " records at " << this << std::endl;
-//    std::cout << "previous high key: " << high_key << std::endl;
+    //std::cout << "inode_t::" << __func__ << ": inserting " << num << " records at " << this << " in line " << __LINE__ << std::endl;
     int pos = find_lowerbound(key[0]);
+    //std::cout << "    key[0]: " << key[0] << ", key[1]: " << key[1];
+    //std::cout << ", found pos: " << pos << " , upper key: " << entry[pos+1].key;
+    //if(pos < 0) std::cout << ", leftmost" << std::endl;
+    //else std::cout << ", pos key: " << entry[pos].key << std::endl;
     int batch_size = cardinality * FILL_FACTOR;
-    //int batch_size = cardinality * FILL_FACTOR + 1;
     bool inplace = (cnt + num) < cardinality ? 1 : 0;
     int move_num = 0;
     int idx = 0;
@@ -218,207 +231,243 @@ inode_t<Key_t>** inode_t<Key_t>::batch_insert_last_level(Key_t* key, node_t** va
 	move_num = cnt;
     else
 	move_num = cnt-pos-1;
-//    std::cout << "Moving " << move_num << " records! " << std::endl;
 
     if(inplace){ // normal insertion
+	//std::cout << "  inplace moving " << move_num << " records" << std::endl;
 	move_normal_insertion(pos, num, move_num);
 	if(pos < 0){ // leftmost ptr
-	    leftmost_ptr = value[idx];
-//	    std::cout << "leftmost_ptr: " << leftmost_ptr << " ----- from value[" << idx << "]: " << value[idx] << std::endl;
+	    leftmost_ptr = value[idx++];
+	    //std::cout << "leftmost_ptr: " << leftmost_ptr << " ----- from value[" << idx-1 << "]: " << value[idx-1] << std::endl;
 	}
 	else{
-	    entry[pos].value = value[idx];
-//	    std::cout << "entry[" << pos << "].value: " << entry[pos].value << " ----- from value[" << idx << "]: " << value[idx] << std::endl;
+	    entry[pos].value = value[idx++];
+	    //std::cout << "entry[" << pos << "].value: " << entry[pos].value << " ----- from value[" << idx-1 << "]: " << value[idx-1] << std::endl;
 	}
 
-
-	for(int i=pos+1; i<pos+num; i++){
-	    entry[i].key = key[idx++];
-//	    std::cout << "entry[" << i << "].key : " << entry[i].key << " ----- from key[" << idx-1 << "]: " << key[idx-1] << std::endl;
+	for(int i=pos+1; i<pos+num+1; i++, idx++){
+	    entry[i].key = key[idx];
+	    //std::cout << "entry[" << i << "].key : " << entry[i].key << " ----- from key[" << idx << "]: " << key[idx] << std::endl;
 	    entry[i].value = value[idx];
-//	    std::cout << "entry[" << i << "].value: " << entry[i].value << " ----- from value[" << idx << "]: " << value[idx] << std::endl;
+	    //std::cout << "entry[" << i << "].value: " << entry[i].value << " ----- from value[" << idx << "]: " << value[idx] << std::endl;
 	}
-	if(move_num == 0){
-	    cnt += num-1;
-	    high_key = key[idx++];
-//	    std::cout << "high_key: " << high_key << " ---- from key[" << idx-1 << " <<\n"<< std::endl;
-	}
-	else{
-	    cnt += num;
-	    entry[pos+num].key = key[idx++];
-//	    std::cout << "entry[" << pos+num << "].key: " << entry[pos+num].key << " ---- from key[" << idx-1 << "]" << std::endl;
-	}
-	//if(!sibling_ptr) high_key = entry[cnt-1].key;
+
+	cnt += num-1;
 	return nullptr;
     }
     else{
-//	std::cout << " split, batch_size: " << batch_size << std::endl;
-	entry_t<Key_t, node_t*> buf[move_num];
-	//auto buf = new entry_t<Key_t, node_t*>[move_num];
-	Key_t prev_high_key = high_key;
-
-	memcpy(buf, &entry[pos+1], sizeof(entry_t<Key_t, node_t*>)*move_num);
-	for(int i=pos+1; i<pos+1+move_num; i++){
-//	    std::cout << "copied entry[" << i << "].key " << entry[i].key << std::endl;
-//	    std::cout << "copied entry[" << i << "].value " << entry[i].value << std::endl;
-	}
-
-	int written_num = 0;
+	auto prev_high_key = high_key;
+	//std::cout << "  split, batch_size: " << batch_size << ", prev highkey: " << prev_high_key << std::endl;
 	if(pos < 0){ // leftmost ptr
-	    leftmost_ptr = value[idx];
-//	    std::cout << "leftmost_ptr = " << leftmost_ptr << " ---- from value[" << idx << "]: " << value[idx] << std::endl;
+	    leftmost_ptr = value[idx++];
+	    //std::cout << "    leftmost ptr: " << leftmost_ptr << " ---- from value[" << idx-1 << "]" << std::endl;
 	}
 	else{
-	    entry[pos].value = value[idx];
-//	    std::cout << "entry[" << pos << "].value : " << entry[pos].value << " ----- from value[" << idx << "]: " << value[idx] << std::endl;
+	    entry[pos].value = value[idx++];
+	    //std::cout << "    entry[" << pos << "].value: " << entry[pos].value << " ---- from value[" << idx-1 << "]" << std::endl;
 	}
 
-	for(int i=pos+1; i<batch_size && idx<num-1; i++){
-	    entry[i].key = key[idx++];
-//	    std::cout << "entry[" << i << "].key : " << entry[i].key << " ----- from key[" << idx-1 << "]: " << key[idx-1] << std::endl;
-	    entry[i].value = value[idx];
-//	    std::cout << "entry[" << i << "].value : " << entry[i].value << " ----- from value[" << idx << "]: " << value[idx] << std::endl;
-	}
-
-	cnt += (idx - move_num);
-	int from = 0;
-	int total = num - idx + move_num;
-	if(cnt < batch_size){
-	    idx++;
-	    memcpy(&entry[cnt], buf, sizeof(entry_t<Key_t, node_t*>) * (batch_size - cnt));
-	    int _from = from;
-//	    for(int i=cnt; i<batch_size; i++, _from++){
-//		std::cout << "entry[" << i << "].key: " << entry[i].key << " ---- from buf[" << _from << "]" << std::endl;
-//		std::cout << "entry[" << i << "].value: " << entry[i].value << " ---- from buf[" << _from << "]" << std::endl;
-//	    }
-	    from += (batch_size - cnt);
-	    cnt = batch_size;
-	    //from = _from;
-	    //from += (batch_size - cnt);
-	    high_key = buf[from].key;
-//	    std::cout << "high_key: " << high_key << " ---- from buf[" << from << "]" << std::endl;
-	}
-	else{
-	    high_key = key[idx++];
-//	    std::cout << "high_key: " << high_key << " ---- from key[" << idx-1 << "]: " << key[idx-1] << std::endl;
-	}
-//	std::cout << "\n" << std::endl;
-
-	int left_num = num - idx + move_num - from;
-	int last_chunk = 0;
-	int remains = left_num % batch_size;
-	if(left_num / batch_size == 0){
-	    new_num = 1;
-	    last_chunk = remains;
-	}
-	else{
-	    if(remains == 0){
-		new_num = left_num / batch_size;
-		last_chunk = batch_size;
+	if(batch_size < pos){ // need insert in the middle (migrated + new kvs + moved)
+	    int migrate_num = pos - batch_size;
+	    //std::cout << "    migrate: " << migrate_num << ", move_num: " << move_num << ", pos: " << pos << ", batch_size: " << batch_size << ", cnt: " << cnt << std::endl;
+	    entry_t<Key_t, node_t*> migrate[migrate_num];
+	    memcpy(migrate, &entry[batch_size], sizeof(entry_t<Key_t, node_t*>) * migrate_num);
+	    /*
+	    for(int i=batch_size; i<pos; i++){
+		std::cout << "    copied for migrate entry[" << i << "].key " << entry[i].key << std::endl;
+		std::cout << "    copied for migrate entry[" << i << "].value " << entry[i].value << std::endl;
 	    }
-	    else{
-		if(remains < cardinality - batch_size){
-		    new_num = left_num / batch_size;
-		    last_chunk = batch_size + remains;
+	    */
+
+	    entry_t<Key_t, node_t*> buf[move_num];
+	    memcpy(buf, &entry[pos+1], sizeof(entry_t<Key_t, node_t*>) * move_num);
+	    /*
+	    for(int i=pos+1; i<cnt; i++){
+		std::cout << "    copied for move entry[" << i << "].key " << entry[i].key << std::endl;
+		std::cout << "    copied for move entry[" << i << "].value " << entry[i].value << std::endl;
+	    }
+	    */
+	    cnt = batch_size;
+	    //std::cout << "    cnt: " << cnt << std::endl;
+
+	    int total_num = num + move_num + migrate_num;
+	    int last_chunk = 0;
+	    int numerator = total_num / (batch_size+1);
+	    int remains = total_num % (batch_size+1);
+	    if(numerator == 0){ // need only one new node
+		new_num = 1;
+		last_chunk = remains;
+	    }
+	    else{ // multiple new nodes
+		if(remains == 0){ // exact match
+		    new_num = numerator;
+		    last_chunk = batch_size;
 		}
 		else{
-		    new_num = left_num / batch_size + 1;
-		    last_chunk = remains;
+		    if(remains < cardinality - batch_size){ // can be squeezed into the last new node
+			new_num = numerator;
+			last_chunk = batch_size + remains;
+		    }
+		    else{ // need extra new node
+			new_num = numerator + 1;
+			last_chunk = remains;
+		    }
 		}
 	    }
+
+	    auto new_nodes = new inode_t<Key_t>*[new_num];
+	    for(int i=0; i<new_num; i++)
+		new_nodes[i] = new inode_t<Key_t>(level);
+
+	    auto old_sibling = sibling_ptr;
+	    sibling_ptr = static_cast<node_t*>(new_nodes[0]);
+
+	    int migrate_idx = 0;
+	    int move_idx = 0;
+
+	    high_key = migrate[migrate_idx].key;
+	    //std::cout << "    high_key: " << high_key << " ---- from migrate[" << migrate_idx << "]" << std::endl;
+	    for(int i=0; i<new_num-1; i++){
+		new_nodes[i]->sibling_ptr = static_cast<node_t*>(new_nodes[i+1]);
+		new_nodes[i]->batch_insert_last_level(migrate, migrate_idx, migrate_num, key, value, idx, num, batch_size, buf, move_idx, move_num);
+	    }
+	    new_nodes[new_num-1]->sibling_ptr = old_sibling;
+	    new_nodes[new_num-1]->batch_insert_last_level(migrate, migrate_idx, migrate_num, key, value, idx, num, last_chunk, buf, move_idx, move_num);
+	    new_nodes[new_num-1]->high_key = prev_high_key;
+	    //std::cout << "    high_key: " << new_nodes[new_num-1]->high_key << " ---- from prev_high_key" << std::endl;
+
+	    return new_nodes;
 	}
+	else{ // need insert in the middle (new_kvs + moved)
+	    //std::cout << "    move_num: " << move_num << ", pos: " << pos << ", batch_size: " << batch_size << ", cnt: " << cnt << std::endl;
+	    int move_idx = 0;
+	    entry_t<Key_t, node_t*> buf[move_num];
+	    memcpy(buf, &entry[pos+1], sizeof(entry_t<Key_t, node_t*>) * move_num);
+	    /*
+	    for(int i=pos+1; i<cnt; i++){
+		std::cout << "    copied for move entry[" << i << "].key " << entry[i].key << std::endl;
+		std::cout << "    copied for move entry[" << i << "].value " << entry[i].value << std::endl;
+	    }
+	    */
 
-	//inode_t<Key_t>* new_nodes[new_num]; 
-	auto new_nodes = new inode_t<Key_t>*[new_num];
-	for(int i=0; i<new_num; i++)
-	    new_nodes[i] = new inode_t<Key_t>(level);
+	    for(int i=pos+1; i<batch_size && idx<num; i++, idx++){
+		entry[i].key = key[idx];
+		//std::cout << "    entry[" << i << "].key: " << entry[i].key << " ---- from key[" << idx << "]" << std::endl;
+		entry[i].value = value[idx];
+		//std::cout << "    entry[" << i << "].value: " << entry[i].value << " ---- from value[" << idx << "]" << std::endl;
+	    }
 
-	auto old_sibling = sibling_ptr;
-	sibling_ptr = static_cast<node_t*>(new_nodes[0]);
+	    cnt += (idx - move_num - 1);
+	    for(; cnt<batch_size; cnt++, move_idx++){
+		entry[cnt].key = buf[move_idx].key;
+		//std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from buf[" << move_idx << "]" << std::endl;
+		entry[cnt].value = buf[move_idx].value;
+		//std::cout << "    entry[" << cnt << "].value: " << entry[cnt].value << " ---- from buf[" << move_idx << "]" << std::endl;
+	    }
 
-	int node_id = 0;
-	for(; node_id<new_num-1; node_id++){
-	    new_nodes[node_id]->sibling_ptr = static_cast<node_t*>(new_nodes[node_id+1]);
-	    new_nodes[node_id]->batch_insert_last_level(key, value, idx, num, batch_size, buf, from, move_num, prev_high_key);
+	    if(idx < num){
+		high_key = key[idx];
+		//std::cout << "    high_key: " << high_key << " --- from key[" << idx << "]" << std::endl;
+	    }
+	    else{
+		high_key = buf[move_idx].key;
+		//std::cout << "    high_key: " << high_key << " --- from buf[" << move_idx << "]" << std::endl;
+	    }
+
+	    int total_num = num - idx + move_num - move_idx;
+	    int last_chunk = 0;
+	    int numerator = total_num / (batch_size+1);
+	    int remains = total_num % (batch_size+1);
+	    if(numerator == 0){ // need only one new node
+		new_num = 1;
+		last_chunk = remains;
+	    }
+	    else{ // multiple new nodes
+		if(remains == 0){ // exact match
+		    new_num = numerator;
+		    last_chunk = batch_size;
+		}
+		else{
+		    if(remains < cardinality - batch_size){ // can be squeezed into the last new node
+			new_num = numerator;
+			last_chunk = batch_size + remains;
+		    }
+		    else{ // need extra new node
+			new_num = numerator + 1;
+			last_chunk = remains;
+		    }
+		}
+	    }
+
+	    auto new_nodes = new inode_t<Key_t>*[new_num];
+	    for(int i=0; i<new_num; i++)
+		new_nodes[i] = new inode_t<Key_t>(level);
+
+	    auto old_sibling = sibling_ptr;
+	    sibling_ptr = static_cast<node_t*>(new_nodes[0]);
+
+	    for(int i=0; i<new_num-1; i++){
+		new_nodes[i]->sibling_ptr = static_cast<node_t*>(new_nodes[i+1]);
+		new_nodes[i]->batch_insert_last_level(key, value, idx, num, batch_size, buf, move_idx, move_num);
+	    }
+	    new_nodes[new_num-1]->sibling_ptr = old_sibling;
+	    new_nodes[new_num-1]->batch_insert_last_level(key, value, idx, num, last_chunk, buf, move_idx, move_num);
+	    new_nodes[new_num-1]->high_key = prev_high_key;
+	    //std::cout << "    high_key: " << new_nodes[new_num-1]->high_key << " ---- from prev_high_key" << std::endl;
+
+	    return new_nodes;
 	}
-	new_nodes[node_id]->sibling_ptr = old_sibling;
-	new_nodes[node_id]->batch_insert_last_level(key, value, idx, num, last_chunk, buf, from, move_num, prev_high_key);
-	return new_nodes;
     }
 }
 
-// batch insert
+// batch insert with migration and movement
 template <typename Key_t>
-void inode_t<Key_t>::batch_insert(entry_t<Key_t, node_t*>* migrate, int& migrate_idx, int migrate_num, Key_t* key, node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num, Key_t prev_high_key){
-//    std::cout << "inode_t::" << __func__ << "1: migrating from " << migrate_idx << " out of " << migrate_num << " and inserting from " << idx << " out of " << num << " with buf_idx " << buf_idx << " out of " << buf_num << " until " << batch_size << " at " << this << std::endl;
+void inode_t<Key_t>::batch_insert(entry_t<Key_t, node_t*>* migrate, int& migrate_idx, int migrate_num, Key_t* key, node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num){
+    //std::cout << "inode_t::" << __func__ << "1: migrate idx " << migrate_idx << " / " << migrate_num << ", kv idx " << idx << " / " << num << ", buf idx " << buf_idx << " / " << buf_num << " in line " << __LINE__ << " at " << this << std::endl;
     bool from_start = true;
     if(migrate_idx < migrate_num){
 	from_start = false;
 	leftmost_ptr = migrate[migrate_idx++].value;
-//	std::cout << "leftmost_ptr: " << leftmost_ptr << " ---- from migrate[" << migrate_idx-1 << "]" << std::endl;
+	//std::cout << "    leftmost_ptr: " << leftmost_ptr << " ---- from migrate[" << migrate_idx-1 << "]" << std::endl;
 	int copy_num = migrate_num - migrate_idx;
 	memcpy(entry, &migrate[migrate_idx], sizeof(entry_t<Key_t, node_t*>) * copy_num);
+	/*
 	for(int i=0; i<copy_num; i++){
-//	    std::cout << " entry[" << i << "].key: " << entry[i].key << " ---- from migrate[" << migrate_idx+i << "]" << std::endl;
-//	    std::cout << " entry[" << i << "].value: " << entry[i].value << " ---- from migrate[" << migrate_idx+i << "]" << std::endl;
+	    std::cout << "    entry[" << i << "].key: " << entry[i].key << " ---- from migrate[" << migrate_idx+i << "]" << std::endl;
+	    std::cout << "    entry[" << i << "].value: " << entry[i].value << " ---- from migrate[" << migrate_idx+i << "]" << std::endl;
 	}
+	*/
 	cnt += copy_num;
 	migrate_idx += copy_num;
     }
 
     if(idx < num && cnt < batch_size){
 	if(from_start){
-	    from_start = false;
 	    leftmost_ptr = value[idx++];
-//	    std::cout << "leftmost_ptr: " << leftmost_ptr << " ---- from value[" << idx-1 << "]" << std::endl;
-	    for(; cnt<batch_size && idx<num-1; cnt++, idx++){
-		entry[cnt].key = key[idx];
-//		std::cout << "entry[" << cnt << "].key: " << entry[cnt].key << " ---- from key[" << idx << "]" << std::endl;
-		entry[cnt].value = value[idx];
-//		std::cout << "entry[" << cnt << "].value: " << entry[cnt].value << " ---- from value[" << idx << "]" << std::endl;
-	    }
-
-	    if(cnt == batch_size){
-		if(sibling_ptr != nullptr){
-		    high_key = key[idx];
-//		    std::cout << "high_key: " << high_key << " ---- from key[" << idx << "]" << std::endl;
-		}
-		else{
-//		    std::cout << "just increasing idx" << std::endl;
-		    idx++;
-		}
-	    }
-	    else{
-		entry[cnt].key = key[idx];
-//		std::cout << "entry[" << cnt << "].key: " <<entry[cnt].key << " ---- from key[" << idx << "]" << std::endl;
-	    }
+	    //std::cout << "    leftmost ptr: " << leftmost_ptr << " ---- from value[" << idx-1 << "]" << std::endl;
 	}
-	else{
+	from_start = false;
+	if(idx < num){
 	    for(; cnt<batch_size && idx<num-1; cnt++, idx++){
 		entry[cnt].key = key[idx];
-//		std::cout << "entry[" << cnt << "].key: " << entry[cnt].key << " ---- from key[" << idx << "]" << std::endl;
+		//std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from key[" << idx << "]" << std::endl;
 		entry[cnt].value = value[idx];
-//		std::cout << "entry[" << cnt << "].value: " << entry[cnt].value << " ---- from value[" << idx << "]" << std::endl;
+		//std::cout << "    entry[" << cnt << "].value: " << entry[cnt].value << " ---- from value[" << idx << "]" << std::endl;
 	    }
 
-	    if(cnt == batch_size){
-		if(sibling_ptr != nullptr){
-		    high_key = key[idx];
-//		    std::cout << "high_key: " << high_key << " ---- from key[" << idx << "]" << std::endl;
-		}
-		else{
-//		    std::cout << "just increasing idx" << std::endl;
-		    idx++;
-		}
+	    if(cnt == batch_size){ // insert in next node
+		high_key = key[idx];
+		//std::cout << "    high_key: " << high_key << " ---- from key[" << idx << "]" << std::endl;
+		return;
 	    }
 	    else{
-		if(buf_num == 0){
-		    high_key = prev_high_key;
-//		    std::cout << "high_key: " << high_key << " ---- from prev_high_key" << std::endl;
-		}
-		else{
-		    entry[cnt].key = key[idx];
-//		    std::cout << "entry[" << cnt << "].key: " <<entry[cnt].key << " ---- from key[" << idx << "]" << std::endl;
+		entry[cnt].key = key[idx];
+		//std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from key[" << idx << "]" << std::endl;
+		entry[cnt].value = value[idx];
+		//std::cout << "    entry[" << cnt << "].value: " << entry[cnt].value << " ---- from value[" << idx << "]" << std::endl;
+		idx++, cnt++;
+		if(idx == num && cnt == batch_size && buf_num != 0){
+		    high_key = buf[buf_idx].key;
+		    //std::cout << "    high_key: " << high_key << " ---- from buf[" << buf_idx << "]" << std::endl;
 		}
 	    }
 	}
@@ -427,138 +476,100 @@ void inode_t<Key_t>::batch_insert(entry_t<Key_t, node_t*>* migrate, int& migrate
     if(buf_idx < buf_num && cnt < batch_size){
 	if(from_start){
 	    leftmost_ptr = buf[buf_idx++].value;
-//	    std::cout << "leftmost_ptr: " << leftmost_ptr << " ---- from buf[" << buf_idx-1 << "]" << std::endl;
-	   
-	    int copy_num = batch_size;
-	    if(buf_num - buf_idx < batch_size - cnt)
-		copy_num = buf_num - buf_idx;
-	    memcpy(entry, &buf[buf_idx], sizeof(entry_t<Key_t, node_t*>) * copy_num);
-//	    for(int i=cnt, j=0; i<copy_num; i++, j++){
-//		std::cout << "entry[" << i << "].key: " << entry[i].key << " ---- from buf[" << buf_idx+j << "]" << std::endl;
-//		std::cout << "entry[" << i << "].value: " << entry[i].value << " ---- from buf[" << buf_idx+j << "]" << std::endl;
-//	    }
-	    buf_idx += copy_num;
-	    cnt += copy_num;
+	    //std::cout << "    leftmost_ptr: " << leftmost_ptr << " ---- from buf[" << buf_idx-1 << "]" << std::endl;
+	}
+	int copy_num = batch_size - cnt;
+	for(; cnt<batch_size && buf_idx<buf_num-1; cnt++, buf_idx++){
+	    entry[cnt].key = buf[buf_idx].key;
+	    //std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from buf[" << buf_idx << "]" << std::endl;
+	    entry[cnt].value = buf[buf_idx].value;
+	    //std::cout << "    entry[" << cnt << "].value: " << entry[cnt].value << " ---- from buf[" << buf_idx << "]" << std::endl;
+	}
 
-	    if(buf_idx < buf_num){
-		high_key = buf[buf_idx].key;
-//		std::cout << "high_key: " << high_key << " ---- from buf[" << buf_idx << "]" << std::endl;
-	    }
-	    else{
-		high_key = prev_high_key;
-//		std::cout << "high_key: " << high_key << " ---- from prev_high_key" << std::endl;
-	    }
+	if(cnt == batch_size){ // insert in next node
+	    high_key = buf[buf_idx].key;
+	    //std::cout << "    high_key: " << high_key << " ---- from buf[" << buf_idx << "]" << std::endl;
+	    return;
 	}
 	else{
-	    int copy_num = batch_size - cnt;
-	    if(buf_num - buf_idx < batch_size - cnt)
-		copy_num = buf_num - buf_idx;
-	    memcpy(&entry[cnt], &buf[buf_idx], sizeof(entry_t<Key_t, node_t*>) * copy_num);
-//	    for(int i=cnt, j=0; i<copy_num; i++, j++){
-//		std::cout << "entry[" << i << "].key: " << entry[i].key << " ---- from buf[" << buf_idx+j << "]" << std::endl;
-//		std::cout << "entry[" << i << "].value: " << entry[i].value << " ---- from buf[" << buf_idx+j << "]" << std::endl;
-//	    }
-	    buf_idx += copy_num;
-	    cnt += copy_num;
-
-	    if(buf_idx < buf_num){
-		high_key = buf[buf_idx].key;
-//		std::cout << "high_key: " << high_key << " ---- from buf[" << buf_idx << "]" << std::endl;
-	    }
-	    else{
-		high_key = prev_high_key;
-//		std::cout << "high_key: " << high_key << " ---- from prev_high_key" << std::endl;
-	    }
+	    entry[cnt].key = buf[buf_idx].key;
+	    entry[cnt].value = buf[buf_idx].value;
+	    //std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from buf[" << buf_idx << "]" << std::endl;
+	    //std::cout << "    entry[" << cnt << "].value: " << entry[cnt].value << " ---- from buf[" << buf_idx << "]" << std::endl;
+	    cnt++, buf_idx++;
 	}
     }
-
-//    std::cout << "\n";
+    //std::cout << "\n";
 }
 
-
-
-// batch insert
+// batch insert with and movement
 template <typename Key_t>
-void inode_t<Key_t>::batch_insert(Key_t* key, node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num, Key_t prev_high_key){
-//    std::cout << "inode_t::" << __func__ << "1: inserting from " << idx << " out of " << num << " with buf_idx " << buf_idx << " out of " << buf_num << " until " << batch_size << " at " << this << std::endl;
+void inode_t<Key_t>::batch_insert(Key_t* key, node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num){
+    //std::cout << "inode_t::" << __func__ << "1.5: kv idx " << idx << " / " << num << ", buf idx " << buf_idx << " / " << buf_num << " in line " << __LINE__ << " at " << this << std::endl;
     bool from_start = true;
     if(idx < num){
-	from_start = false;
 	leftmost_ptr = value[idx++];
-//	std::cout << "leftmost_ptr: " << leftmost_ptr << " ---- from value[" << idx-1 << "]" << std::endl;
-	for(; cnt<batch_size && idx<num-1; cnt++, idx++){
-	    entry[cnt].key = key[idx];
-//	    std::cout << "entry[" << cnt << "].key: " << entry[cnt].key << " ---- from key[" << idx << "]" << std::endl;
-	    entry[cnt].value = value[idx];
-//	    std::cout << "entry[" << cnt << "].value: " << entry[cnt].value << " ---- from value[" << idx << "]" << std::endl;
-	}
-
+	//std::cout << "    leftmost ptr: " << leftmost_ptr << " ---- from value[" << idx-1 << "]" << std::endl;
+	from_start = false;
 	if(idx < num){
-	    entry[cnt].key = key[idx];
-//	    std::cout << "entry[" << cnt << "].key: " <<entry[cnt].key << " ---- from key[" << idx << "]" << std::endl;
-	    entry[cnt++].value = value[idx++];
-//	    std::cout << "entry[" << cnt-1 << "].key: " <<entry[cnt-1].value << " ---- from value[" << idx-1 << "]" << std::endl;
-	}
-	else{
-	    high_key = key[idx];
-//	    std::cout << "high_key: " << high_key << " ---- from key[" << idx << "]" << std::endl;
+	    for(; cnt<batch_size && idx<num-1; cnt++, idx++){
+		entry[cnt].key = key[idx];
+		//std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from key[" << idx << "]" << std::endl;
+		entry[cnt].value = value[idx];
+		//std::cout << "    entry[" << cnt << "].value : " << entry[cnt].value << " ---- from value[" << idx << "]" << std::endl;
+	    }
+
+	    if(cnt == batch_size){ // insert in next node
+		high_key = key[idx];
+		//std::cout << "    high_key: " << high_key << " ---- from key[" << idx << "]" << std::endl;
+		return;
+	    }
+	    else{
+		entry[cnt].key = key[idx];
+		//std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from key[" << idx << "]" << std::endl;
+		entry[cnt].value = value[idx];
+		//std::cout << "    entry[" << cnt << "].value : " << entry[cnt].value << " ---- from value[" << idx << "]" << std::endl;
+		idx++, cnt++;
+		if(idx == num && cnt == batch_size && buf_num != 0){
+		    high_key = buf[buf_idx].key;
+		    //std::cout << "    high_key: " << high_key << " ---- from buf[" << buf_idx << "]" << std::endl;
+		}
+	    }
 	}
     }
 
     if(buf_idx < buf_num && cnt < batch_size){
 	if(from_start){
 	    leftmost_ptr = buf[buf_idx++].value;
-//	    std::cout << "leftmost_ptr: " << leftmost_ptr << " ---- from buf[" << buf_idx-1 << "]" << std::endl;
-	   
-	    int copy_num = batch_size;
-	    if(buf_num - buf_idx < batch_size - cnt)
-		copy_num = buf_num - buf_idx;
-	    memcpy(entry, &buf[buf_idx], sizeof(entry_t<Key_t, node_t*>) * copy_num);
-	    for(int i=cnt, j=0; i<copy_num; i++, j++){
-//		std::cout << "entry[" << i << "].key: " << entry[i].key << " ---- from buf[" << buf_idx+j << "]" << std::endl;
-//		std::cout << "entry[" << i << "].value: " << entry[i].value << " ---- from buf[" << buf_idx+j << "]" << std::endl;
-	    }
-	    buf_idx += copy_num;
-	    cnt += copy_num;
+	    //std::cout << "    leftmost_ptr: " << leftmost_ptr << " ---- from buf[" << buf_idx-1 << "]" << std::endl;
+	}
 
-	    if(buf_idx < buf_num){
-		high_key = buf[buf_idx].key;
-//		std::cout << "high_key: " << high_key << " ---- from buf[" << buf_idx << "]" << std::endl;
-	    }
-	    else{
-		high_key = prev_high_key;
-//		std::cout << "high_key: " << high_key << " ---- from prev_high_key" << std::endl;
-	    }
+	int copy_num = batch_size - cnt;
+	for(; cnt<batch_size && buf_idx<buf_num-1; cnt++, buf_idx++){
+	    entry[cnt].key = buf[buf_idx].key;
+	    //std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from buf[" << buf_idx << "]" << std::endl;
+	    entry[cnt].value = buf[buf_idx].value;
+	    //std::cout << "    entry[" << cnt << "].value: " << entry[cnt].value << " ---- from buf[" << buf_idx << "]" << std::endl;
+	}
+	if(cnt == batch_size){ // insert in next node
+	    high_key = buf[buf_idx].key;
+	    //std::cout << "    high_key: " << high_key << " ---- from buf[" << buf_idx << "]" << std::endl;
+	    return;
 	}
 	else{
-	    int copy_num = batch_size - cnt;
-	    if(buf_num - buf_idx < batch_size - cnt)
-		copy_num = buf_num - buf_idx;
-	    memcpy(&entry[cnt], &buf[buf_idx], sizeof(entry_t<Key_t, node_t*>) * copy_num);
-//	    for(int i=cnt, j=0; i<copy_num; i++, j++){
-//		std::cout << "entry[" << i << "].key: " << entry[i].key << " ---- from buf[" << buf_idx+j << "]" << std::endl;
-//		std::cout << "entry[" << i << "].value: " << entry[i].value << " ---- from buf[" << buf_idx+j << "]" << std::endl;
-//	    }
-	    buf_idx += copy_num;
-	    cnt += copy_num;
-
-	    if(buf_idx < buf_num){
-		high_key = buf[buf_idx].key;
-//		std::cout << "high_key: " << high_key << " ---- from buf[" << buf_idx << "]" << std::endl;
-	    }
-	    else{
-		high_key = prev_high_key;
-//		std::cout << "high_key: " << high_key << " ---- from prev_high_key" << std::endl;
-	    }
+	    entry[cnt].key = buf[buf_idx].key;
+	    entry[cnt].value = buf[buf_idx].value;
+	    //std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from buf[" << buf_idx << "]" << std::endl;
+	    //std::cout << "    entry[" << cnt << "].value: " << entry[cnt].value << " ---- from buf[" << buf_idx << "]" << std::endl;
+	    cnt++, buf_idx++;
 	}
     }
-
-//    std::cout << "\n";
+    //std::cout << "\n";
 }
 
 template <typename Key_t>
 inode_t<Key_t>** inode_t<Key_t>::batch_insert(Key_t* key, node_t** value, int num, int& new_num){
-//    std::cout << "inode_t::" << __func__ << "3: inserting " << num << " records at " << this << std::endl;
+    //std::cout << "inode_t::" << __func__ << "3: inserting " << num << " records at " << this << " in line " << __LINE__ << std::endl;
     int pos = find_lowerbound(key[0]);
     int batch_size = cardinality * FILL_FACTOR;
     bool inplace = (cnt + num) < cardinality ? 1 : 0;
@@ -570,95 +581,66 @@ inode_t<Key_t>** inode_t<Key_t>::batch_insert(Key_t* key, node_t** value, int nu
 	move_num = cnt - pos - 1;
 
     if(inplace){
+	//std::cout << "  inplace " << std::endl;
 	move_normal_insertion(pos, num, move_num);
-	for(int i=pos+1; i<pos+num; i++, idx++){
-	//for(int i=pos+1; i<pos+num+1; i++, idx++){
+	for(int i=pos+1; i<pos+num+1; i++, idx++){
 	    entry[i].key = key[idx];
-//	    std::cout << "entry[" << i << "].key : " << entry[i].key << " ----- from key[" << idx << "]: " << key[idx] << std::endl;
+	    //std::cout << "    entry[" << i << "].key : " << entry[i].key << " ----- from key[" << idx << "]: " << key[idx] << std::endl;
 	    entry[i].value = value[idx];
-//	    std::cout << "entry[" << i << "].value: " << entry[i].value << " ----- from value[" << idx << "]: " << value[idx] << std::endl;
+	    //std::cout << "    entry[" << i << "].value: " << entry[i].value << " ----- from value[" << idx << "]: " << value[idx] << std::endl;
 	}
-	if(move_num == 0){
-	    if(sibling_ptr){
-		entry[pos+num].key = key[idx];
-		//entry[pos+num].key = high_key;
-//		std::cout << "entry[" << pos+num << "].key: " << entry[pos+num].key << " ---- from key[" << idx << "]" << std::endl;
-		entry[pos+num].value = value[idx];
-//		std::cout << "entry[" << pos+num << "].value: " << entry[pos+num].value << " ----- from value[" << idx << "]: " << value[idx] << std::endl;
-		//high_key = key[idx];
-		//std::cout << "high_key: " << high_key << std::endl;
-		cnt += num;
-	    }
-	    else{
-		entry[pos+num].key = key[idx];
-//		std::cout << "entry[" << pos+num << "].key: " << entry[pos+num].key << " ----- from key[" << idx << "]: " << key[idx] << std::endl;
-		entry[pos+num].value = value[idx];
-//		std::cout << "entry[" << pos+num << "].value: " << entry[pos+num].value << " ----- from value[" << idx << "]: " << value[idx] << std::endl;
-		cnt += num;
-	    }
-	}
-	else{
-	    entry[pos+num].key = key[idx];
-//	    std::cout << "entry[" << pos+num << "].key: " << entry[pos+num].key << " ----- from key[" << idx << "]: " << key[idx] << std::endl;
-	    entry[pos+num].value = value[idx];
-//	    std::cout << "entry[" << pos+num << "].value: " << entry[pos+num].value << " ----- from value[" << idx << "]: " << value[idx] << std::endl;
-	    cnt += num;
-	    //high_key = entry[cnt-1].key;
-	    //std::cout << "high_key: " << high_key << " ---- from entry[" << cnt-1 << "]" << std::endl;
-	}
-//	std::cout << "\n";
+	cnt += num;
 	return nullptr;
     }
     else{
-//	std::cout << " split, batch_size: " << batch_size << std::endl;
-	if(batch_size < pos){
+	//std::cout << "  split, batch_size: " << batch_size << std::endl;
+	if(batch_size < pos){ // need insert in the middle (migrated + new kvs + moved)
 	    int migrate_num = pos - batch_size;
-//	    std::cout << "migrate: " << migrate_num << ", pos: " << pos << ", batch_size: " << batch_size << ", cnt: " << cnt << std::endl;
+	    //std::cout << "    migrate: " << migrate_num << ", move_num: " << move_num << ", pos: " << pos << ", batch_size: " << batch_size << ", cnt: " << cnt << std::endl;
 	    entry_t<Key_t, node_t*> migrate[migrate_num];
 	    memcpy(migrate, &entry[batch_size], sizeof(entry_t<Key_t, node_t*>) * migrate_num);
-//	    for(int i=batch_size; i<pos; i++){
-//		std::cout << "copied entry[" << i << "].key:  " << entry[i].key << " for migration" << std::endl;
-//		std::cout << "copied entry[" << i << "].value:  " << entry[i].value << " for migration" << std::endl;
-//	    }
-	    //cnt -= migrate_num;
+	    /*
+	    for(int i=batch_size; i<pos; i++){
+		std::cout << "    copied for migrate entry[" << i << "].key " << entry[i].key << std::endl;
+		std::cout << "    copied for migrate entry[" << i << "].value " << entry[i].value << std::endl;
+	    }
+	    */
 
 	    entry_t<Key_t, node_t*> buf[move_num];
-	    //auto buf = new entry_t<Key_t, node_t*>[move_num];
-	    Key_t prev_high_key = high_key;
-
 	    memcpy(buf, &entry[pos+1], sizeof(entry_t<Key_t, node_t*>) * move_num);
-//	    for(int i=pos+1; i<pos+1+move_num; i++){
-//		std::cout << "copied entry[" << i << "].key " << entry[i].key << std::endl;
-//		std::cout << "copied entry[" << i << "].value " << entry[i].value << std::endl;
-//	    }
-
+	    /*
+	    for(int i=pos+1; i<pos+move_num+1; i++){
+		std::cout << "    copied for move entry[" << i << "].key " << entry[i].key << std::endl;
+		std::cout << "    copied for move entry[" << i << "].value " << entry[i].value << std::endl;
+	    }
+	    */
 	    cnt = batch_size;
 
-	    int left_num = num + move_num + migrate_num;
+	    int total_num = num + move_num + migrate_num;
 	    int last_chunk = 0;
-	    int remains = left_num % batch_size;
-	    if(left_num / batch_size == 0){
+	    int numerator = total_num / (batch_size+1);
+	    int remains = total_num % (batch_size+1);
+	    if(numerator == 0){ // need only one new node
 		new_num = 1;
 		last_chunk = remains;
 	    }
-	    else{
-		if(remains == 0){
-		    new_num = left_num / batch_size;
+	    else{ // multiple new nodes
+		if(remains == 0){ // exact match
+		    new_num = numerator;
 		    last_chunk = batch_size;
 		}
 		else{
-		    if(remains < cardinality - batch_size){
-			new_num = left_num / batch_size;
+		    if(remains < cardinality - batch_size){ // can be squeezed into the last new node
+			new_num = numerator;
 			last_chunk = batch_size + remains;
 		    }
-		    else{
-			new_num = left_num / batch_size + 1;
+		    else{ // need extra new node
+			new_num = numerator + 1;
 			last_chunk = remains;
 		    }
 		}
 	    }
 
-
 	    auto new_nodes = new inode_t<Key_t>*[new_num];
 	    for(int i=0; i<new_num; i++)
 		new_nodes[i] = new inode_t<Key_t>(level);
@@ -666,89 +648,86 @@ inode_t<Key_t>** inode_t<Key_t>::batch_insert(Key_t* key, node_t** value, int nu
 	    auto old_sibling = sibling_ptr;
 	    sibling_ptr = static_cast<node_t*>(new_nodes[0]);
 
-	    int node_id = 0;
-	    int migrate_from = 0;
-	    int from = 0;
+	    int migrate_idx = 0;
+	    int move_idx = 0;
 
-	    high_key = migrate[migrate_from].key;
-//	    std::cout << "high_key: " << high_key << " ---- from migrate[" << migrate_from << "]" << std::endl;
-	    for(; node_id<new_num-1; node_id++){
-		new_nodes[node_id]->sibling_ptr = static_cast<node_t*>(new_nodes[node_id+1]);
-		new_nodes[node_id]->batch_insert(migrate, migrate_from, migrate_num, key, value, idx, num, batch_size, buf, from, move_num, prev_high_key);
+	    auto prev_high_key = high_key;
+	    high_key = migrate[migrate_idx].key;
+	    //std::cout << "    high_key: " << high_key << " ---- from migrate[" << migrate_idx << "]" << std::endl;
+	    for(int i=0; i<new_num-1; i++){
+		new_nodes[i]->sibling_ptr = static_cast<node_t*>(new_nodes[i+1]);
+		new_nodes[i]->batch_insert(migrate, migrate_idx, migrate_num, key, value, idx, num, batch_size, buf, move_idx, move_num);
 	    }
-	    new_nodes[node_id]->sibling_ptr = old_sibling;
-	    new_nodes[node_id]->batch_insert(migrate, migrate_from, migrate_num, key, value, idx, num, batch_size, buf, from, move_num, prev_high_key);
+	    new_nodes[new_num-1]->sibling_ptr = old_sibling;
+	    new_nodes[new_num-1]->high_key = prev_high_key;
+	    //std::cout << "    high_key: " << prev_high_key << " ---- from prev high key" << std::endl;
+	    new_nodes[new_num-1]->batch_insert(migrate, migrate_idx, migrate_num, key, value, idx, num, last_chunk, buf, move_idx, move_num);
 
 	    return new_nodes;
 	}
-	else{
+	else{ // need insert in the middle (new_kvs + moved)
+	    //std::cout << "    move_num: " << move_num << ", pos: " << pos << ", batch_size: " << batch_size << ", cnt: " << cnt << std::endl;
+	    int move_idx = 0;
 	    entry_t<Key_t, node_t*> buf[move_num];
-//	    auto buf = new entry_t<Key_t, node_t*>[move_num];
-	    Key_t prev_high_key = high_key;
-
 	    memcpy(buf, &entry[pos+1], sizeof(entry_t<Key_t, node_t*>)*move_num);
-//	    for(int i=pos+1; i<pos+1+move_num; i++){
-//		std::cout << "copied entry[" << i << "].key " << entry[i].key << std::endl;
-//		std::cout << "copied entry[" << i << "].value " << entry[i].value << std::endl;
-//	    }
+
+	    /*
+	    for(int i=pos+1; i<pos+1+move_num; i++){
+		std::cout << "    copied for move entry[" << i << "].key " << entry[i].key << std::endl;
+		std::cout << "    copied for move entry[" << i << "].value " << entry[i].value << std::endl;
+	    }
+	    */
 
 	    for(int i=pos+1; i<batch_size && idx<num; i++, idx++){
 		entry[i].key = key[idx];
-//		std::cout << "entry[" << i << "].key : " << entry[i].key << " ----- from key[" << idx << "]: " << key[idx] << std::endl;
+		//std::cout << "    entry[" << i << "].key : " << entry[i].key << " ----- from key[" << idx << "]: " << key[idx] << std::endl;
 		entry[i].value = value[idx];
-//		std::cout << "entry[" << i << "].value : " << entry[i].value << " ----- from value[" << idx << "]: " << value[idx] << std::endl;
+		//std::cout << "    entry[" << i << "].value : " << entry[i].value << " ----- from value[" << idx << "]: " << value[idx] << std::endl;
 	    }
 
 	    cnt += (idx - move_num);
-	    int total = num - idx + move_num;
-	    int from = 0;
-	    if(cnt < batch_size){
-		memcpy(&entry[cnt], buf, sizeof(entry_t<Key_t, node_t*>) * (batch_size - cnt));
-		int _from = from;
-//		for(int i=cnt; i<batch_size; i++, _from++){
-//		    std::cout << "entry[" << i << "].key: " << entry[i].key << " ---- from buf[" << _from << "] " << std::endl;
-//		    std::cout << "entry[" << i << "].value: " << entry[i].value << " ---- from buf[" << _from << "] " << std::endl;
-//		}
-		from += (batch_size - cnt);
-		cnt = batch_size;
+	    for(; cnt<batch_size; cnt++, move_idx++){
+		entry[cnt].key = buf[move_idx].key;
+		//std::cout << "    entry[" << cnt << "].key : " << entry[cnt].key << " ----- from buf[" << move_idx << std::endl;
+		entry[cnt].value = buf[move_idx].value;
+		//std::cout << "    entry[" << cnt << "].value : " << entry[cnt].value << " ----- from buf[" << move_idx << std::endl;
 	    }
+	    auto prev_high_key = high_key;
 
 	    if(idx < num){
 		high_key = key[idx];
-//		std::cout << "high_key: " << high_key << " ---- from key[" << idx << "]" << std::endl;
+		//std::cout << "    high_key: " << high_key << " ---- from key[" << idx  << "]" << std::endl;
 	    }
 	    else{
-		high_key = buf[from].key;
-//		std::cout << "high_key: " << high_key << " ---- from buf[" << from << "]" << std::endl;
+		high_key = buf[move_idx].key;
+		//std::cout << "    high_key: " << high_key << " ---- from buf[" << move_idx  << "]" << std::endl;
 	    }
 
-
-	    int left_num = num - idx + move_num - from;
+	    int total_num = num - idx + move_num - move_idx;
 	    int last_chunk = 0;
-	    int remains = left_num % batch_size;
-	    if(left_num / batch_size == 0){ 
+	    int numerator = total_num / (batch_size+1);
+	    int remains = total_num % (batch_size+1);
+	    if(numerator == 0){ // need only one new node
 		new_num = 1;
 		last_chunk = remains;
 	    }
-	    else{
-		if(remains == 0){
-		    new_num = left_num / batch_size;
+	    else{ // multiple new nodes
+		if(remains == 0){ // exact match
+		    new_num = numerator;
 		    last_chunk = batch_size;
 		}
 		else{
-		    if(remains < cardinality - batch_size){
-			new_num = left_num / batch_size;
+		    if(remains < cardinality - batch_size){ // can be squeezed into the last new node
+			new_num = numerator;
 			last_chunk = batch_size + remains;
 		    }
-		    else{
-			new_num = left_num / batch_size + 1;
-			last_chunk =remains;
+		    else{ // need extra new node
+			new_num = numerator + 1;
+			last_chunk = remains;
 		    }
 		}
 	    }
 
-
-	    //inode_t<Key_t>* new_nodes[new_num]; 
 	    auto new_nodes = new inode_t<Key_t>*[new_num];
 	    for(int i=0; i<new_num; i++)
 		new_nodes[i] = new inode_t<Key_t>(level);
@@ -756,69 +735,32 @@ inode_t<Key_t>** inode_t<Key_t>::batch_insert(Key_t* key, node_t** value, int nu
 	    auto old_sibling = sibling_ptr;
 	    sibling_ptr = static_cast<node_t*>(new_nodes[0]);
 
-	    int node_id = 0;
-	    for(; node_id<new_num-1; node_id++){
-		new_nodes[node_id]->sibling_ptr = static_cast<node_t*>(new_nodes[node_id+1]);
-		new_nodes[node_id]->batch_insert(key, value, idx, num, batch_size, buf, from, move_num, prev_high_key);
+	    for(int i=0; i<new_num-1; i++){
+		new_nodes[i]->sibling_ptr = static_cast<node_t*>(new_nodes[i+1]);
+		new_nodes[i]->batch_insert(key, value, idx, num, batch_size, buf, move_idx, move_num);
 	    }
-	    new_nodes[node_id]->sibling_ptr = old_sibling;
-	    new_nodes[node_id]->batch_insert(key, value, idx, num, last_chunk, buf, from, move_num, prev_high_key);
+	    new_nodes[new_num-1]->sibling_ptr = old_sibling;
+	    new_nodes[new_num-1]->high_key = prev_high_key;
+	    //std::cout << "    high_key: " << prev_high_key << " ---- from prev high key" << std::endl;
+	    new_nodes[new_num-1]->batch_insert(key, value, idx, num, last_chunk, buf, move_idx, move_num);
 
 	    return new_nodes;
 	}
     }
 }
 
-
-
-
-// last batch insert
 template <typename Key_t>
-void inode_t<Key_t>::batch_insert(Key_t* key, node_t** value, int& idx, int num, entry_t<Key_t, node_t*>* buf, int buf_num, Key_t _high_key){
-//    std::cout << "inode_t::" << __func__ << "1.5: inserting from " << idx << " out of " << num << " and buf size of " << buf_num << " at " << this << std::endl;
-    leftmost_ptr = value[idx];
-    for(; idx<num; cnt++){
-	entry[cnt].key = key[idx++];
-//	std::cout << "entry[" << cnt << "].key: " << entry[cnt].key << " ---- from key[" << idx-1 << "]: " << key[idx-1] << std::endl;
-	entry[cnt].value = value[idx];
-//	std::cout << "entry[" << cnt << "].value: " << entry[cnt].value << " ---- from value[" << idx << "]: " << value[idx] << std::endl;
+void inode_t<Key_t>::insert_for_root(Key_t* key, node_t** value, node_t* left, int num){
+    leftmost_ptr = left;
+    for(int i=0; i<num; i++, cnt++){
+	entry[cnt].key = key[i];
+	entry[cnt].value = value[i];
     }
-
-    if(buf_num == 0){
-	high_key = entry[cnt-1].key;
-//	std::cout << "high key: " << high_key << " ---- from entry[" << cnt-1 << "].key" << std::endl;
-    }
-    else{
-	memcpy(&entry[cnt], buf, sizeof(entry_t<Key_t, node_t*>)*buf_num);
-	high_key = _high_key;
-//	std::cout << "high key: " << high_key << " ---- from prev high_key" << std::endl;
-    }
-//    std::cout << "\n";
 }
-
-template <typename Key_t>
-void inode_t<Key_t>::batch_insert(entry_t<Key_t, node_t*>* buf, int num, Key_t _high_key){
-//    std::cout << "inode_t::" << __func__ << "2: inserting " << num << " records at " << this << std::endl;
-    if(leftmost_ptr == nullptr) std::cout << "leftmost_ptr is null!! inserting " <<num << std::endl;
-    high_key = _high_key;
-    memcpy(&entry[cnt], buf, sizeof(entry_t<Key_t, node_t*>)*num);
-//    for(int i=cnt, j=0; i<cnt+num; i++, j++){
-//	std::cout << "entry[" << i << "].key: " << entry[i].key << " ---- from buf[" << j << "]: " << buf[j].key << std::endl;
-//	std::cout << "entry[" << i << "].value: " << entry[i].value << " ---- from buf[" << j << "]: " << buf[j].value << std::endl;
-//    }
-//    std::cout << "\n";
-    cnt += num;
-}
-
 
 template <typename Key_t>
 void inode_t<Key_t>::move_normal_insertion(int pos, int num, int move_num){
-//    std::cout << "inode_t::" << __func__ << ": moving " << move_num << " records" << std::endl;
     memmove(&entry[pos+num+1], &entry[pos+1], sizeof(entry_t<Key_t, node_t*>)*move_num);
-//    for(int i=pos+num+1; i<pos+num+1+move_num; i++){
-//	std::cout << "moved entry[" << i << "].key: " << entry[i].key << std::endl;
-//	std::cout << "moved entry[" << i << "].value: " << entry[i].value << std::endl;
-//    }
 }
 
 template <typename Key_t>

@@ -110,16 +110,16 @@ int lnode_btree_t<Key_t, Value_t>::remove(Key_t key, uint64_t version){
     this->try_upgrade_writelock(version, need_restart);
     if(need_restart) return -1;
 
-    if(lnode_t<Key_t, Value_t>::cnt){
+    if(this->cnt){
 	int pos = find_pos_linear(key);
 	// no matching key found
 	if(pos == -1) return false;
 	memmove(&entry[pos], &entry[pos+1], sizeof(entry_t<Key_t, Value_t>)*(lnode_t<Key_t, Value_t>::cnt - pos - 1));
-	lnode_t<Key_t, Value_t>::cnt--;
-	lnode_t<Key_t, Value_t>::write_unlock();
+	this->cnt--;
+	write_unlock();
 	return 0;
     }
-    lnode_t<Key_t, Value_t>::write_unlock();
+    write_unlock();
     return -2;
 }
 
@@ -127,14 +127,15 @@ template <typename Key_t, typename Value_t>
 int lnode_btree_t<Key_t, Value_t>::update(Key_t key, Value_t value, uint64_t version){
     bool need_restart = false;
     this->try_upgrade_writelock(version, need_restart);
-    if(need_restart) return -1;
+    if(need_restart)
+	return -1;
 
     if(update_linear(key, value)){
-	this->write_unlock();
+	write_unlock();
 	return 0;
     }
 
-    this->write_unlock();
+    write_unlock();
     return -2;
 }
 

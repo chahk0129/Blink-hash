@@ -305,10 +305,6 @@ bool btree_t<Key_t, Value_t>::update(Key_t key, Value_t value){
     if(ret == -1)
 	goto restart;
 
-    auto leaf_vend = leaf->get_version(need_restart);
-    if(need_restart || (leaf_vstart != leaf_vend))
-	goto restart;
-
     if(ret == 0)
 	return true;
     return false;
@@ -472,8 +468,6 @@ void btree_t<Key_t, Value_t>::batch_insert(Key_t* key, node_t** value, int num, 
 
 template <typename Key_t, typename Value_t>
 int btree_t<Key_t, Value_t>::range_lookup(Key_t min_key, int range, Value_t* buf){
-    struct timespec start, end;
-
     restart:
     auto cur = root;
     bool need_restart = false;
@@ -528,11 +522,7 @@ int btree_t<Key_t, Value_t>::range_lookup(Key_t min_key, int range, Value_t* buf
 	    goto restart;
 	}
 	else if(ret == -2){
-//	    clock_gettime(CLOCK_MONOTONIC, &start);
 	    auto ret_ = convert(leaf, leaf_vstart);
-//	    clock_gettime(CLOCK_MONOTONIC, &end);
-//	    auto time = end.tv_nsec - start.tv_nsec + (end.tv_sec - start.tv_sec) * 1000000000;
-//	    std::cout << time/1000.0 << std::endl;
 	    goto restart;
 	}
 	continued = true;
@@ -569,8 +559,10 @@ bool btree_t<Key_t, Value_t>::convert(lnode_t<Key_t, Value_t>* leaf, uint64_t le
 	return false;
 
     Key_t split_key[num];
-    for(int i=0; i<num; i++)
-	split_key[i] = nodes[i]->high_key;
+    split_key[0] = nodes[0]->high_key;
+    //split_key[0] = leaf->high_key;
+    for(int i=1; i<num; i++)
+	split_key[i] = nodes[i-1]->high_key;
 
     batch_insert(split_key, reinterpret_cast<node_t**>(nodes), num, static_cast<node_t*>(leaf));
     // TODO: GC
@@ -597,8 +589,8 @@ void btree_t<Key_t, Value_t>::convert_all(){
 	    leaf = static_cast<lnode_t<Key_t, Value_t>*>(leaf->sibling_ptr);
 	    continue;
 	}
-	if(leaf->sibling_ptr == nullptr)
-	    break;
+//	if(leaf->sibling_ptr == nullptr)
+//	    break;
 
 	cur_vstart = leaf->get_version(need_restart);
 	auto ret = convert(leaf, cur_vstart);

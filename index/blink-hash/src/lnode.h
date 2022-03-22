@@ -4,8 +4,8 @@
 #include "node.h"
 #include "bucket.h"
 
-//#define LEAF_BTREE_SIZE (2048)
-#define LEAF_BTREE_SIZE (4096)
+#define LEAF_BTREE_SIZE (512)
+//#define LEAF_BTREE_SIZE (4096)
 //#define LEAF_HASH_SIZE (1024*16)
 #define LEAF_HASH_SIZE (1024 * 256)
 //#define LEAF_HASH_SIZE (262144)

@@ -585,6 +585,8 @@ void lnode_hash_t<Key_t, Value_t>::print(){
 
 template <typename Key_t, typename Value_t>
 void lnode_hash_t<Key_t, Value_t>::sanity_check(Key_t _high_key, bool first){
+    if(this->sibling_ptr != nullptr)
+	(static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr))->sanity_check(this->high_key, false);
 }
 
 template <typename Key_t, typename Value_t>

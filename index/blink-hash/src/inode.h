@@ -51,18 +51,13 @@ class inode_t : public node_t{
 
 	void insert_for_root(Key_t* key, node_t** value, node_t* left, int num);
 
-	void batch_insert_last_level(Key_t* key, node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num, Key_t prev_high_key);
+	void batch_insert_last_level(entry_t<Key_t, node_t*>* migrate, int& migrate_idx, int migrate_num, Key_t* key, node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num);
 
-	void batch_insert(entry_t<Key_t, node_t*>* migrate, int& migrate_idx, int migrate_num, Key_t* key, node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num, Key_t prev_high_key);
+	void batch_insert_last_level(Key_t* key, node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num);
 
-	void batch_insert(Key_t* key, node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num, Key_t prev_high_key);
-	//void batch_insert(Key_t* key, node_t** value, int& idx, int num, int batch_size);
+	void batch_insert(entry_t<Key_t, node_t*>* migrate, int& migrate_idx, int migrate_num, Key_t* key, node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num);
 
-	void batch_insert(Key_t* key, node_t** value, int& idx, int num, entry_t<Key_t, node_t*>* buf, int buf_num, Key_t _high_key);
-
-	void batch_insert(Key_t* key, node_t** value, node_t* left, int& idx, int num, int batch_size);
-
-	void batch_insert(entry_t<Key_t, node_t*>* buf, int num, Key_t _high_key);
+	void batch_insert(Key_t* key, node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num);
 
 	void move_normal_insertion(int pos, int num, int move_num);
 		
