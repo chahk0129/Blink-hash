@@ -67,7 +67,7 @@ size_t MemUsage() {
 //==============================================================
 // LOAD
 //==============================================================
-inline void load(std::string input, int wl, int kt, int index_type, kvpair_t<keytype>* init_kv, int init_num, kvpair_t<keytype>* run_kv, int& run_num, int* ranges, int* ops) {
+inline void load(std::string input, int num_thread, int wl, int kt, int index_type, kvpair_t<keytype>* init_kv, int init_num, kvpair_t<keytype>* run_kv, int& run_num, int* ranges, int* ops, std::vector<kvpair_ts_t<keytype>>* init_ts_kv, std::vector<kvpair_ts_t<keytype>>* run_ts_kv) {
     auto back = input.back();
     if(back != '/')
 	input.append("/");
@@ -147,7 +147,9 @@ inline void load(std::string input, int wl, int kt, int index_type, kvpair_t<key
     std::string update("UPDATE");
     std::string scan("SCAN");
 
-    for(int i=0; i<init_num; i++){
+    uint64_t id = 0;
+    for(int i=0; i<init_num; i++, id++){
+	auto tid = id % num_thread;
 	infile_load >> op >> key_str;
 	if(op.compare(insert) != 0){
 	    std::cout << "READING LOAD FILE FAIL!" << std::endl;
@@ -171,7 +173,9 @@ inline void load(std::string input, int wl, int kt, int index_type, kvpair_t<key
 	std::cout << "Failed to open txn input: " << txn_file << std::endl;
 	exit(0);
     }
-    for(int i=0; i<run_num; i++){
+    id = 0;
+    for(int i=0; i<run_num; i++, id++){
+	auto tid = id % num_thread;
 	infile_txn >> op >> key_str;
 	key.setFromString(key_str);
 
@@ -179,7 +183,6 @@ inline void load(std::string input, int wl, int kt, int index_type, kvpair_t<key
 	    ops[i] = OP_INSERT;
 	    run_kv[i].key = key;
 	    run_kv[i].value = reinterpret_cast<uint64_t>(&run_kv[i].key);
-	    ranges[i] = 1;
 	}
 	else if (op.compare(read) == 0) {
 	    ops[i] = OP_READ;
@@ -887,6 +890,16 @@ int main(int argc, char *argv[]) {
 
     std::cerr << opt << std::endl;
 
+    int kt;
+    if(opt.key_type.compare("rand") == 0)
+	kt = RAND_KEY;
+    else if(opt.key_type.compare("email") == 0)
+	kt = EMAIL_KEY;
+    else{
+	std::cout << "Invalid key type: " << opt.key_type << std::endl;
+	exit(0);
+    }
+
     int wl;
     if(opt.workload.compare("load") == 0)
 	wl = WORKLOAD_LOAD;
@@ -905,15 +918,6 @@ int main(int argc, char *argv[]) {
 	exit(0);
     }
 
-    int kt;
-    if(opt.key_type.compare("rand") == 0)
-	kt = RAND_KEY;
-    else if(opt.key_type.compare("email") == 0)
-	kt = EMAIL_KEY;
-    else{
-	std::cout << "Invalid key type: " << opt.key_type << std::endl;
-	exit(0);
-    }
 
     int index_type;
     if(opt.index == "artolc")
@@ -985,7 +989,10 @@ int main(int argc, char *argv[]) {
     int* ranges = new int[run_num];
     int* ops = new int[run_num]; 
 
-    load(input, wl, kt, index_type, init_kv, init_num, run_kv, run_num, ranges, ops);
+    std::vector<kvpair_ts_t<keytype>> init_ts_kv[num_thread];
+    std::vector<kvpair_ts_t<keytype>> run_ts_kv[num_thread];
+
+    load(input, num_thread, wl, kt, index_type, init_kv, init_num, run_kv, run_num, ranges, ops, init_ts_kv, run_ts_kv);
     fprintf(stderr, "Finish loading (Mem = %lu)\n", MemUsage());
 
     exec(wl, index_type, num_thread, init_kv, init_num, run_kv, run_num, ranges, ops);

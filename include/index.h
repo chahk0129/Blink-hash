@@ -9,7 +9,11 @@
 #include "index/BwTree/bwtree.h"
 #include "index/masstree/mtIndexAPI.hh"
 #include "index/hot/src/wrapper.h"
-#include "index/blink-hash/src/tree.h"
+#ifdef STRING_KEY
+#include "index/blink-hash-str/lib/tree.h"
+#else
+#include "index/blink-hash/lib/tree.h"
+#endif
 #ifndef _INDEX_H
 #define _INDEX_H
 
@@ -964,24 +968,28 @@ class BlinkHashIndex: public Index<KeyType, KeyComparator>
     public:
 
 	bool insert(KeyType key, uint64_t value, threadinfo *ti) {
-	    idx->insert(key, value);
+	    auto t = idx->getThreadInfo();
+	    idx->insert(key, value, t);
 	    return 0;
 	}
 
 	uint64_t find(KeyType key, std::vector<uint64_t> *v, threadinfo *ti) {
-	    auto ret = idx->lookup(key);
+	    auto t = idx->getThreadInfo();
+	    auto ret = idx->lookup(key, t);
 	    v->clear();
 	    v->push_back(ret);
 	    return 0;
 	}
 
 	bool upsert(KeyType key, uint64_t value, threadinfo *ti) {
-	    return idx->update(key, value);
+	    auto t = idx->getThreadInfo();
+	    return idx->update(key, value, t);
 	}
 
 	uint64_t scan(KeyType key, int range, threadinfo *ti) {
 	    uint64_t buf[range];
-	    auto ret = idx->range_lookup(key, range, buf);
+	    auto t = idx->getThreadInfo();
+	    auto ret = idx->range_lookup(key, range, buf, t);
 	    return ret;
 	}
 
@@ -992,7 +1000,8 @@ class BlinkHashIndex: public Index<KeyType, KeyComparator>
 	void getMemory() { }
 
 	void convert(){
-	    idx->convert_all();
+	    auto t = idx->getThreadInfo();
+	    idx->convert_all(t);
 	}
 
 	void find_depth(){

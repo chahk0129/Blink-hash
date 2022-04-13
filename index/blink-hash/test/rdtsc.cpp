@@ -14,13 +14,6 @@ using namespace BLINK_HASH;
 using Key_t = uint64_t;
 using Value_t = uint64_t;
 
-/*
-static int* core_alloc_map_hyper;
-static int* core_alloc_map_numa;
-int max_core_count;
-int num_socket;
-int cores_per_socket;
-*/
 static int core_alloc_map_hyper[] = {
   0, 2, 4, 6, 8, 10, 12, 14,
   16, 18, 20, 22, 24, 26, 28, 30,
@@ -33,72 +26,6 @@ static int core_alloc_map_hyper[] = {
 };
 
 constexpr static size_t MAX_CORE_NUM = 64;
-/*
-void cpuinfo(){
-    FILE* fp;
-    std::string cmd = "lscpu";
-
-    fp = popen("lscpu", "r");
-    if(!fp){
-        std::cerr << "failed to collect cpu information" << std::endl;
-        exit(0);
-    }
-
-    int cores_per_socket;
-    int num_sockets;
-    char temp[1024];
-    while(fgets(temp, 1024, fp) != NULL){
-        if(strncmp(temp, "CPU(s):", 7) == 0){
-            char _temp[100];
-            char _temp_[100];
-            sscanf(temp, "%s %s\n", _temp, _temp_);
-            max_core_count = atoi(_temp_);
-
-            core_alloc_map_hyper = new int[max_core_count]; // hyperthreading
-            core_alloc_map_numa = new int[max_core_count]; // hyperthreading
-        }
-        if(strncmp(temp, "Core(s) per socket:", 19) == 0){
-            char _temp[100];
-            char _temp_[100];
-            sscanf(temp, "%s %s %s %s\n", _temp, _temp, _temp, _temp_);
-            cores_per_socket = atoi(_temp_);
-        }
-        if(strncmp(temp, "Socket(s):", 10) == 0){
-            char _temp[100];
-            char _temp_[100];
-            sscanf(temp, "%s %s\n", _temp, _temp_);
-            num_socket = atoi(_temp_);
-        }
-
-        if(strncmp(temp, "NUMA node", 9) == 0){
-            if(strncmp(temp, "NUMA node(s)", 12) == 0) continue;
-            char _temp[64];
-            char _temp_[64];
-            char __temp[64];
-            char __temp_[64];
-            sscanf(temp, "%s %s %s %s\n", _temp, _temp_, __temp, __temp_);
-            int num_node;
-            char dummy[4], nodes[4];
-            sscanf(_temp_, "%c%c%c%c%s", &dummy[0], &dummy[1], &dummy[2], &dummy[3], nodes);
-            num_node = atoi(nodes);
-            char* node;
-            char* ptr = __temp_;
-            int idx= num_node*cores_per_socket*2;
-            node = strtok(ptr, ",");
-            while(node != nullptr){
-                core_alloc_map_hyper[idx++] = atoi(node);
-                node = strtok(NULL, ",");
-            }
-        }
-
-    }
-
-    for(int i=0; i<max_core_count; i++){
-        core_alloc_map_numa[i] = i;
-    }
-
-}*/
-
 inline void pin_to_core(size_t thread_id){
     cpu_set_t cpu_set;
     CPU_ZERO(&cpu_set);
@@ -148,8 +75,9 @@ int main(int argc, char* argv[]){
     auto func = [tree, num_data, num_threads](uint64_t tid, bool){
 	size_t chunk = num_data / num_threads;
 	for(int i=0; i<chunk; i++){
+	    auto t = tree->getThreadInfo();
 	    auto key = (Rdtsc() << 6) | tid;
-	    tree->insert(key, (Value_t)&key);
+	    tree->insert(key, (Value_t)&key, t);
 	}
     };
 

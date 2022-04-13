@@ -17,15 +17,6 @@ inline uint64_t _Rdtsc(){
     return (((uint64_t)hi << 32 ) | lo);
 }
 
-//using namespace BLINK_HASH;
-
-/*
-static int* core_alloc_map_hyper;
-static int* core_alloc_map_numa;
-int max_core_count;
-int num_socket;
-int cores_per_socket;
-*/
 static int core_alloc_map_hyper[] = {
   0, 2, 4, 6, 8, 10, 12, 14,
   16, 18, 20, 22, 24, 26, 28, 30,
@@ -39,79 +30,11 @@ static int core_alloc_map_hyper[] = {
 
 constexpr static size_t MAX_CORE_NUM = 64;
 
-/*
-void cpuinfo(){
-    FILE* fp;
-    std::string cmd = "lscpu";
-
-    fp = popen("lscpu", "r");
-    if(!fp){
-        std::cerr << "failed to collect cpu information" << std::endl;
-        exit(0);
-    }
-
-    int cores_per_socket;
-    int num_sockets;
-    char temp[1024];
-    while(fgets(temp, 1024, fp) != NULL){
-        if(strncmp(temp, "CPU(s):", 7) == 0){
-            char _temp[100];
-            char _temp_[100];
-            sscanf(temp, "%s %s\n", _temp, _temp_);
-            max_core_count = atoi(_temp_);
-
-            core_alloc_map_hyper = new int[max_core_count]; // hyperthreading
-            core_alloc_map_numa = new int[max_core_count]; // hyperthreading
-        }
-        if(strncmp(temp, "Core(s) per socket:", 19) == 0){
-            char _temp[100];
-            char _temp_[100];
-            sscanf(temp, "%s %s %s %s\n", _temp, _temp, _temp, _temp_);
-            cores_per_socket = atoi(_temp_);
-        }
-        if(strncmp(temp, "Socket(s):", 10) == 0){
-            char _temp[100];
-            char _temp_[100];
-            sscanf(temp, "%s %s\n", _temp, _temp_);
-            num_socket = atoi(_temp_);
-        }
-
-
-        if(strncmp(temp, "NUMA node", 9) == 0){
-            if(strncmp(temp, "NUMA node(s)", 12) == 0) continue;
-            char _temp[64];
-            char _temp_[64];
-            char __temp[64];
-            char __temp_[64];
-            sscanf(temp, "%s %s %s %s\n", _temp, _temp_, __temp, __temp_);
-            int num_node;
-            char dummy[4], nodes[4];
-            sscanf(_temp_, "%c%c%c%c%s", &dummy[0], &dummy[1], &dummy[2], &dummy[3], nodes);
-            num_node = atoi(nodes);
-            char* node;
-            char* ptr = __temp_;
-            int idx= num_node*cores_per_socket*2;
-            node = strtok(ptr, ",");
-            while(node != nullptr){
-                core_alloc_map_hyper[idx++] = atoi(node);
-                node = strtok(NULL, ",");
-            }
-        }
-
-    }
-
-    for(int i=0; i<max_core_count; i++){
-        core_alloc_map_numa[i] = i;
-    }
-
-}*/
-
 inline void pin_to_core(size_t thread_id){
     cpu_set_t cpu_set;
     CPU_ZERO(&cpu_set);
 
     size_t core_id = thread_id % MAX_CORE_NUM;
-    //size_t core_id = thread_id % max_core_count;
     CPU_SET(core_alloc_map_hyper[core_id], &cpu_set);
 
     int ret = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set), &cpu_set);
@@ -170,7 +93,8 @@ int main(int argc, char* argv[]){
 	int from = chunk * tid;
 	int to = chunk * (tid + 1);
 	for(int i=from; i<to; i++){
-	    tree->insert(keys[i], (Value_t)&keys[i]);
+	    auto t = tree->getThreadInfo();
+	    tree->insert(keys[i], (Value_t)&keys[i], t);
 	}
     };
     auto search = [&tree, &keys, &notfound_keys, num_data, num_threads](uint64_t tid, bool){
@@ -178,7 +102,8 @@ int main(int argc, char* argv[]){
 	int from = chunk * tid;
 	int to = chunk * (tid + 1);
 	for(int i=from; i<to; i++){
-	    auto ret = tree->lookup(keys[i]);
+	    auto t = tree->getThreadInfo();
+	    auto ret = tree->lookup(keys[i], t);
 	    if(ret != (Value_t)&keys[i]){
 		notfound_keys[tid].push_back(i);
 	    }
@@ -202,7 +127,8 @@ int main(int argc, char* argv[]){
 	int num = 5;
 	uint64_t buf[num];
 	for(int i=from; i<to; i++){
-	    auto ret = tree->range_lookup(keys[i], num, buf);
+	    auto t = tree->getThreadInfo();
+	    auto ret = tree->range_lookup(keys[i], num, buf, t);
 	}
     };
     std::cout << "Converting ... " << std::endl;
@@ -225,7 +151,8 @@ int main(int argc, char* argv[]){
 	for(int i=0; i<num_threads; i++){
 	    for(auto& it: notfound_keys[i]){
 		not_found_num++;
-		auto ret = tree->lookup(keys[it]);
+		auto t = tree->getThreadInfo();
+		auto ret = tree->lookup(keys[it], t);
 		if(ret != (Value_t)&keys[it]){
 		    not_found = true;
 		    std::cout << "key " << keys[it] << " not found" << std::endl;

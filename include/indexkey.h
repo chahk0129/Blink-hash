@@ -11,6 +11,13 @@ struct kvpair_t{
     uint64_t value;
 };
 
+template <typename KeyType>
+struct kvpair_ts_t{
+    int op;
+    int range;
+    struct kvpair_t<KeyType> pair;
+};
+
 template <std::size_t keySize>
 class GenericKey {
 public:
@@ -23,6 +30,7 @@ public:
       data[keySize - 1] = '\0';
     } else {
       strcpy(data, key.c_str());
+      data[key.size()] = '\0';
     }
     
     return;

@@ -91,7 +91,8 @@ int main(int argc, char* argv[]){
 	    to = num_data;
 
 	for(size_t i=from; i<to; i++){
-	    tree->insert(keys[i], (uint64_t)keys[i]);
+	    auto t = tree->getThreadInfo();
+	    tree->insert(keys[i], (uint64_t)keys[i], t);
 	}
     };
 
@@ -104,8 +105,9 @@ int main(int argc, char* argv[]){
 
 	int range = 50;
 	for(size_t i=from; i<to; i++){
+	    auto t = tree->getThreadInfo();
 	    uint64_t buf[range];
-	    auto ret = tree->range_lookup(keys[i], range, buf);
+	    auto ret = tree->range_lookup(keys[i], range, buf, t);
 	}
     };
 
@@ -145,7 +147,8 @@ int main(int argc, char* argv[]){
     #endif
     int update_fail = 0;
     for(int i=0; i<num_data; i++){
-	auto ret = tree->update(keys[i], keys[i]+1);
+	auto t = tree->getThreadInfo();
+	auto ret = tree->update(keys[i], keys[i]+1, t);
 	if(ret != 0)
 	    update_fail++;
     }

@@ -1,4 +1,4 @@
-#include "include/tree.h"
+#include "tree.h"
 
 #include <ctime>
 #include <vector>
@@ -41,19 +41,21 @@ int main(int argc, char* argv[]){
 
     auto warmup = [&tree, &keys, half](int from, int to){
 	for(int i=from; i<to; i++){
-	    tree->insert(keys[i], (uint64_t)keys[i]);
+	    auto t = tree->getThreadInfo();
+	    tree->insert(keys[i], (uint64_t)keys[i], t);
 	}
     };
 
     auto mixed = [&tree, &keys, &insert_ratio, half](int from, int to, int tid){
 	for(int i=from; i<to; i++){
+	    auto t = tree->getThreadInfo();
 	    int ratio = rand() % 100;
 	    if(ratio < insert_ratio)
-		tree->insert(keys[i+half], (uint64_t)keys[i+half]);
+		tree->insert(keys[i+half], (uint64_t)keys[i+half], t);
 	    else{
 		int range = rand() % 100;
 		uint64_t buf[range];
-		auto ret = tree->range_lookup(keys[i], range, buf);
+		auto ret = tree->range_lookup(keys[i], range, buf, t);
 		/*
 		for(int j=0; j<ret; j++){
 		    std::cout << j << ":\tlookup key: " << keys[i] << "\tfound value: " << buf[j] << std::endl;
@@ -88,7 +90,8 @@ int main(int argc, char* argv[]){
 
     uint64_t not_found = 0;
     for(int i=0; i<half; i++){
-	auto ret = tree->lookup(keys[i]);
+	auto t = tree->getThreadInfo();
+	auto ret = tree->lookup(keys[i], t);
 	if(ret != keys[i])
 	    not_found++;
     }
