@@ -35,7 +35,7 @@ for line in f_config :
     args.append(line[:-1])
 
 ycsb_dir = '~/YCSB'
-workload_dir = '~/index-bench/workloads/workload_spec/'
+workload_dir = '~/Blink-hash/workloads/workload_spec/'
 output_dir=sys.argv[2];
 print output_dir
 #output_dir='~/workloads/'

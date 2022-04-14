@@ -11,7 +11,8 @@ CUR_DIR=$(pwd)
 ## integer keys
 KEY_TYPE=randint
 old_skew=0.99
-for new_skew in 0.5 0.7 0.9 1.1 1.2 1.3; do
+#for new_skew in 0.5 0.7 0.9 1.1 1.2 1.3; do
+for new_skew in 0.99; do
     sed -i 's/public static final double ZIPFIAN_CONSTANT = '$old_skew'/public static final double ZIPFIAN_CONSTANT = '$new_skew'/g' ~/YCSB/core/src/main/java/site/ycsb/generator/ZipfianGenerator.java;
     sed -i 's/public static final double USED_ZIPFIAN_CONSTANT = '$old_skew'/public static final double USED_ZIPFIAN_CONSTANT = '$new_skew'/g' ~/YCSB/core/src/main/java/site/ycsb/generator/ScrambledZipfianGenerator.java
     old_skew=$new_skew
