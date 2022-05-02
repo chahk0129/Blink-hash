@@ -88,10 +88,7 @@ int lnode_t<Key_t, Value_t>::range_lookup(Key_t key, Value_t* buf, int count, in
 	case BTREE_NODE:
 	    return (static_cast<lnode_btree_t<Key_t, Value_t>*>(this))->range_lookup(key, buf, count, range, continued);
 	case HASH_NODE:
-	    #ifdef OPTIMAL
-	    std::cout << "this is hash node!!" << std::endl;
-	    #endif
-	    #ifdef ADJUSTMENT
+	    #ifdef ADAPTATION
 	    if(sibling_ptr != nullptr) // convert flag
 		return -2;
 	    #endif

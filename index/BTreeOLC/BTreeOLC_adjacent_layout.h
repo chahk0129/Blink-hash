@@ -1108,17 +1108,18 @@ static thread_local bool abort;
 
 	    void footprint(uint64_t& meta, uint64_t& structural_data_occupied, uint64_t& structural_data_unoccupied, uint64_t& key_data_occupied, uint64_t& key_data_unoccupied){
 		std::function<void(NodeBase*)> func = [&meta, &structural_data_occupied, &structural_data_unoccupied, &key_data_occupied, &key_data_unoccupied, &func](NodeBase* node){
-		    meta += sizeof(NodeBase);
 		    if(node->type == PageType::BTreeInner){
+			meta += sizeof(BTreeInnerBase);
 			auto empty = BTreeInner<Key>::maxEntries - node->count;
-			structural_data_occupied += sizeof(std::pair<Key,NodeBase*>)*node->count;
+			structural_data_occupied += sizeof(std::pair<Key,NodeBase*>)*node->count + sizeof(NodeBase*);
 			structural_data_unoccupied += empty*sizeof(std::pair<Key,NodeBase*>);
 			auto inner = static_cast<BTreeInner<Key>*>(node);
-			for(int i=0; i<inner->count; i++){
+			for(int i=0; i<inner->count+1; i++){
 			    func(inner->data[i].second);
 			}
 		    }
 		    else{
+			meta += sizeof(BTreeLeafBase) + sizeof(NodeBase*);
 			auto empty = BTreeLeaf<Key,Value>::maxEntries - node->count;
 			key_data_occupied += sizeof(std::pair<Key,Value>)*node->count;
 			key_data_unoccupied += empty*sizeof(std::pair<Key,Value>);

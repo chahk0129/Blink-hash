@@ -9,6 +9,6 @@
 #define KEY_LENGTH 32
 
 typedef GenericKey<KEY_LENGTH> StringKey;
-typedef uint64_t Value;
+typedef uint64_t value64_t;
 
 #endif

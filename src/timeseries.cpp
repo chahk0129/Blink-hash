@@ -51,6 +51,8 @@ static bool earliest = false;
 // Whether measure latency
 static bool measure_latency = false;
 static float sampling_rate = 0;
+// Fuzzy insertion rate
+static float fuzzy_rate = 0;
 
 // We could set an upper bound of the number of loaded keys
 static int64_t max_init_key = -1;
@@ -98,14 +100,33 @@ inline void run(int index_type, int wl, int num_thread, int num){
     std::vector<uint64_t> inserted_num(num_thread);
     breakdown_t breakdown[num_thread];
     std::vector<kvpair_t<keytype>> keys[num_thread];
+
+    std::vector<std::pair<kvpair_t<keytype>, std::pair<int, int>>> load_ops;
+    load_ops.reserve(num);
+    int sensor_id = 0;
+    for(int i=0; i<num; i++){
+	auto r = (rand() % 100) / 100.0;
+	if(r < fuzzy_ratio){
+	    auto kv = new kvpair_t<keytype>;
+	    kv->key = ((Rdtsc() << 16) | sensor_id++ << 6);
+	    kv->value = reinterpret_cast<uint64_t>(&kv->key);
+	    load_ops.push_back(std::make_pair(*kv, std::make_pair(OP_FUZZYINSERT, 0)));
+	}
+	else
+	    load_ops.push_back(std::make_pair(nullptr, std::make_pair(OP_INSERT, 0)));
+    }
+
     size_t chunk = num / num_thread;
     for(int i=0; i<num_thread; i++)
 	keys[i].reserve(chunk);
 
-    auto load_earliest = [idx, num, num_thread, &earliest_finished, &inserted_num, &local_load_latency, &keys, &breakdown, &params, &perf_block, profile](uint64_t thread_id, bool){
+    auto load_earliest = [idx, num, num_thread, &earliest_finished, &inserted_num, &local_load_latency, &breakdown, &params, &perf_block, profile, &load_ops](uint64_t thread_id, bool){
 	auto random_bool = std::bind(std::bernoulli_distribution(sampling_rate), std::knuth_b());
 	threadinfo *ti = threadinfo::make(threadinfo::TI_MAIN, -1);
 	size_t chunk = num / num_thread;
+	size_t start = chunk * thread_id;
+	size_t end = chunk * (thread_id + 1);
+	if(end > num) end = num;
 	kvpair_t<keytype>* kv = new kvpair_t<keytype>[chunk];
 	#ifdef BREAKDOWN
 	breakdown_t time;
@@ -122,9 +143,17 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	    e.startCounters();
 	}
 
-	for(int i=0; i<chunk; i++){
-	    kv[i].key = ((Rdtsc() << 10) | sensor_id++ << 6) | thread_id;
-	    kv[i].value = reinterpret_cast<uint64_t>(&kv[i].key);
+	int j = 0;
+	for(auto i=start; i<end; i++, j++){
+	    auto op = load_ops[i].second.first;
+	    if(op == OP_INSERT){
+		kv[j].key = ((Rdtsc() << 16) | sensor_id++ << 6) | thread_id;
+		kv[j].value = reinterpret_cast<uint64_t>(&kv[j].key);
+	    }
+	    else{
+		kv[j].key = ops[i].first.key;
+		kv[j].value = reinterpret_cast<uint64_t>(&kv[j].key);
+	    }
 
 	    bool measure_latency_ = false;
 	    if(measure_latency)
@@ -133,7 +162,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	    if(measure_latency_)
 		local_load_latency[thread_id].push_back(std::chrono::high_resolution_clock::now());
 
-	    idx->insert(kv[i].key, kv[i].value, ti);
+	    idx->insert(kv[j].key, kv[j].value, ti);
 
 	    if(measure_latency_)
 		local_load_latency[thread_id].push_back(std::chrono::high_resolution_clock::now());
@@ -143,7 +172,6 @@ inline void run(int index_type, int wl, int num_thread, int num){
 		ti->rcu_quiesce();
 	    }
 
-	    keys[thread_id].push_back(kv[i]);
 	    if(sensor_id == 1024)
 		sensor_id = 0;
 
@@ -153,7 +181,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
 		    e.stopCounters();
 		    perf_block[thread_id] = e;
 		}
-		inserted_num[thread_id] = i;
+		inserted_num[thread_id] = j;
 		#ifdef BREAKDOWN
 		idx->get_breakdown(time.traversal, time.abort, time.latch, time.node, time.split, time.consolidation);
 		memcpy(&breakdown[thread_id], &time, sizeof(breakdown_t));
@@ -175,10 +203,13 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	#endif
     };
 
-    auto load = [idx, num, num_thread, &local_load_latency, &keys, &params, &perf_block, profile, &breakdown](uint64_t thread_id, bool){
+    auto load = [idx, num, num_thread, &local_load_latency, &keys, &params, &perf_block, profile, &breakdown,  &load_ops](uint64_t thread_id, bool){
 	auto random_bool = std::bind(std::bernoulli_distribution(sampling_rate), std::knuth_b());
 	threadinfo *ti = threadinfo::make(threadinfo::TI_MAIN, -1);
 	size_t chunk = num / num_thread;
+	size_t start = chunk * thread_id;
+	size_t end = chunk * (thread_id + 1);
+	if(end > num) end = num;
 	kvpair_t<keytype>* kv = new kvpair_t<keytype>[chunk];
 	#ifdef BREAKDOWN
 	breakdown_t time;
@@ -195,9 +226,17 @@ inline void run(int index_type, int wl, int num_thread, int num){
             e.startCounters();
         }
 
-	for(int i=0; i<chunk; i++){
-	    kv[i].key = ((Rdtsc() << 10) | sensor_id++ << 6) | thread_id;
-	    kv[i].value = reinterpret_cast<uint64_t>(&kv[i].key);
+	int j = 0;
+	for(auto i=start; i<end; i++, j++){
+	    auto op = load_ops[i];
+	    if(op == OP_INSERT){
+		kv[j].key = ((Rdtsc() << 16) | sensor_id++ << 6) | thread_id;
+		kv[j].value = reinterpret_cast<uint64_t>(&kv[j].key);
+	    }
+	    else{
+		kv[j].key = load_ops[i].first.key;
+		kv[j].value = reinterpret_cast<uint64_t>(&kv[j].key);
+	    }
 
 	    bool measure_latency_ = false;
 	    if(measure_latency)
@@ -206,7 +245,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	    if(measure_latency_)
 		local_load_latency[thread_id].push_back(std::chrono::high_resolution_clock::now());
 
-	    idx->insert(kv[i].key, kv[i].value, ti);
+	    idx->insert(kv[j].key, kv[j].value, ti);
 
 	    if(measure_latency_)
 		local_load_latency[thread_id].push_back(std::chrono::high_resolution_clock::now());
@@ -216,7 +255,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
 		ti->rcu_quiesce();
 	    }
 
-	    keys[thread_id].push_back(kv[i]);
+	    keys[thread_id].push_back(kv[j]);
 	    if(sensor_id == 1024)
 		sensor_id = 0;
 	}
@@ -261,15 +300,19 @@ inline void run(int index_type, int wl, int num_thread, int num){
 
     if(measure_latency){
 	std::vector<uint64_t> global_latency;
+	uint64_t total_latency = 0;
 	for(auto& v: local_load_latency){
 	    for(auto i=0; i<v.size(); i+=2){
-		global_latency.push_back(std::chrono::nanoseconds(v[i+1] - v[i]).count());
+		auto lat = std::chrono::nanoseconds(v[i+1] - v[i]).count();
+                total_latency += lat;
+                global_latency.push_back(lat);
 	    }
 	}
 
 	std::sort(global_latency.begin(), global_latency.end());
 	auto latency_size = global_latency.size();
 	std::cout << "Latency observed (" << latency_size << ") \n"
+		  << "\tavg: \t" << total_latency / latency_size << "\n"
 		  << "\tmin: \t" << global_latency[0] << "\n"
 		  << "\t50%: \t" << global_latency[0.5*latency_size] << "\n"
 		  << "\t90%: \t" << global_latency[0.9*latency_size] << "\n"
@@ -325,18 +368,41 @@ inline void run(int index_type, int wl, int num_thread, int num){
 
 
     std::vector<std::pair<kvpair_t<keytype>, std::pair<int, int>>> ops;
+    std::unordered_map<keytype, bool> hashmap;
+    hashmap.reserve(num);
     ops.reserve(num);
     for(int i=0; i<num_thread; i++){
 	for(auto& v: keys[i]){
+	    hashmap.insert(std::make_pair(v.key, true));
+	}
+    }
+	    
+    for(int i=0; i<num_thread; i++){
+	for(auto& v: keys[i]){
 	    int r = rand() % 100;
-	    if(r < 50)
-		ops.push_back(std::make_pair(v, std::make_pair(OP_INSERT, 0))); // INSERT
+	    if(r < 50){
+		auto fuzzy = (rand() % 100) / 100.0;
+		if(fuzzy < fuzzy_rate){
+		    uint32_t sensor_id = 0;
+		    auto key = v.key | ((sensor_id++ << 6) | i);
+		    while(hashmap.find(key) != hashmap.end()){
+			key = v.key | ((sensor_id++ << 6) | i);
+		    }
+		    hashmap.insert(std::make_pair(key, true));
+		    auto kv = new kvpair_t<keytype>;
+		    kv->key = key;
+		    kv->value = reinterpret_cast<uint64_t>(&kv->key);
+		    ops.push_back(std::make_pair(*kv, std::make_pair(OP_FUZZYINSERT, 0))); // FUZZY_INSERT
+		}
+		else
+		    ops.push_back(std::make_pair(v, std::make_pair(OP_INSERT, 0))); // INSERT
+	    }
 	    else if(r < 80){
-		int range = rand() % 10;
+		int range = rand() % 5 + 5;
 		ops.push_back(std::make_pair(v, std::make_pair(OP_SCAN, range))); // SHORT SCAN
 	    }
 	    else if(r < 90){
-		int range = rand() % 80 + 10;
+		int range = rand() % 90 + 10;
 		ops.push_back(std::make_pair(v, std::make_pair(OP_SCAN, range))); // LONG SCAN
 	    }
 	    else
@@ -653,9 +719,16 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	    auto op = ops[i].second.first;
 	    if(op == OP_INSERT){
 		auto kv = new kvpair_t<keytype>;
-		kv->key = ((Rdtsc() << 10) | sensor_id++ << 6) | thread_id;
+		kv->key = ((Rdtsc() << 16) | sensor_id++ << 6) | thread_id;
 		kv->value = reinterpret_cast<uint64_t>(&kv->key);
 		if(sensor_id == 1024) sensor_id = 0;
+		idx->insert(kv->key, kv->value, ti);
+	    }
+	    else if(op == OP_FUZZYINSERT){
+		std::cout << "fuzzy insertion" << std::endl;
+		auto kv = new kvpair_t<keytype>;
+		kv->key = ops[i].first.key;
+		kv->value = reinterpret_cast<uint64_t>(&kv->key);
 		idx->insert(kv->key, kv->value, ti);
 	    }
 	    else if(op == OP_READ){
@@ -741,9 +814,15 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	    auto op = ops[i].second.first;
 	    if(op == OP_INSERT){
 		auto kv = new kvpair_t<keytype>;
-		kv->key = ((Rdtsc() << 10) | sensor_id++ << 6) | thread_id;
+		kv->key = ((Rdtsc() << 16) | sensor_id++ << 6) | thread_id;
 		kv->value = reinterpret_cast<uint64_t>(&kv->key);
 		if(sensor_id == 1024) sensor_id = 0;
+		idx->insert(kv->key, kv->value, ti);
+	    }
+	    else if(op == OP_FUZZYINSERT){
+		auto kv = new kvpair_t<keytype>;
+		kv->key = ops[i].first.key;
+		kv->value = reinterpret_cast<uint64_t>(&kv->key);
 		idx->insert(kv->key, kv->value, ti);
 	    }
 	    else if(op == OP_READ){
@@ -832,15 +911,19 @@ inline void run(int index_type, int wl, int num_thread, int num){
 
     if(measure_latency){
 	std::vector<uint64_t> global_latency;
+	uint64_t total_latency = 0;
 	for(auto& v: local_run_latency){
 	    for(auto i=0; i<v.size(); i+=2){
-		global_latency.push_back(std::chrono::nanoseconds(v[i+1] - v[i]).count());
+		auto lat = std::chrono::nanoseconds(v[i+1] - v[i]).count();
+		total_latency += lat;
+		global_latency.push_back(lat);
 	    }
 	}
 
 	std::sort(global_latency.begin(), global_latency.end());
 	auto latency_size = global_latency.size();
 	std::cout << "Latency observed (" << latency_size << ") \n"
+		  << "\tavg: \t" << total_latency / latency_size << "\n"
 		  << "\tmin: \t" << global_latency[0] << "\n"
 		  << "\t50%: \t" << global_latency[0.5*latency_size] << "\n"
 		  << "\t90%: \t" << global_latency[0.9*latency_size] << "\n"
@@ -904,7 +987,7 @@ int main(int argc, char *argv[]) {
 	options.add_options()
 	    ("workload", "Workload type (load,read,scan,mixed)", cxxopts::value<std::string>())
 	    ("num", "Size of workload to run", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.num)))
-	    ("index", "Index type (artolc, artrowex, hot, masstree, btreeolc, blink, bwtree)", cxxopts::value<std::string>())
+	    ("index", "Index type (artolc, artrowex, hot, masstree, cuckoo, btreeolc, blink, blinkhash, bwtree)", cxxopts::value<std::string>())
 	    ("threads", "Number of threads to run", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.threads)))
 	    ("mem", "Measure memory bandwidth", cxxopts::value<bool>()->default_value((opt.mem ? "true" : "false")))
 	    ("profile", "Enable CPU profiling", cxxopts::value<bool>()->default_value((opt.profile? "true" : "false")))
@@ -912,6 +995,7 @@ int main(int argc, char *argv[]) {
 	    ("hyper", "Enable hyper threading", cxxopts::value<bool>()->default_value((opt.hyper ? "true" : "false")))
 	    ("insert_only", "Skip running transactions", cxxopts::value<bool>()->default_value((opt.insert_only ? "true" : "false")))
 	    ("earliest", "Measure performance based on the earliest finished thread", cxxopts::value<bool>()->default_value((opt.earliest ? "true" : "false")))
+	    ("fuzzy", "Amount of fuzzy keys in mixed workload", cxxopts::value<float>()->default_value(std::to_string(opt.fuzzy)))
 	    ("help", "Print help")
 	    ;
 
@@ -929,6 +1013,9 @@ int main(int argc, char *argv[]) {
 
 	if(result.count("latency"))
 	    opt.sampling_latency = result["latency"].as<float>();
+
+	if(result.count("fuzzy"))
+	    opt.fuzzy = result["fuzzy"].as<float>();
 
 	if(result.count("num"))
 	    opt.num = result["num"].as<uint32_t>();
@@ -1005,6 +1092,8 @@ int main(int argc, char *argv[]) {
 	index_type = TYPE_BWTREE;
     else if(opt.index == "btreeolc")
 	index_type = TYPE_BTREEOLC;
+    else if(opt.index == "cuckoo")
+	index_type = TYPE_CUCKOOHASH;
     else if(opt.index == "blink")
 	index_type = TYPE_BLINKTREE;
     else if(opt.index == "blinkhash")
@@ -1054,6 +1143,11 @@ int main(int argc, char *argv[]) {
     sampling_rate = opt.sampling_latency;
     if(sampling_rate != 0.0)
 	measure_latency = true;
+
+    if(fuzzy_rate < 0 || fuzzy_rate > 1){
+	std::cout << "Fuzzy insertion rate should be between 0.0 and 1.0" << std::endl;
+	exit(0);
+    }
 
     int num_thread = opt.threads;
 

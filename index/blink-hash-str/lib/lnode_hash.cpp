@@ -4,9 +4,9 @@
 namespace BLINK_HASH{
 
 template <typename Key_t, typename Value_t>
-inline bool lnode_hash_t<Key_t, Value_t>::_try_splitlock(uint64_t version){
+inline bool lnode_hash_t<Key_t, Value_t>::try_splitlock(uint64_t version){
     bool need_restart = false;
-    this->try_upgrade_writelock(version, need_restart);
+    (static_cast<node_t*>(this))->try_upgrade_writelock(version, need_restart);
     if(need_restart) return false;
     for(int i=0; i<cardinality; i++){
 	while(!bucket[i].try_lock())
@@ -16,11 +16,41 @@ inline bool lnode_hash_t<Key_t, Value_t>::_try_splitlock(uint64_t version){
 }
 
 template <typename Key_t, typename Value_t>
-inline void lnode_hash_t<Key_t, Value_t>::_split_unlock(){
+inline bool lnode_hash_t<Key_t, Value_t>::try_convertlock(uint64_t version){
+    bool need_restart = false;
+    (static_cast<node_t*>(this))->try_upgrade_convertlock(version, need_restart);
+    if(need_restart) return false;
+    for(int i=0; i<cardinality; i++){
+	while(!bucket[i].try_convertlock())
+	    _mm_pause();
+    }
+    return true;
+}
+
+template <typename Key_t, typename Value_t>
+inline void lnode_hash_t<Key_t, Value_t>::split_unlock(){
     (static_cast<node_t*>(this))->write_unlock();
     for(int i=0; i<cardinality; i++){
 	bucket[i].unlock();
     }
+}
+
+template <typename Key_t, typename Value_t>
+inline bool lnode_hash_t<Key_t, Value_t>::try_writelock(){
+    return (static_cast<node_t*>(this))->try_writelock();
+}
+
+
+template <typename Key_t, typename Value_t>
+inline void lnode_hash_t<Key_t, Value_t>::write_unlock(){
+    (static_cast<node_t*>(this))->write_unlock();
+}
+
+
+template <typename Key_t, typename Value_t>
+inline uint64_t lnode_hash_t<Key_t, Value_t>::get_version(bool& need_restart){
+    auto ret = (static_cast<node_t*>(this))->get_version(need_restart);
+    return ret;
 }
 
 template <typename Key_t, typename Value_t>
@@ -46,6 +76,7 @@ inline uint8_t lnode_hash_t<Key_t, Value_t>::_hash(size_t key){
 template <typename Key_t, typename Value_t>
 int lnode_hash_t<Key_t, Value_t>::insert(Key_t key, Value_t value, uint64_t version){
     bool need_restart = false;
+#ifdef FINGERPRINT
     #ifdef AVX512
     __m256i empty = _mm256_setzero_si256();
     #elif defined AVX2
@@ -53,39 +84,52 @@ int lnode_hash_t<Key_t, Value_t>::insert(Key_t key, Value_t value, uint64_t vers
     #else
     uint8_t empty = 0;
     #endif
+#endif
 
     for(int k=0; k<HASH_FUNCS_NUM; k++){
 	auto hash_key = h(&key, sizeof(Key_t), k);
+	#ifdef FINGERPRINT
 	uint8_t fingerprint = _hash(hash_key) | 1;
+	#endif
 	for(int j=0; j<NUM_SLOT; j++){
 	    auto loc = (hash_key + j) % cardinality;
-	    if(!bucket[loc].try_lock()){
+	    if(!bucket[loc].try_lock())
 		return -1;
-	    }
 
-	    auto _version = lnode_t<Key_t, Value_t>::get_version(need_restart);
+	    auto _version = get_version(need_restart);
 	    if(need_restart || (version != _version)){
 		bucket[loc].unlock();
 		return -1;
 	    }
 
+	    #ifdef LINKED
 	    if(bucket[loc].state != bucket_t<Key_t, Value_t>::STABLE){
 		if(!stabilize_bucket(loc)){
 		    bucket[loc].unlock();
 		    return -1;
 		}
 	    }
+	    #endif
 
+	    #ifdef FINGERPRINT
 	    if(bucket[loc].insert(key, value, fingerprint, empty)){
 		bucket[loc].unlock();
 		return 0;
 	    }
+	    #else
+	    if(bucket[loc].insert(key, value)){
+		bucket[loc].unlock();
+		return 0;
+	    }
+	    #endif
 	    bucket[loc].unlock();
+
 	}
     }
 
     return 1; // return split flag
 }
+
 
 template <typename Key_t, typename Value_t>
 lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_key, Key_t key, Value_t value, uint64_t version){
@@ -105,12 +149,14 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
 	target[k].fingerprint = (_hash(hash_key) | 1);
     }
 
+    #ifdef LINKED
     if(!stabilize_all(version)){
 	delete new_right;
 	return nullptr;
     }
+    #endif
 
-    if(!_try_splitlock(version)){
+    if(!try_splitlock(version)){
 	delete new_right;
 	return nullptr;
     }
@@ -120,6 +166,7 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
        std::cout << util << std::endl;
      */
 
+#ifdef FINGERPRINT
     #ifdef AVX512
     __m256i empty = _mm256_setzero_si256();
     #elif defined AVX2
@@ -127,7 +174,9 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
     #else
     uint8_t empty = 0;
     #endif
+#endif
 
+#ifdef FINGERPRINT
     #ifdef SAMPLING // entry-based sampling
     Key_t temp[cardinality];
     int valid_num = 0;
@@ -138,14 +187,28 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
     #else // non-sampling
     Key_t temp[cardinality*entry_num];
     int valid_num = 0;
-    for(int j=0; j<cardinality; j++){
+    for(int j=0; j<cardinality; j++)
 	bucket[j].collect_all_keys(temp, valid_num, empty);
-    }
     #endif
+#else
+    #ifdef SAMPLING // entry-based sampling
+    Key_t temp[cardinality];
+    int valid_num = 0;
+    for(int j=0; j<cardinality; j++){
+	if(bucket[j].collect_keys(temp, valid_num, cardinality))
+	    break;
+    }
+    #else // non-sampling 
+    Key_t temp[cardinality*entry_num];
+    int valid_num = 0;
+    for(int j=0; j<cardinality; j++)
+	bucket[j].collect_all_keys(temp, valid_num);
+    #endif
+#endif
 
     int half = find_median(temp, valid_num);
     split_key = temp[half];
-    lnode_t<Key_t, Value_t>::high_key = temp[half];
+    this->high_key = temp[half];
 
     #ifdef DEBUG // to find out the error rate of finding median key for sampling-based approaches
     Key_t temp_[cardinality*entry_num];
@@ -169,13 +232,13 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
     std::cout << (double)(sampled_median_loc - valid_num_/2)/valid_num_ * 100 << std::endl;
     #endif
 
+    bool need_insert = true;
+    #ifdef LINKED
     // set every bucket state in current node to LINKED_RIGHT
-    for(int i=0; i<cardinality; i++){
+    for(int i=0; i<cardinality; i++)
 	bucket[i].state = bucket_t<Key_t, Value_t>::LINKED_RIGHT;
-    }
 
     // insert after split
-    bool need_insert = true;
     for(int m=0; m<HASH_FUNCS_NUM; m++){
 	for(int j=0; j<NUM_SLOT; j++){
 	    auto loc = (target[m].loc + j) % cardinality;
@@ -230,7 +293,7 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
 		    }
 		}
 	    }
-	    #elif defined AVX2
+	    #elif defined AVX2 // +simd
 	    for(int k=0; k<2; k++){
 		__m128i fingerprints_ = _mm_loadu_si128(reinterpret_cast<__m128i*>(bucket[loc].fingerprints + k*16));
 		__m128i cmp = _mm_cmpeq_epi8(empty, fingerprints_);
@@ -284,7 +347,7 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
 		    }
 		}
 	    }
-	    #else
+	    #else // +fingerprint
 	    for(int i=0; i<entry_num; i++){
 		if(bucket[loc].fingerprints[i] != 0){ // eager stabilization
 		    if(split_key < bucket[loc].entry[i].key){ // migrate key-value to new node
@@ -317,7 +380,7 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
 		    }
 		}
 		else{ // empty
-		    if(need_insert){ // split after insert
+		    if(need_insert){ 
 			if(split_key < key){ // insert in new node
 			    new_right->bucket[loc].fingerprints[i] = target[m].fingerprint;
 			    new_right->bucket[loc].entry[i].key = key;
@@ -333,19 +396,140 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
 		}
 	    }
 	    #endif
-	    // set migrated/inserted buckets STABLE
-	    bucket[loc].state = bucket_t<Key_t, Value_t>::STABLE;
-	    new_right->bucket[loc].state = bucket_t<Key_t, Value_t>::STABLE;
+
 	    if(!need_insert) // if new key/value is inserted, proceed to next steps
 		goto PROCEED;
 	}
     }
 
+    #else
+    // migrate keys
+    for(int j=0; j<cardinality; j++){
+        #ifdef FINGERPRINT
+	#ifdef AVX512
+	__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256*>(bucket[j].fingerprints));
+	__m256i cmp = _mm256_cmpeq_epi8(empty, fingerprints_);
+	uint32_t bitfield = _mm256_movemask_epi8(cmp);
+	for(int i=0; i<32; i++){
+	    auto bit = (bitfield >> i);
+	    if((bit & 0x1) == 0){
+		if(split_key < bucket[j].entry[i].key){ // migrate key-value to new node
+		    memcpy(&new_right->bucket[j].entry[i], &bucket[j].entry[i], sizeof(entry_t<Key_t, Value_t>));
+		    new_right->bucket[j].fingerprints[i] = bucket[j].fingerprints[i];
+		    bucket[j].fingerprints[i] = 0;
+		}
+	    }
+	}
+	#elif defined AVX2
+	for(int k=0; k<2; k++){
+	    __m128i fingerprints_ = _mm_loadu_si128(reinterpret_cast<__m128i*>(bucket[j].fingerprints + k*16));
+	    __m128i cmp = _mm_cmpeq_epi8(empty, fingerprints_);
+	    uint16_t bitfield = _mm_movemask_epi8(cmp);
+	    for(int i=0; i<16; i++){
+		auto bit = (bitfield >> i);
+		auto idx = k*16 + i;
+		if((bit & 0x1) == 0){
+		    if(split_key < bucket[j].entry[idx].key){ // migrate key-value to new node
+			memcpy(&new_right->bucket[j].entry[idx], &bucket[j].entry[idx], sizeof(entry_t<Key_t, Value_t>));
+			new_right->bucket[j].fingerprints[idx] = bucket[j].fingerprints[idx];
+			bucket[j].fingerprints[idx] = 0;
+		    }
+		}
+	    }
+	}
+	#else
+	for(int i=0; i<entry_num; i++){
+	    if(bucket[j].fingerprints[i] != 0){
+		if(split_key < bucket[j].entry[i].key){ // migrate key-value to new node
+		    memcpy(&new_right->bucket[j].entry[i], &bucket[j].entry[i], sizeof(entry_t<Key_t, Value_t>));
+		    new_right->bucket[j].fingerprints[i] = bucket[j].fingerprints[i];
+		    bucket[j].fingerprints[i] = 0;
+		}
+	    }
+	}
+	#endif
+	#else // baseline
+	for(int i=0; i<entry_num; i++){
+	    if(bucket[j].entry[i].key != EMPTY<Key_t>){
+		if(split_key < bucket[j].entry[i].key){ // migrate key-value to new node
+		    memcpy(&new_right->bucket[j].entry[i], &bucket[j].entry[i], sizeof(entry_t<Key_t, Value_t>));
+		    bucket[j].entry[i].key = EMPTY<Key_t>;
+		}
+	    }
+	}
+	#endif
+    }
+
+    // insert after split
+    auto target_node = this;
+    if(split_key < key)
+	target_node = new_right;
+
+    for(int m=0; m<HASH_FUNCS_NUM; m++){
+	for(int j=0; j<NUM_SLOT; j++){
+	    auto loc = (target[m].loc + j) % cardinality;
+	    #ifdef FINGERPRINT
+	    #ifdef AVX512
+	    __m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(target_node->bucket[loc].fingerprints));
+	    __m256i cmp = _mm256_cmpeq_epi8(empty, fingerprints_);
+	    uint32_t bitfield = _mm256_movemask_epi8(cmp);
+	    for(int i=0; i<32; i++){
+		auto bit = (bitfield >> i);
+		if((bit & 0x1) == 1){
+		    target_node->bucket[loc].fingerprints[i] = target[m].fingerprint;
+		    target_node->bucket[loc].entry[i].key = key;
+		    target_node->bucket[loc].entry[i].value = value;
+		    need_insert = false;
+		    goto PROCEED;
+		}
+	    }
+	    #elif defined AVX2
+	    for(int k=0; k<2; k++){
+		__m128i fingerprints_ = _mm_loadu_si128(reinterpret_cast<__m128i*>(target_node->bucket[loc].fingerprints));
+		__m128i cmp = _mm_cmpeq_epi8(empty, fingerprints_);
+		uint16_t bitfield = _mm_movemask_epi8(cmp);
+		for(int i=0; i<16; i++){
+		    auto bit = (bitfield >> i);
+		    auto idx = k*16 + i;
+		    if((bit & 0x1) == 1){
+			target_node->bucket[loc].fingerprints[i] = target[m].fingerprint;
+			target_node->bucket[loc].entry[i].key = key;
+			target_node->bucket[loc].entry[i].value = value;
+			need_insert = false;
+			goto PROCEED;
+		    }
+		}
+	    }
+	    #else
+	    for(int i=0; i<entry_num; i++){
+		if(target_node->bucket[loc].fingerprints[i] == 0){
+		    target_node->bucket[loc].fingerprints[i] = target[m].fingerprint;
+		    target_node->bucket[loc].entry[i].key = key;
+		    target_node->bucket[loc].entry[i].value = value;
+		    need_insert = false;
+		    goto PROCEED;
+		}
+	    }
+	    #endif
+	    #else
+	    for(int i=0; i<entry_num; i++){
+		if(target_node->bucket[loc].entry[i].key == EMPTY<Key_t>){
+		    target_node->bucket[loc].entry[i].key = key;
+		    target_node->bucket[loc].entry[i].value = value;
+		    need_insert = false;
+		    goto PROCEED;
+		}
+	    }
+	    #endif
+	}
+    }
+    #endif
+    
 
     PROCEED:
-    if(lnode_t<Key_t, Value_t>::sibling_ptr != nullptr){
+    if(this->sibling_ptr != nullptr){
 	// update right sibling node's left sibling pointer
-	auto right_sibling = static_cast<lnode_t<Key_t, Value_t>*>(lnode_t<Key_t, Value_t>::sibling_ptr);
+	auto right_sibling = static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr);
 	if(right_sibling->type == lnode_t<Key_t, Value_t>::HASH_NODE){ // need to update right sibling's left sibling pointer
 	    auto right = static_cast<lnode_hash_t<Key_t, Value_t>*>(right_sibling);
 	    auto old = this;
@@ -355,7 +539,7 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
 	}
     }
     // update current node's right sibling pointer
-    lnode_t<Key_t, Value_t>::sibling_ptr = new_right;
+    this->sibling_ptr = new_right;
 
     if(need_insert){
 	blink_printf("%s %s %llu\n", __func__, ": insert after split failed key- ", key);
@@ -372,6 +556,7 @@ int lnode_hash_t<Key_t, Value_t>::update(Key_t key, Value_t value, uint64_t vsta
     bool need_restart = false;
     for(int k=0; k<HASH_FUNCS_NUM; k++){
 	auto hash_key = h(&key, sizeof(Key_t), k);
+    #ifdef FINGERPRINT
 	#ifdef AVX512
 	__m256i fingerprint = _mm256_set1_epi8(_hash(hash_key) | 1);
 	#elif defined AVX2
@@ -379,18 +564,20 @@ int lnode_hash_t<Key_t, Value_t>::update(Key_t key, Value_t value, uint64_t vsta
 	#else
 	uint8_t fingerprint = _hash(hash_key) | 1;
 	#endif
+    #endif
 
 	for(int j=0; j<NUM_SLOT; j++){
 	    auto loc = (hash_key + j) % cardinality;
 	    if(!bucket[loc].try_lock())
 		return -1;
 
-	    auto vend = lnode_t<Key_t, Value_t>::get_version(need_restart);
+	    auto vend = get_version(need_restart);
 	    if(need_restart || (vstart != vend)){
 		bucket[loc].unlock();
 		return -1;
 	    }
 
+	    #ifdef LINKED
 	    if(bucket[loc].state != bucket_t<Key_t, Value_t>::STABLE){
 		auto ret = stabilize_bucket(loc);
 		if(!ret){
@@ -398,11 +585,19 @@ int lnode_hash_t<Key_t, Value_t>::update(Key_t key, Value_t value, uint64_t vsta
 		    return -1;
 		}
 	    }
+	    #endif
 
+	    #ifdef FINGERPRINT
 	    if(bucket[loc].update(key, value, fingerprint)){ // updated
 		bucket[loc].unlock();
 		return 0;
 	    }
+	    #else
+	    if(bucket[loc].update(key, value)){ // updated
+		bucket[loc].unlock();
+		return 0;
+	    }
+	    #endif
 
 	    bucket[loc].unlock();
 	}
@@ -414,6 +609,7 @@ template <typename Key_t, typename Value_t>
 Value_t lnode_hash_t<Key_t, Value_t>::find(Key_t key, bool& need_restart){
     for(int k=0; k<HASH_FUNCS_NUM; k++){
 	auto hash_key = h(&key, sizeof(Key_t), k);
+    #ifdef FINGERPRINT
 	#ifdef AVX512
 	__m256i fingerprint = _mm256_set1_epi8(_hash(hash_key) | 1);
 	#elif defined AVX2
@@ -421,6 +617,7 @@ Value_t lnode_hash_t<Key_t, Value_t>::find(Key_t key, bool& need_restart){
 	#else
 	uint8_t fingerprint = _hash(hash_key) | 1;
 	#endif
+    #endif
 
 	for(int j=0; j<NUM_SLOT; j++){
 	    auto loc = (hash_key + j) % cardinality;
@@ -429,6 +626,7 @@ Value_t lnode_hash_t<Key_t, Value_t>::find(Key_t key, bool& need_restart){
 	    if(need_restart)
 		return 0;
 
+	    #ifdef LINKED
 	    if(bucket[loc].state != bucket_t<Key_t, Value_t>::STABLE){
 		if(!bucket[loc].upgrade_lock(bucket_vstart)){
 		    need_restart = true;
@@ -444,8 +642,10 @@ Value_t lnode_hash_t<Key_t, Value_t>::find(Key_t key, bool& need_restart){
 		bucket[loc].unlock();
 		bucket_vstart += 0b100;
 	    }
+	    #endif
 
 	    Value_t ret;
+	    #ifdef FINGERPRINT
 	    if(bucket[loc].find(key, ret, fingerprint)){ // found
 		auto bucket_vend = bucket[loc].get_version(need_restart);
 		if(need_restart || (bucket_vstart != bucket_vend)){
@@ -454,6 +654,16 @@ Value_t lnode_hash_t<Key_t, Value_t>::find(Key_t key, bool& need_restart){
 		}
 		return ret;
 	    }
+	    #else
+	    if(bucket[loc].find(key, ret)){ // found
+		auto bucket_vend = bucket[loc].get_version(need_restart);
+		if(need_restart || (bucket_vstart != bucket_vend)){
+		    need_restart = true;
+		    return 0;
+		}
+		return ret;
+	    }
+	    #endif
 
 	    auto bucket_vend = bucket[loc].get_version(need_restart);
 	    if(need_restart || (bucket_vstart != bucket_vend)){
@@ -474,6 +684,7 @@ int lnode_hash_t<Key_t, Value_t>::range_lookup(Key_t key, Value_t* buf, int coun
     int _count = count;
     int idx = 0;
 
+#ifdef FINGERPRINT
     #ifdef AVX512
     __m256i empty = _mm256_setzero_si256();
     #elif defined AVX2
@@ -481,11 +692,13 @@ int lnode_hash_t<Key_t, Value_t>::range_lookup(Key_t key, Value_t* buf, int coun
     #else
     uint8_t empty = 0;
     #endif
+#endif
 
     for(int j=0; j<cardinality; j++){
 	auto bucket_vstart = bucket[j].get_version(need_restart);
 	if(need_restart) return -1;
 
+	#ifdef LINKED
 	if(bucket[j].state != bucket_t<Key_t, Value_t>::STABLE){
 	    if(!bucket[j].upgrade_lock(bucket_vstart))
 		return -1;
@@ -498,8 +711,13 @@ int lnode_hash_t<Key_t, Value_t>::range_lookup(Key_t key, Value_t* buf, int coun
 	    bucket[j].unlock();
 	    bucket_vstart += 0b100;
 	}
+	#endif
 
+	#ifdef FINGERPRINT
 	bucket[j].collect(key, _buf, idx, empty);
+	#else
+	bucket[j].collect(key, _buf, idx);
+	#endif
 
 	auto bucket_vend = bucket[j].get_version(need_restart);
 	if(need_restart || (bucket_vstart != bucket_vend))
@@ -528,14 +746,17 @@ lnode_btree_t<Key_t, Value_t>** lnode_hash_t<Key_t, Value_t>::convert(int& num, 
     int idx = 0;
     entry_t<Key_t, Value_t> buf[cardinality * entry_num];
 
+    #ifdef LINKED
     if(!stabilize_all(version)){
 	return nullptr;
     }
+    #endif
 
-    if(!_try_splitlock(version)){
+    if(!try_convertlock(version)){
 	return nullptr;
     }
 
+#ifdef FINGERPRINT
     #ifdef AVX512
     __m256i empty = _mm256_setzero_si256();
     #elif defined AVX2
@@ -543,9 +764,12 @@ lnode_btree_t<Key_t, Value_t>** lnode_hash_t<Key_t, Value_t>::convert(int& num, 
     #else
     uint8_t empty = 0;
     #endif
-    for(int i=0; i<cardinality; i++){
+    for(int i=0; i<cardinality; i++)
 	bucket[i].collect(buf, idx, empty);
-    }
+#else
+    for(int i=0; i<cardinality; i++)
+	bucket[i].collect(buf, idx);
+#endif
 
     std::sort(buf, buf+idx, [](entry_t<Key_t, Value_t>& a, entry_t<Key_t, Value_t>& b){
 	    return a.key < b.key;
@@ -557,13 +781,12 @@ lnode_btree_t<Key_t, Value_t>** lnode_hash_t<Key_t, Value_t>::convert(int& num, 
     else
 	num = idx / batch_size + 1;
 
-    //lnode_btree_t<Key_t, Value_t>* leaf[num];
     auto leaf = new lnode_btree_t<Key_t, Value_t>*[num];
     for(int i=0; i<num; i++)
 	leaf[i] = new lnode_btree_t<Key_t, Value_t>();
-    leaf[0]->writelock();
 
     int from = 0;
+    leaf[0]->writelock();
     for(int i=0; i<num; i++){
 	if(i < num-1)
 	    leaf[i]->sibling_ptr = static_cast<node_t*>(leaf[i+1]);
@@ -573,14 +796,14 @@ lnode_btree_t<Key_t, Value_t>** lnode_hash_t<Key_t, Value_t>::convert(int& num, 
     }
     leaf[num-1]->high_key = this->high_key;
 
-    if(left_sibling_ptr){
-	/*
-	while(!static_cast<lnode_t<Key_t, Value_t>*>(left_sibling_ptr)->try_writelock()){
+    if(left_sibling_ptr != nullptr){
+	RETRY:
+	if(!left_sibling_ptr->try_writelock()){
 	    _mm_pause();
+	    goto RETRY;
 	}
-	*/
 	left_sibling_ptr->sibling_ptr = static_cast<node_t*>(leaf[0]);
-	//(static_cast<lnode_t<Key_t, Value_t>*>(left_sibling_ptr))->write_unlock();
+	left_sibling_ptr->write_unlock();
     }
     if(this->sibling_ptr){
 	auto right_sibling = static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr);
@@ -606,8 +829,13 @@ double lnode_hash_t<Key_t, Value_t>::utilization(){
     int cnt = 0;
     for(int j=0; j<cardinality; j++){
 	for(int i=0; i<entry_num; i++){
+	    #ifdef FINGERPRINT
 	    if(bucket[j].fingerprints[i] != 0)
 		cnt++;
+	    #else
+	    if(bucket[j].entry[i].key != EMPTY<Key_t>)
+		cnt++;
+	    #endif
 	}
     }
     return (double)cnt/(cardinality*entry_num);
@@ -615,6 +843,10 @@ double lnode_hash_t<Key_t, Value_t>::utilization(){
 
 template <typename Key_t, typename Value_t>
 bool lnode_hash_t<Key_t, Value_t>::stabilize_all(uint64_t version){
+#if !defined(FINGERPRINT) || !defined(LINKED)
+    std::cout << __func__ << ": cannot be called if FINGERPRINT and LINKED flags are not defined" << std::endl;
+    return false;
+#else
     bool need_restart = false;
     #ifdef AVX512
     __m256i empty = _mm256_setzero_si256();
@@ -631,7 +863,7 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_all(uint64_t version){
 	}
 	else continue;
 
-	auto cur_version = this->get_version(need_restart);
+	auto cur_version = get_version(need_restart);
 	if(need_restart || (version != cur_version)){
 	    bucket[j].unlock();
 	    return false;
@@ -754,10 +986,15 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_all(uint64_t version){
 	// else STABLE
     }
     return true;
+#endif
 }
 
 template <typename Key_t, typename Value_t>
 bool lnode_hash_t<Key_t, Value_t>::stabilize_bucket(int loc){
+#if (!defined FINGERPRINT) || (!defined LINKED)
+    std::cout << __func__ << ": cannot be called if FINGERPRINT and LINKED flags are not defined" << std::endl;
+    return false;
+#else
     RETRY:
     bool need_restart = false;
     if(bucket[loc].state == bucket_t<Key_t, Value_t>::LINKED_LEFT){
@@ -913,6 +1150,7 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_bucket(int loc){
 	}
     }
     return true;
+#endif
 }
 
 template <typename Key_t, typename Value_t>
@@ -1001,5 +1239,5 @@ inline void lnode_hash_t<Key_t, Value_t>::prefetch(const void* addr){
     //_mm_prefetch(addr, _MM_HINT_T0);
 }
 
-template class lnode_hash_t<StringKey, Value>;
+template class lnode_hash_t<StringKey, value64_t>;
 }

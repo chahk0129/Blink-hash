@@ -18,13 +18,13 @@ class inode_t : public node_t{
         inode_t() { }
 
 	// constructor when inserts in batch
-	inode_t(uint32_t _level): node_t(_level){ }
+	inode_t(int _level): node_t(_level){ }
 
 	 // constructor when inode needs to split
-        inode_t(node_t* sibling, int _cnt, node_t* left, uint32_t _level, Key_t _high_key): node_t(sibling, left, _cnt, _level), high_key(_high_key){ }
+        inode_t(node_t* sibling, int _cnt, node_t* left, int _level, Key_t _high_key): node_t(sibling, left, _cnt, _level), high_key(_high_key){ }
 
         // constructor when tree height grows
-        inode_t(Key_t split_key, node_t* left, node_t* right, node_t* sibling, uint32_t _level, Key_t _high_key): node_t(sibling, left, 1, _level){
+        inode_t(Key_t split_key, node_t* left, node_t* right, node_t* sibling, int _level, Key_t _high_key): node_t(sibling, left, 1, _level){
             high_key = _high_key;
             entry[0].value = right;
             entry[0].key = split_key;
@@ -37,17 +37,17 @@ class inode_t : public node_t{
             return mem;
         }*/
 
-        inline bool is_full();
+        bool is_full();
 
-        inline int find_lowerbound(Key_t& key);
+        int find_lowerbound(Key_t& key);
 
-        inline node_t* scan_node(Key_t key);
+        node_t* scan_node(Key_t key);
 
 	void insert(Key_t key, node_t* value);
 
         void insert(Key_t key, node_t* value, node_t* left);
 
-	inode_t* split(Key_t& split_key);
+	inode_t<Key_t>* split(Key_t& split_key);
 
 	void insert_for_root(Key_t* key, node_t** value, node_t* left, int num);
 
@@ -61,18 +61,18 @@ class inode_t : public node_t{
 
 	void move_normal_insertion(int pos, int num, int move_num);
 		
-	inode_t** batch_insert_last_level(Key_t* key, node_t** value, int num, int& new_num);
+	inode_t<Key_t>** batch_insert_last_level(Key_t* key, node_t** value, int num, int& new_num);
 
-	inode_t** batch_insert(Key_t* key, node_t** value, int num, int& new_num);
+	inode_t<Key_t>** batch_insert(Key_t* key, node_t** value, int num, int& new_num);
 
         void print();
 
 	void sanity_check(Key_t _high_key, bool first);
 
     private:
-	inline int lowerbound_linear(Key_t key);
+	int lowerbound_linear(Key_t key);
 
-        inline int lowerbound_binary(Key_t key);
+        int lowerbound_binary(Key_t key);
 };
 }
 #endif

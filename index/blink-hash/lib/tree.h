@@ -26,6 +26,9 @@ class btree_t{
 
 	btree_t(){ 
 	    root = static_cast<node_t*>(new lnode_hash_t<Key_t, Value_t>());
+	    #ifndef FINGERPRINT
+	    memset(&EMPTY<Key_t>, 0, sizeof(EMPTY<Key_t>));
+	    #endif
 	}
 	~btree_t(){ }
 

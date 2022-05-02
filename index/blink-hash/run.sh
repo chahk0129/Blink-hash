@@ -1,43 +1,58 @@
 #!/bin/bash
-num=10000000
+num=100000000
 
 mkdir out
-mkdir out/scan
-#mkdir out/random2 out/rdtsc3
-threads="1 2 4 8 16 32 64"
-repeat="1 2"
+load_path=out/insert
+read_path=out/lookup
+scan_path=out/scan
+mixed_path=out/mixed
+mkdir $load_path $read_path $scan_path $mixed_path
+
+threads="1 4 8 16 32 64"
+iteration="1 2 3"
+thread=64
+
+rw_target="baseline_ fingerprint_ simd_ sampling_ linked_"
+scan_target="baseline_ fingerprint_ linked_ adapt_ syncopt_"
+mixed_target="linked_ adapt_ syncopt_"
+#mixed_target="baseline_ fingerprint_ simd_ sampling_ linked_ adapt_ syncopt_"
 "
-for r in $repeat; do
-	for t in $threads; do
-		echo "------------- threads $t -----------------" >> out/rdtsc3/baseline
-		./bin/rdtsc_baseline $num $t >> out/rdtsc3/baseline
-		echo "------------- threads $t -----------------" >> out/rdtsc3/simd
-		./bin/rdtsc_simd $num $t >> out/rdtsc3/simd
-		echo "------------- threads $t -----------------" >> out/rdtsc3/sampling
-		./bin/rdtsc_sample $num $t >> out/rdtsc3/sampling
-		echo "------------- threads $t -----------------" >> out/rdtsc3/linked
-		./bin/rdtsc_linked $num $t >> out/rdtsc3/linked
+## Insert 
+for it in $iteration; do
+	for target in $rw_target; do
+		for t in $threads; do
+			echo "------------------- threads $t ----------------" >> ${load_path}/${target}
+			./build/test/$target $num $t 3 >> ${load_path}/${target}
+		done
 	done
 done
 
-for r in $repeat; do
-	for t in $threads; do
-		echo "------------- threads $t -----------------" >> out/random2/baseline
-		./bin/test_baseline $num $t 1 >> out/random2/baseline
-		echo "------------- threads $t -----------------" >> out/random2/sampling
-		./bin/test_sample $num $t 1 >> out/random2/sampling
-		echo "------------- threads $t -----------------" >> out/random2/linked
-		./bin/test_linked $num $t 1 >> out/random2/linked
+## Read 
+for it in $iteration; do
+	for target in $rw_target; do
+		for t in $threads; do
+			echo "------------------- threads $t ----------------" >> ${read_path}/${target}
+			./build/test/$target $num $t 1 >> ${read_path}/${target}
+		done
+	done
+done
+
+## Scan 
+for it in $iteration; do
+	for target in $scan_target; do
+		for t in $threads; do
+			echo "------------------- threads $t ----------------" >> ${scan_path}/${target}
+			./build/test/$target $num $t 0 >> ${scan_path}/${target}
+		done
 	done
 done
 "
-
-for r in $repeat; do
-	for t in $threads; do
-		echo "------------- threads $t ---------------" >> out/scan/baseline
-		./bin/range $num $t >> out/scan/baseline
-		echo "------------- threads $t ---------------" >> out/scan/adjustment
-		./bin/range_adjustment $num $t >> out/scan/adjustment
+## Balanced
+for it in $iteration; do
+	for target in $mixed_target; do
+		for t in $threads; do
+			echo "------------------- threads $t ----------------" >> ${mixed_path}/${target}
+			./build/test/$target $num $t 2 >> ${mixed_path}/${target}
+		done
 	done
 done
-

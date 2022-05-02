@@ -155,8 +155,8 @@ int main(int argc, char* argv[]){
 		auto ret = tree->lookup(keys[it], t);
 		if(ret != (Value_t)&keys[it]){
 		    not_found = true;
-		    std::cout << "key " << keys[it] << " not found" << std::endl;
-		    std::cout << "returned " << ret << "\toriginal " << (Value_t)&keys[it] << std::endl;
+//		    std::cout << "key " << keys[it] << " not found" << std::endl;
+//		    std::cout << "returned " << ret << "\toriginal " << (Value_t)&keys[it] << std::endl;
 		}
 	    }
 	}

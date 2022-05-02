@@ -5,10 +5,7 @@
 #include "bucket.h"
 
 #define LEAF_BTREE_SIZE (PAGE_SIZE)
-//#define LEAF_BTREE_SIZE (4096)
-//#define LEAF_HASH_SIZE (1024*16)
 #define LEAF_HASH_SIZE (1024 * 256)
-//#define LEAF_HASH_SIZE (262144)
 #define SEED (0xc70697UL)
 #define HASH_FUNCS_NUM (2)
 #define NUM_SLOT (4)
@@ -38,11 +35,11 @@ class lnode_t : public node_t{
 	lnode_t(node_type_t _type): node_t(0), type(_type) { }
 
 	// constructor when leaf split
-	lnode_t(node_t* sibling, int _cnt, uint32_t _level, node_type_t _type): node_t(sibling, nullptr, _cnt, _level, true), type(_type){ }
+	lnode_t(node_t* sibling, int _cnt, int _level, node_type_t _type): node_t(sibling, nullptr, _cnt, _level, true), type(_type){ }
 
 	//bool is_full();
 
-	inline void write_unlock();
+	void write_unlock();
 
 	int insert(Key_t key, Value_t value, uint64_t version);
 
@@ -75,11 +72,15 @@ class lnode_btree_t : public lnode_t<Key_t, Value_t>{
 	lnode_btree_t(): lnode_t<Key_t, Value_t>(lnode_t<Key_t, Value_t>::BTREE_NODE){ }
 
 	// constructor when leaf splits
-	lnode_btree_t(node_t* sibling, int _cnt, uint32_t _level): lnode_t<Key_t, Value_t>(sibling, _cnt, _level, lnode_t<Key_t, Value_t>::BTREE_NODE){ }
+	lnode_btree_t(node_t* sibling, int _cnt, int _level): lnode_t<Key_t, Value_t>(sibling, _cnt, _level, lnode_t<Key_t, Value_t>::BTREE_NODE){ }
 
-	inline void write_unlock();
+	void writelock();
 
-	inline bool is_full();
+	bool try_writelock();
+
+	void write_unlock();
+
+	bool is_full();
 
 	int find_lowerbound(Key_t key);
 
@@ -137,25 +138,35 @@ class lnode_hash_t : public lnode_t<Key_t, Value_t>{
 	bucket_t<Key_t, Value_t> bucket[cardinality];
 
     public:
-	inline bool _try_splitlock(uint64_t version);
+	bool try_splitlock(uint64_t version);
 
-        inline void _split_unlock();
+	bool try_convertlock(uint64_t version);
 
-        inline void bucket_acquire();
+        void split_unlock();
 
-        inline void bucket_release();
+	bool try_writelock();
+
+	void write_unlock();
+
+	uint64_t get_version(bool& need_restart);
+
+        void bucket_acquire();
+
+        void bucket_release();
 
         // initial constructor
         lnode_hash_t(): lnode_t<Key_t, Value_t>(lnode_t<Key_t, Value_t>::HASH_NODE) { }
 
         // constructor when leaf splits
-        lnode_hash_t(node_t* sibling, int _cnt, uint32_t _level): lnode_t<Key_t, Value_t>(sibling, 0, _level, lnode_t<Key_t, Value_t>::HASH_NODE){
+        lnode_hash_t(node_t* sibling, int _cnt, int _level): lnode_t<Key_t, Value_t>(sibling, 0, _level, lnode_t<Key_t, Value_t>::HASH_NODE){
+	    #ifdef LINKED
             for(int i=0; i<cardinality; i++){
                 bucket[i].state = bucket_t<Key_t, Value_t>::LINKED_LEFT;
             }
+	    #endif
         }
 
-	inline uint8_t _hash(size_t key);
+	uint8_t _hash(size_t key);
 
 	int insert(Key_t key, Value_t value, uint64_t version);
 
@@ -182,19 +193,19 @@ class lnode_hash_t : public lnode_t<Key_t, Value_t>{
 
 	bool stabilize_bucket(int loc);
 
-	inline void swap(Key_t* a, Key_t* b);
+	void swap(Key_t* a, Key_t* b);
 
-        inline int partition(Key_t* keys, int left, int right);
+        int partition(Key_t* keys, int left, int right);
 
-        inline int random_partition(Key_t* keys, int left, int right);
+        int random_partition(Key_t* keys, int left, int right);
 
-        inline void median_util(Key_t* keys, int left, int right, int k, int& a, int& b);
+        void median_util(Key_t* keys, int left, int right, int k, int& a, int& b);
 
-        inline int find_median(Key_t* keys, int n);
+        int find_median(Key_t* keys, int n);
 
-	inline void prefetch_range(void* addr, size_t len);
+	void prefetch_range(void* addr, size_t len);
 
-        inline void prefetch(const void* addr);
+        void prefetch(const void* addr);
 };
 
 }

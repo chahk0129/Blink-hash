@@ -11,5 +11,8 @@ struct entry_t{
     Value_t value;
 };
 
+template <typename Key_t>
+Key_t EMPTY;
+
 }
 #endif

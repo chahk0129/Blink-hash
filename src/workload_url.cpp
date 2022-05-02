@@ -390,15 +390,19 @@ inline void exec(int wl, int index_type, int num_thread, kvpair_t<keytype>* init
 
     if(measure_latency){
 	std::vector<uint64_t> global_latency;
+	uint64_t total_latency = 0;
 	for(auto& v: local_load_latency){
 	    for(auto i=0; i<v.size(); i+=2){
-		global_latency.push_back(std::chrono::nanoseconds(v[i+1] - v[i]).count());
+		auto lat = std::chrono::nanoseconds(v[i+1] - v[i]).count();
+                total_latency += lat;
+                global_latency.push_back(lat);
 	    }
 	}
 
 	std::sort(global_latency.begin(), global_latency.end());
 	auto latency_size = global_latency.size();
 	std::cout << "Latency observed (" << latency_size << ") \n"
+	    << "\tavg: \t" << total_latency / latency_size << "\n"
 	    << "\tmin: \t" << global_latency[0] << "\n"
 	    << "\t50%: \t" << global_latency[0.5*latency_size] << "\n"
 	    << "\t90%: \t" << global_latency[0.9*latency_size] << "\n"
@@ -702,15 +706,19 @@ inline void exec(int wl, int index_type, int num_thread, kvpair_t<keytype>* init
 
     if(measure_latency){
 	std::vector<uint64_t> global_latency;
+	uint64_t total_latency = 0;
 	for(auto& v: local_run_latency){
 	    for(auto i=0; i<v.size(); i+=2){
-		global_latency.push_back(std::chrono::nanoseconds(v[i+1] - v[i]).count());
+		auto lat = std::chrono::nanoseconds(v[i+1] - v[i]).count();
+                total_latency += lat;
+                global_latency.push_back(lat);
 	    }
 	}
 
 	std::sort(global_latency.begin(), global_latency.end());
 	auto latency_size = global_latency.size();
 	std::cout << "Latency observed (" << latency_size << ") \n"
+	    << "\tavg: \t" << total_latency / latency_size << "\n"
 	    << "\tmin: \t" << global_latency[0] << "\n"
 	    << "\t50%: \t" << global_latency[0.5*latency_size] << "\n"
 	    << "\t90%: \t" << global_latency[0.9*latency_size] << "\n"

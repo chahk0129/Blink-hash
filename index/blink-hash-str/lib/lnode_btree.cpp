@@ -3,6 +3,16 @@
 namespace BLINK_HASH{
 
 template <typename Key_t, typename Value_t>
+inline void lnode_btree_t<Key_t, Value_t>::writelock(){
+    (static_cast<node_t*>(this))->writelock();
+}
+
+template <typename Key_t, typename Value_t>
+inline bool lnode_btree_t<Key_t, Value_t>::try_writelock(){
+    return (static_cast<node_t*>(this))->try_writelock();
+}
+
+template <typename Key_t, typename Value_t>
 inline void lnode_btree_t<Key_t, Value_t>::write_unlock(){
     (static_cast<node_t*>(this))->write_unlock();
 }
@@ -168,18 +178,7 @@ void lnode_btree_t<Key_t, Value_t>::sanity_check(Key_t _high_key, bool first){
     for(int i=0; i<this->cnt-1; i++){
 	for(int j=i+1; j<this->cnt; j++){
 	    if(entry[i].key > entry[j].key){
-		std::cerr << "lnode_t::key order is not perserved!! at " << this << std::endl;
-	    }
-	}
-    }
-    for(int i=0; i<this->cnt; i++){
-	if(this->sibling_ptr && (entry[i].key > this->high_key)){
-	    std::cout << i << "lnode_t:: is higher than high key " << std::endl;
-	}
-	if(!first){
-	    if(this->sibling_ptr && (entry[i].key < _high_key)){
-		std::cout << "lnode_t:: " << i << "th key is smaller than previous high key " << std::endl;
-		std::cout << "--------- node_address " << this << std::endl;
+		std::cerr << "lnode_t::key order is not perserved!!" << std::endl;
 	    }
 	}
     }
@@ -296,5 +295,5 @@ int lnode_btree_t<Key_t, Value_t>::find_pos_binary(Key_t key){
 }
 
 
-template class lnode_btree_t<StringKey, Value>;
+template class lnode_btree_t<StringKey, value64_t>;
 }

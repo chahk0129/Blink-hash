@@ -691,98 +691,51 @@ class MassTreeIndex : public Index<KeyType, KeyComparator>
 /////////////////
 ///// HOT ///////
 /////////////////
-#if !defined(STRING_KEY) && !defined(URL_KEYS)
 template<typename KeyType, class KeyComparator>
 class HOTIndex : public Index<KeyType, KeyComparator>
 {
     public:
 	bool insert(KeyType key, uint64_t value, threadinfo *ti) {
-	    idx->insert(key, value);
-	    return 0;
-	}
-
-	uint64_t find(KeyType key, std::vector<uint64_t> *v, threadinfo *ti) {
-	    auto ret = idx->find(key);
-	    v->clear();
-	    v->push_back(ret);
-	    return 0;
-	}
-
-	bool upsert(KeyType key, uint64_t value, threadinfo *ti) {
-	    return idx->upsert(key, value);
-	}
-
-	uint64_t scan(KeyType key, int range, threadinfo *ti) {
-	    idx->scan(key, range);
-	    return 0;
-	}
-
-	HOTIndex(uint64_t kt){
-	    idx = new HOT_int_wrapper();
-	}
-
-	void getMemory() {
-	    uint64_t meta_size, structural_data_occupied, structural_data_unoccupied, key_data_occupied, key_data_unoccupied;
-	    meta_size = structural_data_occupied = structural_data_unoccupied = key_data_occupied = key_data_unoccupied = 0;
-
-	    idx->get_memory(meta_size, structural_data_occupied, structural_data_unoccupied, key_data_occupied, key_data_unoccupied);
-	    std::cout << "[Memory Footprint]" << std::endl;
-	    std::cout << "Metadata: \t" << meta_size << std::endl;
-	    std::cout << "Structural_data_occupied: \t" << structural_data_occupied << std::endl;
-	    std::cout << "Structural_data_unoccupied: \t" << structural_data_unoccupied << std::endl;
-	    std::cout << "Key_data_occupied: \t" << key_data_occupied << std::endl;
-	    std::cout << "Key_data_unoccupied: \t" << key_data_unoccupied << std::endl;
-	}
-
-	void find_depth(){
-	    idx->find_depth();
-	}
-	void convert(){ }
-
-	#ifdef BREAKDOWN
-	void get_breakdown(uint64_t& time_traversal, uint64_t& time_abort, uint64_t& time_latch, uint64_t& time_node, uint64_t& time_split, uint64_t& time_consolidation){
-	    time_consolidation = 0;
-	    idx->get_breakdown(time_traversal, time_abort, time_latch, time_node, time_split);
-	}
-	#endif
-
-
-	void UpdateThreadLocal(size_t thread_num){ }
-	void AssignGCID(size_t thread_id){ }
-	void UnregisterThread(size_t thread_id) { }
-
-	HOT_int_wrapper* idx;
-};
-#else
-template<typename KeyType, class KeyComparator>
-class HOTIndex : public Index<KeyType, KeyComparator>
-{
-    public:
-	bool insert(KeyType key, uint64_t value, threadinfo *ti) {
+	    #ifdef STRING_KEY
 	    int keylen = sizeof(KeyType);
 	    idx->insert(key.data, keylen, value);
+	    #else
+	    idx->insert(key, value);
+	    #endif
 	    return 0;
 	}
 
 	uint64_t find(KeyType key, std::vector<uint64_t> *v, threadinfo *ti) {
+	    #ifdef STRING_KEY
 	    auto ret = idx->find(key.data);
+	    #else
+	    auto ret = idx->find(key);
+	    #endif
 	    v->clear();
 	    v->push_back(ret);
 	    return 0;
 	}
 
 	bool upsert(KeyType key, uint64_t value, threadinfo *ti) {
+	    #ifdef STRING_KEY
 	    int keylen = sizeof(KeyType);
 	    return idx->upsert(key.data, keylen, value);
+	    #else
+	    return idx->upsert(key, value);
+	    #endif
 	}
 
 	uint64_t scan(KeyType key, int range, threadinfo *ti) {
+	    #ifdef STRING_KEY
 	    idx->scan(key.data, range);
+	    #else
+	    idx->scan(key, range);
+	    #endif
 	    return 0;
 	}
 
 	HOTIndex(uint64_t kt){
-	    idx = new HOT_string_wrapper();
+	    idx = new HOT_wrapper();
 	}
 
 	void getMemory() {
@@ -797,6 +750,7 @@ class HOTIndex : public Index<KeyType, KeyComparator>
 	    std::cout << "Key_data_occupied: \t" << key_data_occupied << std::endl;
 	    std::cout << "Key_data_unoccupied: \t" << key_data_unoccupied << std::endl;
 	}
+
 	void find_depth(){
 	    idx->find_depth();
 	}
@@ -814,9 +768,8 @@ class HOTIndex : public Index<KeyType, KeyComparator>
 	void AssignGCID(size_t thread_id){ }
 	void UnregisterThread(size_t thread_id) { }
 
-	HOT_string_wrapper* idx;
+	HOT_wrapper* idx;
 };
-#endif
 
 //////////////////
 /// Blink-tree ///
@@ -958,6 +911,77 @@ class BTreeOLCIndex: public Index<KeyType, KeyComparator>
 };
 
 
+/////////////////////////
+/////// libcuckoo  //////
+/////////////////////////
+template<typename KeyType, class KeyComparator>
+class CuckooIndex : public Index<KeyType, KeyComparator>
+{
+    public:
+	~CuckooIndex() { }
+
+	void UpdateThreadLocal(size_t thread_num) { }
+	void AssignGCID(size_t thread_id) { }
+	void UnregisterThread(size_t thread_id) { }
+
+	bool insert(KeyType key, uint64_t value, threadinfo *ti) {
+	    #ifdef STRING_KEY
+	    idx->insert(key.data, value);
+	    #else
+	    idx->insert(key, value);
+	    #endif
+	    return true;
+	}
+
+	uint64_t find(KeyType key, std::vector<uint64_t> *v, threadinfo *ti) {
+	    uint64_t out;
+	    #ifdef STRING_KEY
+	    idx->find(key.data, out);
+	    #else
+	    idx->find(key, out);
+	    #endif
+	    return out;
+	}
+
+	bool upsert(KeyType key, uint64_t value, threadinfo *ti) {
+	    #ifdef STRING_KEY
+	    return idx->insert(key.data, value);
+	    #else
+	    return idx->insert(key, value);
+	    #endif
+	}
+
+	uint64_t scan(KeyType key, int range, threadinfo *ti) {
+	    return 0;
+	}
+
+	void getMemory() { }
+
+	void find_depth(){ }
+	void convert(){ }
+
+	#ifdef BREAKDOWN
+	void get_breakdown(uint64_t& time_traversal, uint64_t& time_abort, uint64_t& time_latch, uint64_t& time_node, uint64_t& time_split, uint64_t& time_consolidation){ }
+	#endif
+
+
+	CuckooIndex(uint64_t kt) {
+	    #ifdef STRING_KEY
+	    idx = new cuckoohash_map<std::string, uint64_t>;
+	    #else
+	    idx = new cuckoohash_map<KeyType, uint64_t>;
+	    #endif
+	    idx->reserve(100000000u);
+	}
+
+    private:
+	#ifdef STRING_KEY
+	cuckoohash_map<std::string, uint64_t> *idx;
+	#else
+	cuckoohash_map<KeyType, uint64_t> *idx;
+	#endif
+
+};
 
 /////////////////////////
 /////// Blink-hash //////

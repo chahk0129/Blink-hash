@@ -162,9 +162,11 @@ class lnode_hash_t : public lnode_t<Key_t, Value_t>{
 
         // constructor when leaf splits
         lnode_hash_t(node_t* sibling, int _cnt, int _level): lnode_t<Key_t, Value_t>(sibling, 0, _level, lnode_t<Key_t, Value_t>::HASH_NODE){
+	    #ifdef LINKED
             for(int i=0; i<cardinality; i++){
                 bucket[i].state = bucket_t<Key_t, Value_t>::LINKED_LEFT;
             }
+	    #endif
         }
 
 	uint8_t _hash(size_t key);

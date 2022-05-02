@@ -20,11 +20,18 @@ struct bucket_t{
     #ifdef LINKED
     state_t state;
     #endif
+    #ifdef FINGERPRINT
     uint8_t fingerprints[entry_num];
+    #endif
     entry_t<Key_t, Value_t> entry[entry_num];
 
     bucket_t(): lock(0){
+	#ifdef FINGERPRINT
 	memset(fingerprints, 0, sizeof(uint8_t)*entry_num);
+	#else
+	memset(entry, 0, sizeof(entry_t<Key_t, Value_t>)*entry_num);
+	//memset(entry, EMPTY<Key_t>, sizeof(entry_t<Key_t, Value_t>)*entry_num);
+	#endif
     }
 
     bool is_locked(uint32_t version){
@@ -34,7 +41,11 @@ struct bucket_t{
     }
 
     bool is_converting(uint32_t version){
+	#ifdef CONVERT_LOCK
 	if((version & 0b1) == 0b1)
+	#else
+	if((version & 0b10) == 0b10)
+	#endif
 	    return true;
 	return false;
     }
@@ -57,7 +68,11 @@ struct bucket_t{
 	if(is_locked(version) || is_converting(version))
 	    return false;
 
+	#ifdef CONVERT_LOCK
 	if(!lock.compare_exchange_strong(version, version + 0b1)){
+	#else
+	if(!lock.compare_exchange_strong(version, version + 0b10)){
+	#endif
 	    _mm_pause();
 	    return false;
 	}
@@ -91,6 +106,7 @@ struct bucket_t{
     }
 
 
+#ifdef FINGERPRINT
     #ifdef AVX512
     bool insert(Key_t key, Value_t value, uint8_t fingerprint, __m256i empty){
 	__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(fingerprints));
@@ -139,9 +155,21 @@ struct bucket_t{
 	return false;
     }
     #endif
+#else
+    bool insert(Key_t key, Value_t value){
+	for(int i=0; i<entry_num; i++){
+	    if(entry[i].key == EMPTY<Key_t>){
+		entry[i].key = key;
+		entry[i].value = value;
+		return true;
+	    }
+	}
+	return false;
+    }
+#endif
 
 
-
+#ifdef FINGERPRINT
     #ifdef AVX512
     bool find(Key_t key, Value_t& value, __m256i fingerprint){
 	__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(fingerprints));
@@ -190,8 +218,19 @@ struct bucket_t{
 	return false;
     }
     #endif
+#else
+    bool find(Key_t key, Value_t& value){
+	for(int i=0; i<entry_num; i++){
+	    if(entry[i].key == key){
+		value = entry[i].value;
+		return true;
+	    }
+	}
+	return false;
+    }
+#endif
 
-    
+#ifdef FINGERPRINT
     #ifdef AVX512
     void collect(Key_t key, entry_t<Key_t, Value_t>* buf, int& num, __m256i empty){
 	__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(fingerprints));
@@ -234,7 +273,19 @@ struct bucket_t{
 	}
     }
     #endif
+#else
+    void collect(Key_t key, entry_t<Key_t, Value_t>* buf, int& num){
+	for(int i=0; i<entry_num; i++){
+	    if(entry[i].key != EMPTY<Key_t>){
+		if(entry[i].key >= key){
+		    memcpy(&buf[num++], &entry[i], sizeof(entry_t<Key_t, Value_t>));
+		}
+	    }
+	}
+    }
+#endif
 
+#ifdef FINGERPRINT
     #ifdef AVX512
     void collect(entry_t<Key_t, Value_t>* buf, int& num, __m256i empty){
 	__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(fingerprints));
@@ -271,7 +322,17 @@ struct bucket_t{
 	}
     }
     #endif
+#else
+    void collect(entry_t<Key_t, Value_t>* buf, int& num){
+	for(int i=0; i<entry_num; i++){
+	    if(entry[i].key != EMPTY<Key_t>){
+		memcpy(&buf[num++], &entry[i], sizeof(entry_t<Key_t, Value_t>));
+	    }
+	}
+    }
+#endif
 
+#ifdef FINGERPRINT
     #ifdef AVX512
     bool update(Key_t key, Value_t value, __m256i fingerprint){
 	__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(fingerprints));
@@ -320,7 +381,19 @@ struct bucket_t{
 	return false;
     }
     #endif
+#else
+    bool update(Key_t key, Value_t value){
+	for(int i=0; i<entry_num; i++){
+	    if(entry[i].key == key){
+		entry[i].value = value;
+		return true;
+	    }
+	}
+	return false;
+    }
+#endif
 
+#ifdef FINGERPRINT
     #ifdef AVX512
     bool collect_keys(Key_t* keys, int& num, int cardinality, __m256i empty){
 	__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(fingerprints));
@@ -366,7 +439,20 @@ struct bucket_t{
 	return false;
     }
     #endif
+#else
+    bool collect_keys(Key_t* keys, int& num, int cardinality){
+	for(int i=0; i<entry_num; i++){
+	    if(entry[i].key != EMPTY<Key_t>){
+		keys[num++] = entry[i].key;
+		if(num == cardinality)
+		    return true;
+	    }
+	}
+	return false;
+    }
+#endif
 
+#ifdef FINGERPRINT
     #ifdef AVX512
     void collect_all_keys(Key_t* keys, int& num, __m256i empty){
 	__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(fingerprints));
@@ -403,6 +489,15 @@ struct bucket_t{
 	}
     }
     #endif
+#else
+    void collect_all_keys(Key_t* keys, int& num){
+	for(int i=0; i<entry_num; i++){
+	    if(entry[i].key != EMPTY<Key_t>){
+		keys[num++] = entry[i].key;
+	    }
+	}
+    }
+#endif
 
     void print(){
 	#ifdef LINKED
@@ -414,9 +509,13 @@ struct bucket_t{
 	else
 	    std::cout << "LINKED_RIGHT" << std::endl;
 	#endif
-	for(int i=0; i<entry_num; i++){
+	#ifdef FINGERPRINT
+	for(int i=0; i<entry_num; i++)
 	    std::cout << "[" << i << "]: finger(" << (uint32_t)fingerprints[i] << ") key(" << entry[i].key << "), ";
-	}
+	#else
+	for(int i=0; i<entry_num; i++)
+	    std::cout << "[" << i << "]: key(" << entry[i].key << "), ";
+	#endif
 	std::cout << "\n\n";
     }
 

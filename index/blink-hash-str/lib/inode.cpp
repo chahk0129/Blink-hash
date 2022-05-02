@@ -122,7 +122,6 @@ void inode_t<Key_t>::batch_insert_last_level(entry_t<Key_t, node_t*>* migrate, i
 	    leftmost_ptr = buf[buf_idx++].value;
 	    //std::cout << "    leftmost_ptr: " << leftmost_ptr << " ---- from buf[" << buf_idx-1 << "]" << std::endl;
 	}
-	int copy_num = 0;
 	for(; cnt<batch_size && buf_idx<buf_num-1; cnt++, buf_idx++){
 	    entry[cnt].key = buf[buf_idx].key;
 	    //std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from buf[" << buf_idx << "]" << std::endl;
@@ -191,7 +190,6 @@ void inode_t<Key_t>::batch_insert_last_level(Key_t* key, node_t** value, int& id
 	    //std::cout << "    leftmost_ptr: " << leftmost_ptr << " ---- from buf[" << buf_idx-1 << "]" << std::endl;
 	}
 
-	int copy_num = batch_size - cnt;
 	for(; cnt<batch_size && buf_idx<buf_num-1; cnt++, buf_idx++){
 	    entry[cnt].key = buf[buf_idx].key;
 	    //std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from buf[" << buf_idx << "]" << std::endl;
@@ -478,7 +476,6 @@ void inode_t<Key_t>::batch_insert(entry_t<Key_t, node_t*>* migrate, int& migrate
 	    leftmost_ptr = buf[buf_idx++].value;
 	    //std::cout << "    leftmost_ptr: " << leftmost_ptr << " ---- from buf[" << buf_idx-1 << "]" << std::endl;
 	}
-	int copy_num = batch_size - cnt;
 	for(; cnt<batch_size && buf_idx<buf_num-1; cnt++, buf_idx++){
 	    entry[cnt].key = buf[buf_idx].key;
 	    //std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from buf[" << buf_idx << "]" << std::endl;
@@ -544,7 +541,6 @@ void inode_t<Key_t>::batch_insert(Key_t* key, node_t** value, int& idx, int num,
 	    //std::cout << "    leftmost_ptr: " << leftmost_ptr << " ---- from buf[" << buf_idx-1 << "]" << std::endl;
 	}
 
-	int copy_num = batch_size - cnt;
 	for(; cnt<batch_size && buf_idx<buf_num-1; cnt++, buf_idx++){
 	    entry[cnt].key = buf[buf_idx].key;
 	    //std::cout << "    entry[" << cnt << "].key: " << entry[cnt].key << " ---- from buf[" << buf_idx << "]" << std::endl;
@@ -772,18 +768,7 @@ void inode_t<Key_t>::sanity_check(Key_t _high_key, bool first){
     for(int i=0; i<cnt-1; i++){
 	for(int j=i+1; j<cnt; j++){
 	    if(entry[i].key > entry[j].key){
-		std::cout << "inode_t::key order is not preserved!! at " << this << std::endl;
-	    }
-	}
-    }
-    for(int i=0; i<cnt; i++){
-	if(sibling_ptr && (entry[i].key > high_key)){
-	    std::cout << "inode_t:: " << i << "th key is higher than high key at node " << this << std::endl;
-	}
-	if(!first){
-	    if(sibling_ptr && (entry[i].key <= _high_key)){
-//		std::cout << "inode_t:: " << i << "(" << entry[i].key << ") is smaller than previous high key " << _high_key << std::endl;
-		std::cout << "--------- node_address " << this << std::endl;
+		std::cout << "inode_t::key order is not preserved!!" << std::endl;
 	    }
 	}
     }

@@ -1,4 +1,3 @@
-
 #include "include/indexkey.h"
 #include "include/microbench.h"
 #include "include/index.h"
@@ -28,7 +27,7 @@ enum {
   TYPE_HOT,
   TYPE_BLINKTREE,
   TYPE_BLINKHASH,
-  TYPE_CUCKOO_HASH,
+  TYPE_CUCKOOHASH,
   TYPE_BTREEOLC,
   TYPE_NONE,
 };
@@ -36,6 +35,7 @@ enum {
 // These are workload operations
 enum {
   OP_INSERT,
+  OP_FUZZYINSERT,
   OP_READ,
   OP_UPSERT,
   OP_SCAN,
@@ -83,6 +83,8 @@ Index<KeyType, KeyComparator> *getInstance(const int type, const uint64_t kt) {
       return new BTreeOLCIndex<KeyType, KeyComparator>(kt);
   else if (type == TYPE_BLINKTREE)
       return new BlinkIndex<KeyType, KeyComparator>(kt);
+  else if (type == TYPE_CUCKOOHASH)
+      return new CuckooIndex<KeyType, KeyComparator>(kt);
   else if (type == TYPE_BLINKHASH)
       return new BlinkHashIndex<KeyType, KeyComparator>(kt);
   else {

@@ -89,7 +89,11 @@ class node_t{
 	}
 
 	bool is_converting(uint64_t version){
+	    #ifdef CONVERT_LOCK
 	    return ((version & 0b10) == 0b10);
+	    #else
+	    return ((version & 0b100) == 0b100);
+	    #endif
 	}
 
 	bool is_obsolete(uint64_t version){
@@ -157,7 +161,11 @@ class node_t{
 		return;
 	    }
 
+	    #ifdef CONVERT_LOCK
 	    if(!lock.compare_exchange_strong(version, version + 0b10)){
+	    #else
+	    if(!lock.compare_exchange_strong(version, version + 0b100)){
+	    #endif
 		_mm_pause();
 		need_restart = true;
 	    }
