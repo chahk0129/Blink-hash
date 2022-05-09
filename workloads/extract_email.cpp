@@ -48,7 +48,8 @@ void collect_emails(std::ifstream& ifs, std::unordered_map<std::string, bool>& d
 	   email.find("]") != std::string::npos || email.find("{") != std::string::npos || 
 	   email.find("}") != std::string::npos || email.find(",") != std::string::npos || 
 	   email.find("/") != std::string::npos || email.find("?") != std::string::npos || 
-	   email.find(";") != std::string::npos)
+	   email.find("\"") != std::string::npos || email.find("'") != std::string::npos || 
+	   email.find("\\") != std::string::npos || email.find(";") != std::string::npos)
 	    continue;
 
 	data.insert(std::make_pair(email, true));

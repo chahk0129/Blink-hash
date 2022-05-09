@@ -5,23 +5,13 @@
 #include "bucket.h"
 
 #define LEAF_BTREE_SIZE (PAGE_SIZE)
-//#define LEAF_BTREE_SIZE (4096)
-//#define LEAF_HASH_SIZE (1024*16)
 #define LEAF_HASH_SIZE (1024 * 256)
-//#define LEAF_HASH_SIZE (262144)
 #define SEED (0xc70697UL)
 #define HASH_FUNCS_NUM (2)
 #define NUM_SLOT (4)
 
 namespace BLINK_HASH{
 
-    /*
-template <typename Key_t, typename Value_t>
-class lnode_btree_t<Key_t, Value_t>;
-
-template <typename Key_t, typename Value_t>
-class lnode_hash_t<Key_t, Value_t>;
-*/
 template <typename Key_t, typename Value_t>
 class lnode_t : public node_t{
     public:
@@ -42,7 +32,13 @@ class lnode_t : public node_t{
 
 	//bool is_full();
 
+	void convert_unlock();
+
+	void convert_unlock_obsolete();
+
 	void write_unlock();
+
+	void write_unlock_obsolete();
 
 	int insert(Key_t key, Value_t value, uint64_t version);
 
@@ -76,10 +72,6 @@ class lnode_btree_t : public lnode_t<Key_t, Value_t>{
 
 	// constructor when leaf splits
 	lnode_btree_t(node_t* sibling, int _cnt, int _level): lnode_t<Key_t, Value_t>(sibling, _cnt, _level, lnode_t<Key_t, Value_t>::BTREE_NODE){ }
-
-	void writelock();
-
-	bool try_writelock();
 
 	void write_unlock();
 
@@ -147,15 +139,15 @@ class lnode_hash_t : public lnode_t<Key_t, Value_t>{
 
         void split_unlock();
 
+	void split_unlock_obsolete();
+
+	void convert_unlock();
+
+	void convert_unlock_obsolete();
+
 	bool try_writelock();
 
 	void write_unlock();
-
-	uint64_t get_version(bool& need_restart);
-
-        void bucket_acquire();
-
-        void bucket_release();
 
         // initial constructor
         lnode_hash_t(): lnode_t<Key_t, Value_t>(lnode_t<Key_t, Value_t>::HASH_NODE) { }

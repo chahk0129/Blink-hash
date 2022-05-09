@@ -8,7 +8,7 @@ template <typename Key_t, typename Value_t>
 inline void lnode_t<Key_t, Value_t>::write_unlock(){
     switch(type){
 	case BTREE_NODE:
-	    (static_cast<lnode_btree_t<Key_t, Value_t>*>(this))->write_unlock();
+	    (static_cast<node_t*>(this))->write_unlock();
 	    return;
 	case HASH_NODE:
 	    (static_cast<lnode_hash_t<Key_t, Value_t>*>(this))->split_unlock();
@@ -21,6 +21,56 @@ inline void lnode_t<Key_t, Value_t>::write_unlock(){
     return;
 }
 
+template <typename Key_t, typename Value_t>
+inline void lnode_t<Key_t, Value_t>::convert_unlock(){
+    switch(type){
+	case BTREE_NODE:
+	    (static_cast<node_t*>(this))->write_unlock();
+	    return;
+	case HASH_NODE:
+	    (static_cast<lnode_hash_t<Key_t, Value_t>*>(this))->convert_unlock();
+	    return;
+	default:
+	    std::cerr << __func__ << ": node type error: " << type << std::endl;
+	    return;
+    }
+    std::cerr << __func__ << ": should not reach here" << std::endl;
+    return;
+}
+
+template <typename Key_t, typename Value_t>
+inline void lnode_t<Key_t, Value_t>::write_unlock_obsolete(){
+    switch(type){
+	case BTREE_NODE:
+	    (static_cast<node_t*>(this))->write_unlock_obsolete();
+	    return;
+	case HASH_NODE:
+	    (static_cast<lnode_hash_t<Key_t, Value_t>*>(this))->split_unlock_obsolete();
+	    return;
+	default:
+	    std::cerr << __func__ << ": node type error: " << type << std::endl;
+	    return;
+    }
+    std::cerr << __func__ << ": should not reach here" << std::endl;
+    return;
+}
+
+template <typename Key_t, typename Value_t>
+inline void lnode_t<Key_t, Value_t>::convert_unlock_obsolete(){
+    switch(type){
+	case BTREE_NODE:
+	    (static_cast<node_t*>(this))->write_unlock_obsolete();
+	    return;
+	case HASH_NODE:
+	    (static_cast<lnode_hash_t<Key_t, Value_t>*>(this))->convert_unlock_obsolete();
+	    return;
+	default:
+	    std::cerr << __func__ << ": node type error: " << type << std::endl;
+	    return;
+    }
+    std::cerr << __func__ << ": should not reach here" << std::endl;
+    return;
+}
 
 template <typename Key_t, typename Value_t>
 int lnode_t<Key_t, Value_t>::insert(Key_t key, Value_t value, uint64_t version){
@@ -100,23 +150,6 @@ int lnode_t<Key_t, Value_t>::range_lookup(Key_t key, Value_t* buf, int count, in
     std::cerr << __func__ << ": should not reach here" << std::endl;
     return 0;
 }
-
-/*
-template <typename Key_t, typename Value_t>
-lnode_btree_t<Key_t, Value_t>** lnode_t<Key_t, Value_t>::convert(int& num, uint64_t version){
-    switch(type){
-	case BTREE_NODE:
-	    return nullptr;
-	case HASH_NODE:
-	    return (static_cast<lnode_hash_t<Key_t, Value_t>*>(this))->convert(num, version);
-	default:
-	    std::cerr << __func__ << ": node type error: " << type << std::endl;
-	    return nullptr;
-    }
-    std::cerr << __func__ << ": should not reach here" << std::endl;
-    return nullptr;
-}
-*/
 
 template <typename Key_t, typename Value_t>
 void lnode_t<Key_t, Value_t>::print(){

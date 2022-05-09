@@ -106,15 +106,19 @@ inline void run(int index_type, int wl, int num_thread, int num){
     int sensor_id = 0;
     for(int i=0; i<num; i++){
 	auto r = (rand() % 100) / 100.0;
-	if(r < fuzzy_ratio){
+	if(r < fuzzy_rate){
 	    auto kv = new kvpair_t<keytype>;
 	    kv->key = ((Rdtsc() << 16) | sensor_id++ << 6);
 	    kv->value = reinterpret_cast<uint64_t>(&kv->key);
 	    load_ops.push_back(std::make_pair(*kv, std::make_pair(OP_FUZZYINSERT, 0)));
+	    if(sensor_id == 1024) sensor_id = 0;
 	}
-	else
-	    load_ops.push_back(std::make_pair(nullptr, std::make_pair(OP_INSERT, 0)));
+	else{
+	    auto kv = new kvpair_t<keytype>;
+	    load_ops.push_back(std::make_pair(*kv, std::make_pair(OP_INSERT, 0)));
+	}
     }
+    std::random_shuffle(load_ops.begin(), load_ops.end());
 
     size_t chunk = num / num_thread;
     for(int i=0; i<num_thread; i++)
@@ -151,7 +155,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
 		kv[j].value = reinterpret_cast<uint64_t>(&kv[j].key);
 	    }
 	    else{
-		kv[j].key = ops[i].first.key;
+		kv[j].key = load_ops[i].first.key;
 		kv[j].value = reinterpret_cast<uint64_t>(&kv[j].key);
 	    }
 
@@ -228,7 +232,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
 
 	int j = 0;
 	for(auto i=start; i<end; i++, j++){
-	    auto op = load_ops[i];
+	    auto op = load_ops[i].second.first;
 	    if(op == OP_INSERT){
 		kv[j].key = ((Rdtsc() << 16) | sensor_id++ << 6) | thread_id;
 		kv[j].value = reinterpret_cast<uint64_t>(&kv[j].key);
@@ -725,7 +729,6 @@ inline void run(int index_type, int wl, int num_thread, int num){
 		idx->insert(kv->key, kv->value, ti);
 	    }
 	    else if(op == OP_FUZZYINSERT){
-		std::cout << "fuzzy insertion" << std::endl;
 		auto kv = new kvpair_t<keytype>;
 		kv->key = ops[i].first.key;
 		kv->value = reinterpret_cast<uint64_t>(&kv->key);
@@ -1144,10 +1147,11 @@ int main(int argc, char *argv[]) {
     if(sampling_rate != 0.0)
 	measure_latency = true;
 
-    if(fuzzy_rate < 0 || fuzzy_rate > 1){
+    if(opt.fuzzy < 0 || opt.fuzzy > 1){
 	std::cout << "Fuzzy insertion rate should be between 0.0 and 1.0" << std::endl;
 	exit(0);
     }
+    fuzzy_rate = opt.fuzzy;
 
     int num_thread = opt.threads;
 

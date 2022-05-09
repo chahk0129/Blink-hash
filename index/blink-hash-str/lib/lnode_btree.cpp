@@ -3,16 +3,6 @@
 namespace BLINK_HASH{
 
 template <typename Key_t, typename Value_t>
-inline void lnode_btree_t<Key_t, Value_t>::writelock(){
-    (static_cast<node_t*>(this))->writelock();
-}
-
-template <typename Key_t, typename Value_t>
-inline bool lnode_btree_t<Key_t, Value_t>::try_writelock(){
-    return (static_cast<node_t*>(this))->try_writelock();
-}
-
-template <typename Key_t, typename Value_t>
 inline void lnode_btree_t<Key_t, Value_t>::write_unlock(){
     (static_cast<node_t*>(this))->write_unlock();
 }
@@ -58,10 +48,21 @@ int lnode_btree_t<Key_t, Value_t>::insert(Key_t key, Value_t value, uint64_t ver
 	    entry[0].value= value;
 	}
 	this->cnt++;
-	write_unlock();
+	this->write_unlock();
 	return 0;
     }
     else{ // need split
+	auto sibling = static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr);
+	if(sibling){
+	    auto sibling_v = sibling->get_version(need_restart);
+	    if(sibling->type == lnode_t<Key_t, Value_t>::HASH_NODE){
+		(static_cast<node_t*>(sibling))->try_upgrade_writelock(sibling_v, need_restart);
+		if(need_restart){
+		    this->write_unlock();
+		    return -1;
+		}
+	    }
+	}
 	return 1;
     }
 }
@@ -81,6 +82,7 @@ lnode_btree_t<Key_t, Value_t>* lnode_btree_t<Key_t, Value_t>::split(Key_t& split
     int new_cnt = this->cnt - half;
     split_key = entry[half-1].key;
 
+    auto sibling = static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr);
     auto new_leaf = new lnode_btree_t<Key_t, Value_t>(this->sibling_ptr, new_cnt, this->level);
     new_leaf->high_key = this->high_key;
     memcpy(new_leaf->entry, entry+half, sizeof(entry_t<Key_t, Value_t>)*new_cnt);
@@ -93,6 +95,13 @@ lnode_btree_t<Key_t, Value_t>* lnode_btree_t<Key_t, Value_t>::split(Key_t& split
 	new_leaf->insert_after_split(key, value);
     else
 	insert_after_split(key, value);
+
+    if(sibling){
+	if(sibling->type == lnode_t<Key_t, Value_t>::HASH_NODE){
+	    (static_cast<lnode_hash_t<Key_t, Value_t>*>(sibling))->left_sibling_ptr = reinterpret_cast<lnode_hash_t<Key_t, Value_t>*>(new_leaf);
+	    (static_cast<node_t*>(sibling))->write_unlock();
+	}
+    }
 
     return new_leaf;
 }
@@ -175,15 +184,6 @@ void lnode_btree_t<Key_t, Value_t>::print(){
 
 template <typename Key_t, typename Value_t>
 void lnode_btree_t<Key_t, Value_t>::sanity_check(Key_t _high_key, bool first){
-    for(int i=0; i<this->cnt-1; i++){
-	for(int j=i+1; j<this->cnt; j++){
-	    if(entry[i].key > entry[j].key){
-		std::cerr << "lnode_t::key order is not perserved!!" << std::endl;
-	    }
-	}
-    }
-    if(this->sibling_ptr != nullptr)
-	(static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr))->sanity_check(this->high_key, false);
 }
 
 template <typename Key_t, typename Value_t>

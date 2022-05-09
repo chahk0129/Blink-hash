@@ -40,39 +40,12 @@ struct bucket_t{
 	return false;
     }
 
-    bool is_converting(uint32_t version){
-	#ifdef CONVERT_LOCK
-	if((version & 0b1) == 0b1)
-	#else
-	if((version & 0b10) == 0b10)
-	#endif
-	    return true;
-	return false;
-    }
-
     bool try_lock(){
 	auto version = lock.load();
-	if(is_locked(version) || is_converting(version))
+	if(is_locked(version))
 	    return false;
 
 	if(!lock.compare_exchange_strong(version, version + 0b10)){
-	    _mm_pause();
-	    return false;
-	}
-
-	return true;
-    }
-
-    bool try_convertlock(){
-	auto version = lock.load();
-	if(is_locked(version) || is_converting(version))
-	    return false;
-
-	#ifdef CONVERT_LOCK
-	if(!lock.compare_exchange_strong(version, version + 0b1)){
-	#else
-	if(!lock.compare_exchange_strong(version, version + 0b10)){
-	#endif
 	    _mm_pause();
 	    return false;
 	}
@@ -82,7 +55,7 @@ struct bucket_t{
 
     bool upgrade_lock(uint32_t version){
 	auto _version = lock.load();
-	if(_version != version || is_converting(_version))
+	if(_version != version)
 	    return false;
 
 	if(!lock.compare_exchange_strong(_version, _version + 0b10)){
@@ -500,23 +473,6 @@ struct bucket_t{
 #endif
 
     void print(){
-	#ifdef LINKED
-	std::cout << "link: ";
-	if(state == STABLE)
-	    std::cout << "STABLE" << std::endl;
-	else if(state == LINKED_LEFT)
-	    std::cout << "LINKED_LEFT" << std::endl;
-	else
-	    std::cout << "LINKED_RIGHT" << std::endl;
-	#endif
-	#ifdef FINGERPRINT
-	for(int i=0; i<entry_num; i++)
-	    std::cout << "[" << i << "]: finger(" << (uint32_t)fingerprints[i] << ") key(" << entry[i].key << "), ";
-	#else
-	for(int i=0; i<entry_num; i++)
-	    std::cout << "[" << i << "]: key(" << entry[i].key << "), ";
-	#endif
-	std::cout << "\n\n";
     }
 
 };

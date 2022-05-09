@@ -992,8 +992,10 @@ int main(int argc, char *argv[]) {
 	    LEAF_DELTA_CHAIN_LENGTH_THRESHOLD,
 	    INNER_DELTA_CHAIN_LENGTH_THRESHOLD);
 
-    int init_num = 100000000;
-    int run_num = 100000000;
+    int init_num = 70000000;
+    int run_num = 70000000;
+//    int init_num = 100000000;
+//    int run_num = 100000000;
     kvpair_t<keytype>* init_kv = new kvpair_t<keytype>[init_num];
     kvpair_t<keytype>* run_kv = new kvpair_t<keytype>[run_num];
     int* ranges = new int[run_num];

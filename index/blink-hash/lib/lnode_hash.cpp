@@ -1,6 +1,7 @@
 #include "lnode.h"
 #include "hash.h"
 
+bool print_flag = false;
 namespace BLINK_HASH{
 
 template <typename Key_t, typename Value_t>
@@ -18,10 +19,10 @@ inline bool lnode_hash_t<Key_t, Value_t>::try_splitlock(uint64_t version){
 template <typename Key_t, typename Value_t>
 inline bool lnode_hash_t<Key_t, Value_t>::try_convertlock(uint64_t version){
     bool need_restart = false;
-    (static_cast<node_t*>(this))->try_upgrade_convertlock(version, need_restart);
+    (static_cast<node_t*>(this))->try_upgrade_writelock(version, need_restart);
     if(need_restart) return false;
     for(int i=0; i<cardinality; i++){
-	while(!bucket[i].try_convertlock())
+	while(!bucket[i].try_lock())
 	    _mm_pause();
     }
     return true;
@@ -30,9 +31,15 @@ inline bool lnode_hash_t<Key_t, Value_t>::try_convertlock(uint64_t version){
 template <typename Key_t, typename Value_t>
 inline void lnode_hash_t<Key_t, Value_t>::split_unlock(){
     (static_cast<node_t*>(this))->write_unlock();
-    for(int i=0; i<cardinality; i++){
+    for(int i=0; i<cardinality; i++)
 	bucket[i].unlock();
-    }
+}
+
+template <typename Key_t, typename Value_t>
+inline void lnode_hash_t<Key_t, Value_t>::split_unlock_obsolete(){
+    (static_cast<node_t*>(this))->write_unlock_obsolete();
+    for(int i=0; i<cardinality; i++)
+	bucket[i].unlock();
 }
 
 template <typename Key_t, typename Value_t>
@@ -46,26 +53,16 @@ inline void lnode_hash_t<Key_t, Value_t>::write_unlock(){
     (static_cast<node_t*>(this))->write_unlock();
 }
 
-
 template <typename Key_t, typename Value_t>
-inline uint64_t lnode_hash_t<Key_t, Value_t>::get_version(bool& need_restart){
-    auto ret = (static_cast<node_t*>(this))->get_version(need_restart);
-    return ret;
-}
-
-template <typename Key_t, typename Value_t>
-inline void lnode_hash_t<Key_t, Value_t>::bucket_acquire(){
-    for(int i=0; i<cardinality; i++){
-	while(!bucket[i].try_lock())
-	    _mm_pause();
-    }
-}
-
-template <typename Key_t, typename Value_t>
-inline void lnode_hash_t<Key_t, Value_t>::bucket_release(){
-    for(int i=0; i<cardinality; i++){
+inline void lnode_hash_t<Key_t, Value_t>::convert_unlock(){
+    (static_cast<node_t*>(this))->write_unlock();
+    for(int i=0; i<cardinality; i++)
 	bucket[i].unlock();
-    }
+}
+
+template <typename Key_t, typename Value_t>
+inline void lnode_hash_t<Key_t, Value_t>::convert_unlock_obsolete(){
+    (static_cast<node_t*>(this))->write_unlock_obsolete();
 }
 
 template <typename Key_t, typename Value_t>
@@ -96,7 +93,7 @@ int lnode_hash_t<Key_t, Value_t>::insert(Key_t key, Value_t value, uint64_t vers
 	    if(!bucket[loc].try_lock())
 		return -1;
 
-	    auto _version = get_version(need_restart);
+	    auto _version = (static_cast<node_t*>(this))->get_version(need_restart);
 	    if(need_restart || (version != _version)){
 		bucket[loc].unlock();
 		return -1;
@@ -123,7 +120,6 @@ int lnode_hash_t<Key_t, Value_t>::insert(Key_t key, Value_t value, uint64_t vers
 	    }
 	    #endif
 	    bucket[loc].unlock();
-
 	}
     }
 
@@ -133,8 +129,8 @@ int lnode_hash_t<Key_t, Value_t>::insert(Key_t key, Value_t value, uint64_t vers
 
 template <typename Key_t, typename Value_t>
 lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_key, Key_t key, Value_t value, uint64_t version){
-    auto new_right = new lnode_hash_t<Key_t, Value_t>(lnode_t<Key_t, Value_t>::sibling_ptr, 0, lnode_t<Key_t, Value_t>::level);
-    new_right->high_key = lnode_t<Key_t, Value_t>::high_key;
+    auto new_right = new lnode_hash_t<Key_t, Value_t>(this->sibling_ptr, 0, this->level);
+    new_right->high_key = this->high_key;
     new_right->left_sibling_ptr = this;
 
     struct target_t{
@@ -156,10 +152,55 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
     }
     #endif
 
+    bool right_latch = false;
+    bool need_restart = false;
+    auto sibling = static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr);
+    if(sibling){
+	auto sibling_v = sibling->get_version(need_restart);
+	if(sibling->type == lnode_t<Key_t, Value_t>::HASH_NODE){
+	    if(need_restart){
+		delete new_right;
+		return nullptr;
+	    }
+	    (static_cast<node_t*>(sibling))->try_upgrade_writelock(sibling_v, need_restart);
+	    if(need_restart){
+		delete new_right;
+		return nullptr;
+	    }
+	    right_latch = true;
+	}
+    }
+		
+
     if(!try_splitlock(version)){
+	if(right_latch)
+	    (static_cast<node_t*>(sibling))->write_unlock();
 	delete new_right;
 	return nullptr;
     }
+/*
+    bool right_latch = false;
+    bool need_restart = false;
+    auto sibling = static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr);
+    if(sibling){
+	auto sibling_v = sibling->get_version(need_restart);
+	if(sibling->type == lnode_t<Key_t, Value_t>::HASH_NODE){
+	    if(need_restart){
+		split_unlock();
+		delete new_right;
+		return nullptr;
+	    }
+
+	    (static_cast<node_t*>(sibling))->try_upgrade_writelock(sibling_v, need_restart);
+	    if(need_restart){
+		split_unlock();
+		delete new_right;
+		return nullptr;
+	    }
+	    right_latch = true;
+	}
+    }
+*/
 
     /*
        auto util = utilization() * 100;
@@ -178,9 +219,13 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
 
 #ifdef FINGERPRINT
     #ifdef SAMPLING // entry-based sampling
+    //float sampling_ratio = 0.01;
+    //int sampling_num = entry_num * cardinality * sampling_ratio;
+    //Key_t temp[sampling_num];
     Key_t temp[cardinality];
     int valid_num = 0;
     for(int j=0; j<cardinality; j++){
+//	if(bucket[j].collect_keys(temp, valid_num, sampling_num, empty))
 	if(bucket[j].collect_keys(temp, valid_num, cardinality, empty))
 	    break;
     }
@@ -527,22 +572,15 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
     
 
     PROCEED:
-    if(this->sibling_ptr != nullptr){
-	// update right sibling node's left sibling pointer
-	auto right_sibling = static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr);
-	if(right_sibling->type == lnode_t<Key_t, Value_t>::HASH_NODE){ // need to update right sibling's left sibling pointer
-	    auto right = static_cast<lnode_hash_t<Key_t, Value_t>*>(right_sibling);
-	    auto old = this;
-	    while(!CAS(&right->left_sibling_ptr, &old, new_right)){
-		old = this;
-	    }
-	}
+    this->sibling_ptr = new_right;
+    if(right_latch){
+	(static_cast<lnode_hash_t<Key_t, Value_t>*>(sibling))->left_sibling_ptr = new_right;
+	(static_cast<node_t*>(sibling))->write_unlock();
     }
     // update current node's right sibling pointer
-    this->sibling_ptr = new_right;
 
     if(need_insert){
-	blink_printf("%s %s %llu\n", __func__, ": insert after split failed key- ", key);
+	blink_printf("insert after split failed -- key: %llu\n", key);
     }
     /*
        util = utilization() * 100;
@@ -571,7 +609,7 @@ int lnode_hash_t<Key_t, Value_t>::update(Key_t key, Value_t value, uint64_t vsta
 	    if(!bucket[loc].try_lock())
 		return -1;
 
-	    auto vend = get_version(need_restart);
+	    auto vend = (static_cast<node_t*>(this))->get_version(need_restart);
 	    if(need_restart || (vstart != vend)){
 		bucket[loc].unlock();
 		return -1;
@@ -752,8 +790,38 @@ lnode_btree_t<Key_t, Value_t>** lnode_hash_t<Key_t, Value_t>::convert(int& num, 
     }
     #endif
 
-    if(!try_convertlock(version)){
+    if(!try_convertlock(version))
 	return nullptr;
+
+    auto left = left_sibling_ptr;
+    if(left){
+	if(!(static_cast<node_t*>(left))->try_writelock()){
+	    convert_unlock();
+	    return nullptr;
+	}
+    }
+
+    bool right_latch = false;
+    auto right = static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr);
+    if(right){
+	auto right_v = right->get_version(need_restart);
+	if(right->type == lnode_t<Key_t, Value_t>::HASH_NODE){
+	    if(need_restart){
+		if(left)
+		    (static_cast<node_t*>(left))->write_unlock();
+		convert_unlock();
+		return nullptr;
+	    }
+
+	    (static_cast<node_t*>(right))->try_upgrade_writelock(right_v, need_restart);
+	    if(need_restart){
+		if(left)
+		    (static_cast<node_t*>(left))->write_unlock();
+		convert_unlock();
+		return nullptr;
+	    }
+	    right_latch = true;
+	}
     }
 
 #ifdef FINGERPRINT
@@ -786,7 +854,6 @@ lnode_btree_t<Key_t, Value_t>** lnode_hash_t<Key_t, Value_t>::convert(int& num, 
 	leaf[i] = new lnode_btree_t<Key_t, Value_t>();
 
     int from = 0;
-    leaf[0]->writelock();
     for(int i=0; i<num; i++){
 	if(i < num-1)
 	    leaf[i]->sibling_ptr = static_cast<node_t*>(leaf[i+1]);
@@ -796,19 +863,14 @@ lnode_btree_t<Key_t, Value_t>** lnode_hash_t<Key_t, Value_t>::convert(int& num, 
     }
     leaf[num-1]->high_key = this->high_key;
 
-    if(left_sibling_ptr != nullptr){
-	RETRY:
-	if(!left_sibling_ptr->try_writelock()){
-	    _mm_pause();
-	    goto RETRY;
-	}
-	left_sibling_ptr->sibling_ptr = static_cast<node_t*>(leaf[0]);
-	left_sibling_ptr->write_unlock();
+    if(left){
+	left->sibling_ptr = static_cast<node_t*>(leaf[0]);
+//	(reinterpret_cast<node_t*>(left))->write_unlock();
     }
-    if(this->sibling_ptr){
-	auto right_sibling = static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr);
-	if(right_sibling->type == lnode_t<Key_t, Value_t>::HASH_NODE)
-	    (static_cast<lnode_hash_t<Key_t, Value_t>*>(right_sibling))->left_sibling_ptr = reinterpret_cast<lnode_hash_t<Key_t, Value_t>*>(leaf[num-1]);
+
+    if(right_latch){
+	(static_cast<lnode_hash_t<Key_t, Value_t>*>(right))->left_sibling_ptr = reinterpret_cast<lnode_hash_t<Key_t, Value_t>*>(leaf[num-1]);
+//	(static_cast<node_t*>(right))->write_unlock();
     }
 
     return leaf;
@@ -865,13 +927,24 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_all(uint64_t version){
     #endif
 
     for(int j=0; j<cardinality; j++){
+	/*
+	auto bucket_version = bucket[j].get_version(need_restart);
+	if(need_restart)
+	    return false;
+
+	if(bucket[j].state != bucket_t<Key_t, Value_t>::STABLE){
+	    if(!bucket[j].upgrade_lock(bucket_version))
+		return false;
+	}
+	else continue;
+*/
 	if(bucket[j].state != bucket_t<Key_t, Value_t>::STABLE){
 	    if(!bucket[j].try_lock())
 		return false;
 	}
 	else continue;
 
-	auto cur_version = get_version(need_restart);
+	auto cur_version = (static_cast<node_t*>(this))->get_version(need_restart);
 	if(need_restart || (version != cur_version)){
 	    bucket[j].unlock();
 	    return false;
@@ -991,7 +1064,9 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_all(uint64_t version){
 	    right_bucket->unlock();
 	    bucket[j].unlock();
 	}
-	// else STABLE
+	else{// else STABLE
+	    bucket[j].unlock();
+	}
     }
     return true;
 #endif
@@ -1008,14 +1083,12 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_bucket(int loc){
     if(bucket[loc].state == bucket_t<Key_t, Value_t>::LINKED_LEFT){
 	auto left = left_sibling_ptr;
 	auto left_bucket = &left->bucket[loc];
-	auto left_vstart = left->get_version(need_restart);
-	if(need_restart){
+	auto left_vstart = (static_cast<node_t*>(left))->get_version(need_restart);
+	if(need_restart)
 	    return false;
-	}
 
-	if(!left_bucket->try_lock()){
+	if(!left_bucket->try_lock())
 	    return false;
-	}
 
 	auto left_vend = left->get_version(need_restart);
 	if(need_restart || (left_vstart != left_vend)){
@@ -1084,14 +1157,12 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_bucket(int loc){
     else if(bucket[loc].state == bucket_t<Key_t, Value_t>::LINKED_RIGHT){
 	auto right = static_cast<lnode_hash_t<Key_t, Value_t>*>(this->sibling_ptr);
 	auto right_bucket = &right->bucket[loc];
-	auto right_vstart = right->get_version(need_restart);
-	if(need_restart){
+	auto right_vstart = (static_cast<node_t*>(right))->get_version(need_restart);
+	if(need_restart)
 	    return false;
-	}
 
-	if(!right_bucket->try_lock()){
+	if(!right_bucket->try_lock())
 	    return false;
-	}
 
 	auto right_vend = right->get_version(need_restart);
 	if(need_restart || (right_vstart != right_vend)){

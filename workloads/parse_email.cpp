@@ -102,12 +102,12 @@ void workloadE(std::vector<std::string>& emails, std::string output){
     uint64_t insert_idx = _100M;
     for(uint64_t i=0; i<_100M; i++){
 	uint64_t random = rand() % 100;
-	if(random < 95){
+	if(random < 100){
+	//if(random < 95){
 	RETRY:
 	    uint64_t scan = rand() % 100;
 	    if(scan == 0) goto RETRY;
 	    ofs << "SCAN " << emails[i] << " " << scan << std::endl;
-	    exit(0);
 	}
 	else
 	    ofs << "INSERT " << emails[insert_idx++] << std::endl;
@@ -169,8 +169,8 @@ void process_input(std::string input, std::string output){
 	ifs >> temp;
 
 	auto len = temp.length();
-	if(len > 31 || len < 12)
-	//if(len > 32 || len < 16)
+	//if(len > 31 || len < 16)
+	if(len > 32 || len < 16)
 	    continue;
 
 	lens += len;

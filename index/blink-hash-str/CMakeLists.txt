@@ -20,8 +20,6 @@ elseif(USE_AVX512)
     add_definitions(-DAVX512)
 endif()
 
-
-
 set(TC_MALLOC_LIBRARY tcmalloc tcmalloc_minimal libtcmalloc_minimal.so.4.3.0)
 find_library(TC_MALLOC_LIBRARY
         NAMES ${TC_MALLOC_NAMES}

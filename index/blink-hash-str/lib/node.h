@@ -10,8 +10,6 @@
 #include <cmath>
 #include <limits.h>
 #include <algorithm>
-#include <mutex>
-#include <shared_mutex>
 #include <thread>
 #include "common.h"
 
@@ -21,8 +19,8 @@
 #define BITS_PER_LONG 64
 #define BITOP_WORD(nr) ((nr) / BITS_PER_LONG)
 
-#define PAGE_SIZE (1024)
-//#define PAGE_SIZE (512)
+//#define PAGE_SIZE (1024)
+#define PAGE_SIZE (512)
 
 #define CACHELINE_SIZE 64
 #define FILL_FACTOR (0.8)
@@ -35,7 +33,8 @@ static void dummy(const char*, ...) {}
 #ifdef BLINK_DEBUG
 #define blink_printf(fmt, ...) \
   do { \
-    fprintf(stderr, "%-24s(%8lX): " fmt, \
+    if(print_flag == false) break; \
+    fprintf(stdout, "%-24s(%8lX): " fmt, \
             __FUNCTION__, \
             std::hash<std::thread::id>()(std::this_thread::get_id()), \
             ##__VA_ARGS__); \
@@ -51,6 +50,7 @@ static void dummy(const char*, ...) {}
 
 #endif
 
+extern bool print_flag;
 
 namespace BLINK_HASH{
 
@@ -67,10 +67,10 @@ class node_t{
 	int level;
 
 
-	node_t(): lock(0), sibling_ptr(nullptr), leftmost_ptr(nullptr), cnt(0), level(0){ }
-	node_t(node_t* sibling, node_t* left, int count, int _level): lock(0), sibling_ptr(sibling), leftmost_ptr(left), cnt(count), level(_level) { }
-	node_t(node_t* sibling, node_t* left, int count, int _level, bool): lock(0), sibling_ptr(sibling), leftmost_ptr(left), cnt(count), level(_level) { }
-	node_t(uint32_t _level): lock(0), sibling_ptr(nullptr), leftmost_ptr(nullptr), cnt(0), level(_level) { }
+	node_t(): lock(0b0), sibling_ptr(nullptr), leftmost_ptr(nullptr), cnt(0), level(0){ }
+	node_t(node_t* sibling, node_t* left, int count, int _level): lock(0b0), sibling_ptr(sibling), leftmost_ptr(left), cnt(count), level(_level) { }
+	node_t(node_t* sibling, node_t* left, int count, int _level, bool): lock(0b0), sibling_ptr(sibling), leftmost_ptr(left), cnt(count), level(_level) { }
+	node_t(uint32_t _level): lock(0b0), sibling_ptr(nullptr), leftmost_ptr(nullptr), cnt(0), level(_level) { }
 
 	void update_meta(node_t* sibling_ptr_, int level_){
 	    lock = 0;
@@ -85,15 +85,7 @@ class node_t{
 	}
 
 	bool is_locked(uint64_t version){
-	    return ((version & 0b100) == 0b100);
-	}
-
-	bool is_converting(uint64_t version){
-	    #ifdef CONVERT_LOCK
 	    return ((version & 0b10) == 0b10);
-	    #else
-	    return ((version & 0b100) == 0b100);
-	    #endif
 	}
 
 	bool is_obsolete(uint64_t version){
@@ -120,7 +112,7 @@ class node_t{
 
 	void writelock(){
 	    uint64_t version = lock.load();
-	    if(!lock.compare_exchange_strong(version, version + 0b100)){
+	    if(!lock.compare_exchange_strong(version, version + 0b10)){
 		std::cerr << __func__ << ": something wrong at " << this << std::endl;
 		exit(0);
 	    }
@@ -128,56 +120,39 @@ class node_t{
 
 	bool try_writelock(){
 	    uint64_t version = lock.load();
-	    if(is_locked(version) || is_obsolete(version) || is_converting(version)){
+	    if(is_locked(version) || is_obsolete(version)){
 		_mm_pause();
 		return false;
 	    }
 
-	    if(!lock.compare_exchange_strong(version, version + 0b100)){
+	    if(!lock.compare_exchange_strong(version, version + 0b10)){
 		_mm_pause();
 		return false;
-
 	    }
 	    return true;
 	}
 
 	void try_upgrade_writelock(uint64_t version, bool& need_restart){
 	    uint64_t _version = lock.load();
-	    if(version != _version || is_converting(version)){
+	    if(version != _version){
 		need_restart = true;
 		return;
 	    }
 
-	    if(!lock.compare_exchange_strong(version, version + 0b100)){
-		_mm_pause();
-		need_restart = true;
-	    }
-	}
-
-	void try_upgrade_convertlock(uint64_t version, bool& need_restart){
-	    uint64_t _version = lock.load();
-	    if(version != _version || is_converting(version)){
-		need_restart = true;
-		return;
-	    }
-
-	    #ifdef CONVERT_LOCK
 	    if(!lock.compare_exchange_strong(version, version + 0b10)){
-	    #else
-	    if(!lock.compare_exchange_strong(version, version + 0b100)){
-	    #endif
 		_mm_pause();
 		need_restart = true;
 	    }
 	}
 
 	void write_unlock(){
-	    lock.fetch_add(0b100);
+	    lock.fetch_add(0b10);
 	}
 
 	void write_unlock_obsolete(){
-	    lock.fetch_sub(0b101);
+	    lock.fetch_sub(0b11);
 	}
+
 };
 
 }

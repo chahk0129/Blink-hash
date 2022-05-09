@@ -74,6 +74,7 @@ class btree_t{
 	node_t* root;
 
 	Epoche epoche{256};
+
 };
 }
 #endif

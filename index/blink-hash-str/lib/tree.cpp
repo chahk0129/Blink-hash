@@ -19,7 +19,6 @@ void btree_t<Key_t, Value_t>::insert(Key_t key, Value_t value, ThreadInfo& epoch
     EpocheGuard epocheGuard(epocheThreadInfo);
     restart:
     auto cur = root;
-
     int stack_cnt = 0;
     inode_t<Key_t>* stack[root->level];
 
@@ -33,14 +32,12 @@ void btree_t<Key_t, Value_t>::insert(Key_t key, Value_t value, ThreadInfo& epoch
     while(cur->level != 0){
 	auto child = (static_cast<inode_t<Key_t>*>(cur))->scan_node(key);
 	auto child_vstart = child->try_readlock(need_restart);
-	if(need_restart){
+	if(need_restart)
 	    goto restart;
-	}
 
 	auto cur_vend = cur->get_version(need_restart);
-	if(need_restart || (cur_vstart != cur_vend)){
+	if(need_restart || (cur_vstart != cur_vend))
 	    goto restart;
-	}
 
 	if(child != cur->sibling_ptr)
 	    stack[stack_cnt++] = static_cast<inode_t<Key_t>*>(cur);
@@ -48,7 +45,6 @@ void btree_t<Key_t, Value_t>::insert(Key_t key, Value_t value, ThreadInfo& epoch
 	cur = child;
 	cur_vstart = child_vstart;
     }
-
     // found leaf
     auto leaf = static_cast<lnode_t<Key_t, Value_t>*>(cur);
     auto leaf_vstart = cur_vstart;
@@ -56,14 +52,12 @@ void btree_t<Key_t, Value_t>::insert(Key_t key, Value_t value, ThreadInfo& epoch
     while(leaf->sibling_ptr && (leaf->high_key < key)){
 	auto sibling = static_cast<lnode_t<Key_t, Value_t>*>(leaf->sibling_ptr);
 	auto sibling_v = sibling->try_readlock(need_restart);
-	if(need_restart){
+	if(need_restart)
 	    goto restart;
-	}
 
 	auto leaf_vend = (static_cast<node_t*>(leaf))->get_version(need_restart);
-	if(need_restart || (leaf_vstart != leaf_vend)){
+	if(need_restart || (leaf_vstart != leaf_vend))
 	    goto restart;
-	}
 
 	leaf = sibling;
 	leaf_vstart = sibling_v;
@@ -77,9 +71,8 @@ void btree_t<Key_t, Value_t>::insert(Key_t key, Value_t value, ThreadInfo& epoch
     else{ // leaf node split
 	Key_t split_key;
 	auto new_leaf = leaf->split(split_key, key, value, leaf_vstart);
-	if(new_leaf == nullptr){
+	if(new_leaf == nullptr)
 	    goto restart; // another thread has already splitted this leaf node
-	}
 
 	if(stack_cnt){
 	    int stack_idx = stack_cnt-1;
@@ -100,29 +93,25 @@ void btree_t<Key_t, Value_t>::insert(Key_t key, Value_t value, ThreadInfo& epoch
 		while(old_parent->sibling_ptr && (old_parent->high_key < split_key)){
 		    auto p_sibling = old_parent->sibling_ptr;
 		    auto p_sibling_v = p_sibling->try_readlock(need_restart);
-		    if(need_restart){
+		    if(need_restart)
 			goto parent_restart;
-		    }
 
 		    auto parent_vend = old_parent->get_version(need_restart);
-		    if(need_restart || (parent_vstart != parent_vend)){
+		    if(need_restart || (parent_vstart != parent_vend))
 			goto parent_restart;
-		    }
 
 		    old_parent = static_cast<inode_t<Key_t>*>(p_sibling);
 		    parent_vstart = p_sibling_v;
 		}
 
 		old_parent->try_upgrade_writelock(parent_vstart, need_restart);
-		if(need_restart){
+		if(need_restart)
 		    goto parent_restart;
-		}
 
 		if(original_node->level != 0) // internal node
 		    original_node->write_unlock();
 		else // leaf node
 		    (static_cast<lnode_t<Key_t, Value_t>*>(original_node))->write_unlock();
-
 
 		if(!old_parent->is_full()){ // normal insert
 		    old_parent->insert(split_key, new_node);
@@ -182,25 +171,21 @@ void btree_t<Key_t, Value_t>::insert_key(Key_t key, node_t* value, node_t* prev)
     bool need_restart = false;
 
     auto cur_vstart = cur->try_readlock(need_restart);
-    if(need_restart){
+    if(need_restart)
 	goto restart;
-    }
 
     // since we need to find exact internal node which has been previously the root, we use readlock for traversal
     while(cur->level != prev->level+1){
 	auto child = (static_cast<inode_t<Key_t>*>(cur))->scan_node(key);
 	auto child_vstart = child->try_readlock(need_restart);
-	if(need_restart){
+	if(need_restart)
 	    goto restart;
-	}
 
 	auto cur_vend = cur->get_version(need_restart);
-	if(need_restart || (cur_vstart != cur_vend)){
+	if(need_restart || (cur_vstart != cur_vend))
 	    goto restart;
-	}
 
 	cur = child;
-
 	cur_vstart = child_vstart;
     }
 
@@ -208,29 +193,25 @@ void btree_t<Key_t, Value_t>::insert_key(Key_t key, node_t* value, node_t* prev)
     while(cur->sibling_ptr && ((static_cast<inode_t<Key_t>*>(cur))->high_key < key)){
 	auto sibling = cur->sibling_ptr;
 	auto sibling_vstart = sibling->try_readlock(need_restart);
-	if(need_restart){
+	if(need_restart)
 	    goto restart;
-	}
 
 	auto cur_vend = cur->get_version(need_restart);
-	if(need_restart || (cur_vstart != cur_vend)){
+	if(need_restart || (cur_vstart != cur_vend))
 	    goto restart;
-	}
 
 	cur = static_cast<inode_t<Key_t>*>(sibling);
 	cur_vstart = sibling_vstart;
     }
 
     cur->try_upgrade_writelock(cur_vstart, need_restart);
-    if(need_restart){
+    if(need_restart)
 	goto restart;
-    }
-    if(prev->level != 0){
+
+    if(prev->level != 0)
 	prev->write_unlock();
-    }
-    else{
+    else
 	(static_cast<lnode_t<Key_t, Value_t>*>(prev))->write_unlock();
-    }
 
     auto node = static_cast<inode_t<Key_t>*>(cur);
     if(!node->is_full()){
@@ -317,13 +298,15 @@ Value_t btree_t<Key_t, Value_t>::lookup(Key_t key, ThreadInfo& threadEpocheInfo)
     bool need_restart = false;
 
     auto cur_vstart = cur->try_readlock(need_restart);
-    if(need_restart) goto restart;
+    if(need_restart)
+	goto restart;
 
     // traversal
     while(cur->level != 0){
 	auto child = (static_cast<inode_t<Key_t>*>(cur))->scan_node(key);
 	auto child_vstart = child->try_readlock(need_restart);
-	if(need_restart) goto restart;
+	if(need_restart)
+	    goto restart;
 
 	auto cur_vend = cur->get_version(need_restart);
 	if(need_restart || (cur_vstart != cur_vend))
@@ -367,7 +350,7 @@ inode_t<Key_t>** btree_t<Key_t, Value_t>::new_root_for_adjustment(Key_t* key, no
 	new_num = num / batch_size;
     else
 	new_num = num / batch_size + 1;
-    //inode_t<Key_t>* new_roots[new_num];
+
     auto new_roots = new inode_t<Key_t>*[new_num];
     int idx = 0;
     for(int i=0; i<new_num; i++){
@@ -386,12 +369,14 @@ void btree_t<Key_t, Value_t>::batch_insert(Key_t* key, node_t** value, int num, 
     bool need_restart = false;
 
     auto cur_vstart = cur->try_readlock(need_restart);
-    if(need_restart) goto restart;
+    if(need_restart)
+	goto restart;
 
     while(cur->level != prev->level+1){
 	auto child = (static_cast<inode_t<Key_t>*>(cur))->scan_node(key[0]);
 	auto child_vstart = child->try_readlock(need_restart);
-	if(need_restart) goto restart;
+	if(need_restart)
+	    goto restart;
 
 	auto cur_vend = cur->get_version(need_restart);
 	if(need_restart || (cur_vstart != cur_vend))
@@ -405,7 +390,8 @@ void btree_t<Key_t, Value_t>::batch_insert(Key_t* key, node_t** value, int num, 
     while(cur->sibling_ptr && ((static_cast<inode_t<Key_t>*>(cur))->high_key < key[0])){
 	auto sibling = cur->sibling_ptr;
 	auto sibling_vstart = sibling->try_readlock(need_restart);
-	if(need_restart) goto restart;
+	if(need_restart)
+	    goto restart;
 
 	auto cur_vend = cur->get_version(need_restart);
 	if(need_restart || (cur_vstart != cur_vend))
@@ -416,14 +402,24 @@ void btree_t<Key_t, Value_t>::batch_insert(Key_t* key, node_t** value, int num, 
     }
 
     cur->try_upgrade_writelock(cur_vstart, need_restart);
-    if(need_restart) goto restart;
+    if(need_restart)
+	goto restart;
+
     if(prev->level == 0){
-	value[0]->write_unlock();
-	//(reinterpret_cast<lnode_hash_t<Key_t, Value_t>*>(prev))->split_unlock_obsolete();
+	if((static_cast<lnode_hash_t<Key_t, Value_t>*>(prev))->left_sibling_ptr)
+	    (static_cast<node_t*>((static_cast<lnode_hash_t<Key_t, Value_t>*>(prev))->left_sibling_ptr))->write_unlock();
+
+	if(prev->sibling_ptr){
+	    if((static_cast<lnode_t<Key_t, Value_t>*>(prev->sibling_ptr))->type == lnode_hash_t<Key_t, Value_t>::HASH_NODE)
+		(static_cast<node_t*>(prev->sibling_ptr))->write_unlock();
+	}
+
+	(static_cast<lnode_t<Key_t, Value_t>*>(prev))->convert_unlock_obsolete();
 	threadEpocheInfo.getEpoche().markNodeForDeletion(prev, threadEpocheInfo);
     }
-    else
+    else{
 	prev->write_unlock();
+    }
 
     auto parent = static_cast<inode_t<Key_t>*>(cur);
     int new_num = 0;
@@ -432,13 +428,14 @@ void btree_t<Key_t, Value_t>::batch_insert(Key_t* key, node_t** value, int num, 
 	new_nodes = parent->batch_insert_last_level(key, value, num, new_num);
     else
 	new_nodes = parent->batch_insert(key, value, num, new_num);
+    delete[] value;
 
     if(new_nodes == nullptr){
-	cur->write_unlock();
+	parent->write_unlock();
 	return;
     }
 
-    auto split_key = new Key_t[new_num];
+    Key_t split_key[new_num];
     split_key[0] = parent->high_key;
     for(int i=1; i<new_num; i++)
 	split_key[i] = new_nodes[i-1]->high_key;
@@ -457,10 +454,9 @@ void btree_t<Key_t, Value_t>::batch_insert(Key_t* key, node_t** value, int num, 
 	}
 
 	auto new_root = new inode_t<Key_t>(new_nodes[0]->level+1);
-	int idx = 0;
 	new_root->insert_for_root(split_key, reinterpret_cast<node_t**>(new_nodes), static_cast<node_t*>(parent), new_num);
 	root = new_root;
-	cur->write_unlock();
+	parent->write_unlock();
 	return;
     }
 }
@@ -473,22 +469,19 @@ int btree_t<Key_t, Value_t>::range_lookup(Key_t min_key, int range, Value_t* buf
     auto cur = root;
     bool need_restart = false;
     auto cur_vstart = cur->try_readlock(need_restart);
-    if(need_restart){
+    if(need_restart)
 	goto restart;
-    }
 
     // traversal
     while(cur->level != 0){
 	auto child = (static_cast<inode_t<Key_t>*>(cur))->scan_node(min_key);
 	auto child_vstart = child->try_readlock(need_restart);
-	if(need_restart){
+	if(need_restart)
 	    goto restart;
-	}
 
 	auto cur_vend = cur->get_version(need_restart);
-	if(need_restart || (cur_vstart != cur_vend)){
+	if(need_restart || (cur_vstart != cur_vend))
 	    goto restart;
-	}
 
 	cur = child;
 	cur_vstart = child_vstart;
@@ -506,23 +499,21 @@ int btree_t<Key_t, Value_t>::range_lookup(Key_t min_key, int range, Value_t* buf
 	    auto sibling = leaf->sibling_ptr;
 
 	    auto sibling_v = sibling->try_readlock(need_restart);
-	    if(need_restart){
+	    if(need_restart)
 		goto restart;
-	    }
 
 	    auto leaf_vend = leaf->get_version(need_restart);
-	    if(need_restart || (leaf_vstart != leaf_vend)){
+	    if(need_restart || (leaf_vstart != leaf_vend))
 		goto restart;
-	    }
 
 	    leaf = static_cast<lnode_t<Key_t, Value_t>*>(sibling);
 	    leaf_vstart = sibling_v;
 	}
+
 	auto ret = leaf->range_lookup(min_key, buf, count, range, continued);
-	if(ret == -1){
+	if(ret == -1)
 	    goto restart;
-	}
-	else if(ret == -2){/// TODO: epoche 
+	else if(ret == -2){
 	    auto ret_ = convert(leaf, leaf_vstart, threadEpocheInfo);
 	    goto restart;
 	}
@@ -531,19 +522,18 @@ int btree_t<Key_t, Value_t>::range_lookup(Key_t min_key, int range, Value_t* buf
 	auto sibling = leaf->sibling_ptr;
 
 	auto leaf_vend = leaf->get_version(need_restart);
-	if(need_restart || (leaf_vstart != leaf_vend)){
+	if(need_restart || (leaf_vstart != leaf_vend))
 	    goto restart;
-	}
 
-	if(ret == range){
+	if(ret == range)
 	    return ret;
-	}
 
 	// reaches to the rightmost leaf
 	if(!sibling) break;
 
 	auto sibling_vstart = sibling->try_readlock(need_restart);
-	if(need_restart) goto restart;
+	if(need_restart)
+	    goto restart;
 
 	leaf = static_cast<lnode_t<Key_t, Value_t>*>(sibling);
 	leaf_vstart = sibling_vstart;
@@ -556,8 +546,9 @@ template <typename Key_t, typename Value_t>
 bool btree_t<Key_t, Value_t>::convert(lnode_t<Key_t, Value_t>* leaf, uint64_t leaf_version, ThreadInfo& threadEpocheInfo){
     int num = 0;
     auto nodes = (static_cast<lnode_hash_t<Key_t, Value_t>*>(leaf))->convert(num, leaf_version);
-    if(nodes == nullptr)
+    if(nodes == nullptr){
 	return false;
+    }
 
     Key_t split_key[num];
     split_key[0] = nodes[0]->high_key;
@@ -593,8 +584,7 @@ void btree_t<Key_t, Value_t>::convert_all(ThreadInfo& threadEpocheInfo){
 	cur_vstart = leaf->get_version(need_restart);
 	auto ret = convert(leaf, cur_vstart, threadEpocheInfo);
 	if(!ret)
-	    std::cout << __func__ << ": Something went wrong!! - conversion of " << leaf << " failed" << std::endl;
-
+	    blink_printf("Something wrong!! -- converting leaf %llx failed\n", leaf);
     }while((leaf = static_cast<lnode_t<Key_t, Value_t>*>(leaf->sibling_ptr)));
 }
 
