@@ -17,7 +17,8 @@ struct options_t{
     bool earliest = false;
     bool mem = false;
     bool profile = false;
-    float fuzzy = 0.0;
+    uint64_t fuzzy = 0;
+    float random = 0.0;
 
     uint32_t init_num = 10000000;
     uint32_t run_num = 10000000;

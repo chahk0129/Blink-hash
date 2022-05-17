@@ -51,8 +51,12 @@ static bool earliest = false;
 // Whether measure latency
 static bool measure_latency = false;
 static float sampling_rate = 0;
-// Fuzzy insertion rate
-static float fuzzy_rate = 0;
+// Fuzzy insertion latency
+static uint64_t fuzzy = 0;
+// CPU frequency
+static uint64_t frequency = 2600; 
+// Random insertion rate
+static float random_rate = 0;
 
 // We could set an upper bound of the number of loaded keys
 static int64_t max_init_key = -1;
@@ -101,21 +105,24 @@ inline void run(int index_type, int wl, int num_thread, int num){
     breakdown_t breakdown[num_thread];
     std::vector<kvpair_t<keytype>> keys[num_thread];
 
-    std::vector<std::pair<kvpair_t<keytype>, std::pair<int, int>>> load_ops;
+    std::vector<std::pair<kvpair_t<keytype>, std::pair<int, uint64_t>>> load_ops;
     load_ops.reserve(num);
     int sensor_id = 0;
     for(int i=0; i<num; i++){
 	auto r = (rand() % 100) / 100.0;
-	if(r < fuzzy_rate){
+	if(r < random_rate){
 	    auto kv = new kvpair_t<keytype>;
 	    kv->key = ((Rdtsc() << 16) | sensor_id++ << 6);
 	    kv->value = reinterpret_cast<uint64_t>(&kv->key);
-	    load_ops.push_back(std::make_pair(*kv, std::make_pair(OP_FUZZYINSERT, 0)));
+	    load_ops.push_back(std::make_pair(*kv, std::make_pair(OP_RANDOMINSERT, 0)));
 	    if(sensor_id == 1024) sensor_id = 0;
 	}
 	else{
 	    auto kv = new kvpair_t<keytype>;
-	    load_ops.push_back(std::make_pair(*kv, std::make_pair(OP_INSERT, 0)));
+	    uint64_t latency = 0;
+	    if(fuzzy)
+		latency = rand() % (fuzzy * frequency);
+	    load_ops.push_back(std::make_pair(*kv, std::make_pair(OP_INSERT, latency)));
 	}
     }
     std::random_shuffle(load_ops.begin(), load_ops.end());
@@ -150,8 +157,9 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	int j = 0;
 	for(auto i=start; i<end; i++, j++){
 	    auto op = load_ops[i].second.first;
+	    auto lat = load_ops[i].second.second;
 	    if(op == OP_INSERT){
-		kv[j].key = ((Rdtsc() << 16) | sensor_id++ << 6) | thread_id;
+		kv[j].key = (((Rdtsc() - lat) << 16) | sensor_id++ << 6) | thread_id;
 		kv[j].value = reinterpret_cast<uint64_t>(&kv[j].key);
 	    }
 	    else{
@@ -233,8 +241,9 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	int j = 0;
 	for(auto i=start; i<end; i++, j++){
 	    auto op = load_ops[i].second.first;
+	    auto lat = load_ops[i].second.second;
 	    if(op == OP_INSERT){
-		kv[j].key = ((Rdtsc() << 16) | sensor_id++ << 6) | thread_id;
+		kv[j].key = (((Rdtsc() - lat) << 16) | sensor_id++ << 6) | thread_id;
 		kv[j].value = reinterpret_cast<uint64_t>(&kv[j].key);
 	    }
 	    else{
@@ -371,7 +380,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
     }
 
 
-    std::vector<std::pair<kvpair_t<keytype>, std::pair<int, int>>> ops;
+    std::vector<std::pair<kvpair_t<keytype>, std::pair<int, uint64_t>>> ops;
     std::unordered_map<keytype, bool> hashmap;
     hashmap.reserve(num);
     ops.reserve(num);
@@ -385,8 +394,8 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	for(auto& v: keys[i]){
 	    int r = rand() % 100;
 	    if(r < 50){
-		auto fuzzy = (rand() % 100) / 100.0;
-		if(fuzzy < fuzzy_rate){
+		auto random = (rand() % 100) / 100.0;
+		if(random < random_rate){
 		    uint32_t sensor_id = 0;
 		    auto key = v.key | ((sensor_id++ << 6) | i);
 		    while(hashmap.find(key) != hashmap.end()){
@@ -396,17 +405,21 @@ inline void run(int index_type, int wl, int num_thread, int num){
 		    auto kv = new kvpair_t<keytype>;
 		    kv->key = key;
 		    kv->value = reinterpret_cast<uint64_t>(&kv->key);
-		    ops.push_back(std::make_pair(*kv, std::make_pair(OP_FUZZYINSERT, 0))); // FUZZY_INSERT
+		    ops.push_back(std::make_pair(*kv, std::make_pair(OP_RANDOMINSERT, 0))); // RANDOM INSERT
 		}
-		else
-		    ops.push_back(std::make_pair(v, std::make_pair(OP_INSERT, 0))); // INSERT
+		else{
+		    uint64_t latency = 0;
+		    if(fuzzy)
+			latency = rand() % (fuzzy * frequency);
+		    ops.push_back(std::make_pair(v, std::make_pair(OP_INSERT, latency))); // INSERT
+		}
 	    }
 	    else if(r < 80){
-		int range = rand() % 5 + 5;
+		uint64_t range = rand() % 5 + 5;
 		ops.push_back(std::make_pair(v, std::make_pair(OP_SCAN, range))); // SHORT SCAN
 	    }
 	    else if(r < 90){
-		int range = rand() % 90 + 10;
+		uint64_t range = rand() % 90 + 10;
 		ops.push_back(std::make_pair(v, std::make_pair(OP_SCAN, range))); // LONG SCAN
 	    }
 	    else
@@ -723,12 +736,12 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	    auto op = ops[i].second.first;
 	    if(op == OP_INSERT){
 		auto kv = new kvpair_t<keytype>;
-		kv->key = ((Rdtsc() << 16) | sensor_id++ << 6) | thread_id;
+		kv->key = (((Rdtsc() - ops[i].second.second) << 16) | sensor_id++ << 6) | thread_id;
 		kv->value = reinterpret_cast<uint64_t>(&kv->key);
 		if(sensor_id == 1024) sensor_id = 0;
 		idx->insert(kv->key, kv->value, ti);
 	    }
-	    else if(op == OP_FUZZYINSERT){
+	    else if(op == OP_RANDOMINSERT){
 		auto kv = new kvpair_t<keytype>;
 		kv->key = ops[i].first.key;
 		kv->value = reinterpret_cast<uint64_t>(&kv->key);
@@ -817,12 +830,12 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	    auto op = ops[i].second.first;
 	    if(op == OP_INSERT){
 		auto kv = new kvpair_t<keytype>;
-		kv->key = ((Rdtsc() << 16) | sensor_id++ << 6) | thread_id;
+		kv->key = (((Rdtsc() - ops[i].second.second) << 16) | sensor_id++ << 6) | thread_id;
 		kv->value = reinterpret_cast<uint64_t>(&kv->key);
 		if(sensor_id == 1024) sensor_id = 0;
 		idx->insert(kv->key, kv->value, ti);
 	    }
-	    else if(op == OP_FUZZYINSERT){
+	    else if(op == OP_RANDOMINSERT){
 		auto kv = new kvpair_t<keytype>;
 		kv->key = ops[i].first.key;
 		kv->value = reinterpret_cast<uint64_t>(&kv->key);
@@ -998,7 +1011,8 @@ int main(int argc, char *argv[]) {
 	    ("hyper", "Enable hyper threading", cxxopts::value<bool>()->default_value((opt.hyper ? "true" : "false")))
 	    ("insert_only", "Skip running transactions", cxxopts::value<bool>()->default_value((opt.insert_only ? "true" : "false")))
 	    ("earliest", "Measure performance based on the earliest finished thread", cxxopts::value<bool>()->default_value((opt.earliest ? "true" : "false")))
-	    ("fuzzy", "Amount of fuzzy keys in mixed workload", cxxopts::value<float>()->default_value(std::to_string(opt.fuzzy)))
+	    ("fuzzy", "Fuzzy insertion latency in (usec)", cxxopts::value<uint64_t>()->default_value(std::to_string(opt.fuzzy)))
+	    ("random", "Amount of random insertion", cxxopts::value<float>()->default_value(std::to_string(opt.random)))
 	    ("help", "Print help")
 	    ;
 
@@ -1018,7 +1032,10 @@ int main(int argc, char *argv[]) {
 	    opt.sampling_latency = result["latency"].as<float>();
 
 	if(result.count("fuzzy"))
-	    opt.fuzzy = result["fuzzy"].as<float>();
+	    opt.fuzzy = result["fuzzy"].as<uint64_t>();
+
+	if(result.count("random"))
+	    opt.random = result["random"].as<float>();
 
 	if(result.count("num"))
 	    opt.num = result["num"].as<uint32_t>();
@@ -1147,11 +1164,18 @@ int main(int argc, char *argv[]) {
     if(sampling_rate != 0.0)
 	measure_latency = true;
 
-    if(opt.fuzzy < 0 || opt.fuzzy > 1){
-	std::cout << "Fuzzy insertion rate should be between 0.0 and 1.0" << std::endl;
+    if(opt.fuzzy < 0){
+	std::cout << "Fuzzy insertion latency (usec) should be equal to or larger than 0" << std::endl;
 	exit(0);
     }
-    fuzzy_rate = opt.fuzzy;
+    fuzzy = opt.fuzzy;
+
+    if(opt.random < 0 || opt.random > 1){
+	std::cout << "Random insertion rate should be between 0.0 and 1.0" << std::endl;
+	exit(0);
+    }
+    random_rate = opt.random;
+
 
     int num_thread = opt.threads;
 

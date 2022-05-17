@@ -406,14 +406,7 @@ void btree_t<Key_t, Value_t>::batch_insert(Key_t* key, node_t** value, int num, 
 	goto restart;
 
     if(prev->level == 0){
-	if((static_cast<lnode_hash_t<Key_t, Value_t>*>(prev))->left_sibling_ptr)
-	    (static_cast<node_t*>((static_cast<lnode_hash_t<Key_t, Value_t>*>(prev))->left_sibling_ptr))->write_unlock();
-
-	if(prev->sibling_ptr){
-	    if((static_cast<lnode_t<Key_t, Value_t>*>(prev->sibling_ptr))->type == lnode_hash_t<Key_t, Value_t>::HASH_NODE)
-		(static_cast<node_t*>(prev->sibling_ptr))->write_unlock();
-	}
-
+	value[0]->write_unlock();
 	(static_cast<lnode_t<Key_t, Value_t>*>(prev))->convert_unlock_obsolete();
 	threadEpocheInfo.getEpoche().markNodeForDeletion(prev, threadEpocheInfo);
     }

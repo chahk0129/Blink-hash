@@ -80,7 +80,7 @@ struct bucket_t{
 
 
 #ifdef FINGERPRINT
-    #ifdef AVX512
+    #ifdef AVX_256
     bool insert(Key_t key, Value_t value, uint8_t fingerprint, __m256i empty){
 	__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(fingerprints));
 	__m256i cmp = _mm256_cmpeq_epi8(empty, fingerprints_);
@@ -96,7 +96,7 @@ struct bucket_t{
 	}
 	return false;
     }
-    #elif defined AVX2
+    #elif defined AVX_128
     bool insert(Key_t key, Value_t value, uint8_t fingerprint, __m128i empty){
 	for(int m=0; m<2; m++){
 	    __m128i fingerprints_ = _mm_loadu_si128(reinterpret_cast<__m128i*>(fingerprints + m*16));
@@ -143,7 +143,7 @@ struct bucket_t{
 
 
 #ifdef FINGERPRINT
-    #ifdef AVX512
+    #ifdef AVX_256
     bool find(Key_t key, Value_t& value, __m256i fingerprint){
 	__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(fingerprints));
 	__m256i cmp = _mm256_cmpeq_epi8(fingerprint, fingerprints_);
@@ -159,7 +159,7 @@ struct bucket_t{
 	}
 	return false;
     }
-    #elif defined AVX2
+    #elif defined AVX_128
     bool find(Key_t key, Value_t& value, __m128i fingerprint){
 	for(int m=0; m<2; m++){
 	    __m128i fingerprints_ = _mm_loadu_si128(reinterpret_cast<__m128i*>(fingerprints + m*16));
@@ -204,7 +204,7 @@ struct bucket_t{
 #endif
 
 #ifdef FINGERPRINT
-    #ifdef AVX512
+    #ifdef AVX_256
     void collect(Key_t key, entry_t<Key_t, Value_t>* buf, int& num, __m256i empty){
 	__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(fingerprints));
 	__m256i cmp = _mm256_cmpeq_epi8(empty, fingerprints_);
@@ -218,7 +218,7 @@ struct bucket_t{
 	    }
 	}
     }
-    #elif defined AVX2
+    #elif defined AVX_128
     void collect(Key_t key, entry_t<Key_t, Value_t>* buf, int& num, __m128i empty){
 	for(int m=0; m<2; m++){
 	    __m128i fingerprints_ = _mm_loadu_si128(reinterpret_cast<__m128i*>(fingerprints + m*16));
@@ -259,7 +259,7 @@ struct bucket_t{
 #endif
 
 #ifdef FINGERPRINT
-    #ifdef AVX512
+    #ifdef AVX_256
     void collect(entry_t<Key_t, Value_t>* buf, int& num, __m256i empty){
 	__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(fingerprints));
 	__m256i cmp = _mm256_cmpeq_epi8(empty, fingerprints_);
@@ -271,7 +271,7 @@ struct bucket_t{
 	    }
 	}
     }
-    #elif defined AVX2
+    #elif defined AVX_128
     void collect(entry_t<Key_t, Value_t>* buf, int& num, __m128i empty){
 	for(int m=0; m<2; m++){
 	    __m128i fingerprints_ = _mm_loadu_si128(reinterpret_cast<__m128i*>(fingerprints + m*16));
@@ -306,7 +306,7 @@ struct bucket_t{
 #endif
 
 #ifdef FINGERPRINT
-    #ifdef AVX512
+    #ifdef AVX_256
     bool update(Key_t key, Value_t value, __m256i fingerprint){
 	__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(fingerprints));
 	__m256i cmp = _mm256_cmpeq_epi8(fingerprint, fingerprints_);
@@ -322,7 +322,7 @@ struct bucket_t{
 	}
 	return false;
     }
-    #elif defined AVX2
+    #elif defined AVX_128
     bool update(Key_t key, Value_t value, __m128i fingerprint){
 	for(int m=0; m<2; m++){
 	    __m128i fingerprints_ = _mm_loadu_si128(reinterpret_cast<__m128i*>(fingerprints + m*16));
@@ -367,7 +367,7 @@ struct bucket_t{
 #endif
 
 #ifdef FINGERPRINT
-    #ifdef AVX512
+    #ifdef AVX_256
     bool collect_keys(Key_t* keys, int& num, int cardinality, __m256i empty){
 	__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(fingerprints));
 	__m256i cmp = _mm256_cmpeq_epi8(empty, fingerprints_);
@@ -382,7 +382,7 @@ struct bucket_t{
 	}
 	return false;
     }
-    #elif defined AVX2
+    #elif defined AVX_128
     bool collect_keys(Key_t* keys, int& num, int cardinality, __m128i empty){
 	for(int m=0; m<2; m++){
 	    __m128i fingerprints_ = _mm_loadu_si128(reinterpret_cast<__m128i*>(fingerprints + m*16));
@@ -426,7 +426,7 @@ struct bucket_t{
 #endif
 
 #ifdef FINGERPRINT
-    #ifdef AVX512
+    #ifdef AVX_256
     void collect_all_keys(Key_t* keys, int& num, __m256i empty){
 	__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(fingerprints));
 	__m256i cmp = _mm256_cmpeq_epi8(empty, fingerprints_);
@@ -438,7 +438,7 @@ struct bucket_t{
 	    }
 	}
     }
-    #elif defined AVX2
+    #elif defined AVX_128
     void collect_all_keys(Key_t* keys, int& num, __m128i empty){
 	for(int m=0; m<2; m++){
 	    __m128i fingerprints_ = _mm_loadu_si128(reinterpret_cast<__m128i*>(fingerprints + m*16));

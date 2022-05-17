@@ -4,11 +4,10 @@
 
 mkdir output
 mkdir output/throughput
-output_int=output/throughput/int2
-output_email=output/throughput/email4
+output_int=output/throughput/int3
+output_email=output/throughput/email7
 output_ts=output/throughput/ts3
-output_url=output/throughput/url
-mkdir $output_int $output_email $output_ts $output_url
+mkdir $output_int $output_email $output_ts
 
 int_path=/remote_dataset/workloads/100M/
 str_path=/remote_dataset/workloads/email/
@@ -18,8 +17,9 @@ index="blinkhash"
 threads="1 4 8 16 32 64"
 workloads="load a b c e"
 ts_workloads="load read scan mixed"
-iterations="1 2 3"
-
+iterations="1 2 3 4 5"
+#iterations="1 2 3"
+"
 ## integer keys
 for iter in $iterations; do
         for wk in $workloads; do
@@ -44,6 +44,28 @@ for iter in $iterations; do
         done
 done
 "
+## random insertion
+mkdir ${output_ts}/random
+for iter in $iterations; do
+	for random in 0.0 0.2 0.4 0.6 0.8 1.0; do
+		for idx in $index; do
+#			./bin/timeseries --index $idx --num 100000000 --workload load --threads 64 --hyper --earliest --random $random >> ${output_ts}/random/insert_${idx}${random}
+			./bin/timeseries --index $idx --num 100000000 --workload mixed --threads 64 --hyper --earliest --random $random >> ${output_ts}/random/mixed_${idx}${random}
+		done
+	done
+done
+"
+## fuzzy insertion
+mkdir ${output_ts}/fuzzy
+for iter in $iterations; do
+	for fuzzy in 1 10 100 1000 10000 100000; do
+		for idx in $index; do
+			./bin/timeseries --index $idx --num 100000000 --workload load --threads 64 --hyper --earliest --fuzzy $fuzzy >> ${output_ts}/fuzzy/insert_${idx}${fuzzy}
+			./bin/timeseries --index $idx --num 100000000 --workload mixed --threads 64 --hyper --earliest --fuzzy $fuzzy >> ${output_ts}/fuzzy/mixed_${idx}${fuzzy}
+		done
+	done
+done
+
 ## email keys
 for iter in $iterations; do
         for wk in $workloads; do
@@ -56,15 +78,3 @@ for iter in $iterations; do
         done
 done
 "
-
-## fuzzy insertion
-for iter in $iterations; do
-	for fuzzy in 0.2 0.4 0.6 0.8 1.0; do
-		for idx in $index; do
-			./bin/timeseries --index $idx --num 100000000 --workload load --threads 64 --hyper --earliest --fuzzy $fuzzy >> ${output_ts}/insert_${idx}${fuzzy}
-			./bin/timeseries --index $idx --num 100000000 --workload mixed --threads 64 --hyper --earliest --fuzzy $fuzzy >> ${output_ts}/mixed_${idx}${fuzzy}
-		done
-	done
-done
-
-

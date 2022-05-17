@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.11)
 project(Blinkhash)
 
 option(USEAVX2 "USEAVX2" ON)
-option(USEAVX512 "USEAVX512" OFF)
 
 set(CMAKE_CXX_FLAGS "-std=c++17 -pthread -Wall -Wextra -march=native -mavx2 -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -faligned-new=64")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
@@ -14,10 +13,7 @@ endif()
 
 if(USE_AVX2)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx -mavx2")
-    add_definitions(-DAVX2)
-elseif(USE_AVX512)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx512f -mavx512vl -mavx512bw -mavx512dq -mavx512cd")
-    add_definitions(-DAVX512)
+    add_definitions(-DAVX_128)
 endif()
 
 set(TC_MALLOC_LIBRARY tcmalloc tcmalloc_minimal libtcmalloc_minimal.so.4.3.0)

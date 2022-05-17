@@ -35,7 +35,7 @@ enum {
 // These are workload operations
 enum {
   OP_INSERT,
-  OP_FUZZYINSERT,
+  OP_RANDOMINSERT,
   OP_READ,
   OP_UPSERT,
   OP_SCAN,

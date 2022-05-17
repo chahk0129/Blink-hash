@@ -74,9 +74,9 @@ template <typename Key_t, typename Value_t>
 int lnode_hash_t<Key_t, Value_t>::insert(Key_t key, Value_t value, uint64_t version){
     bool need_restart = false;
 #ifdef FINGERPRINT
-    #ifdef AVX512
+    #ifdef AVX_256
     __m256i empty = _mm256_setzero_si256();
-    #elif defined AVX2
+    #elif defined AVX_128
     __m128i empty = _mm_setzero_si128();
     #else
     uint8_t empty = 0;
@@ -152,33 +152,11 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
     }
     #endif
 
-    bool right_latch = false;
-    bool need_restart = false;
-    auto sibling = static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr);
-    if(sibling){
-	auto sibling_v = sibling->get_version(need_restart);
-	if(sibling->type == lnode_t<Key_t, Value_t>::HASH_NODE){
-	    if(need_restart){
-		delete new_right;
-		return nullptr;
-	    }
-	    (static_cast<node_t*>(sibling))->try_upgrade_writelock(sibling_v, need_restart);
-	    if(need_restart){
-		delete new_right;
-		return nullptr;
-	    }
-	    right_latch = true;
-	}
-    }
-		
-
     if(!try_splitlock(version)){
-	if(right_latch)
-	    (static_cast<node_t*>(sibling))->write_unlock();
 	delete new_right;
 	return nullptr;
     }
-/*
+
     bool right_latch = false;
     bool need_restart = false;
     auto sibling = static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr);
@@ -200,7 +178,6 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
 	    right_latch = true;
 	}
     }
-*/
 
     /*
        auto util = utilization() * 100;
@@ -208,9 +185,9 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
      */
 
 #ifdef FINGERPRINT
-    #ifdef AVX512
+    #ifdef AVX_256
     __m256i empty = _mm256_setzero_si256();
-    #elif defined AVX2
+    #elif defined AVX_128
     __m128i empty = _mm_setzero_si128();
     #else
     uint8_t empty = 0;
@@ -287,7 +264,7 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
     for(int m=0; m<HASH_FUNCS_NUM; m++){
 	for(int j=0; j<NUM_SLOT; j++){
 	    auto loc = (target[m].loc + j) % cardinality;
-	    #ifdef AVX512
+	    #ifdef AVX_256
 	    __m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(bucket[loc].fingerprints));
 	    __m256i cmp = _mm256_cmpeq_epi8(empty, fingerprints_);
 	    uint32_t bitfield = _mm256_movemask_epi8(cmp);
@@ -338,7 +315,7 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
 		    }
 		}
 	    }
-	    #elif defined AVX2 // +simd
+	    #elif defined AVX_128 // +simd
 	    for(int k=0; k<2; k++){
 		__m128i fingerprints_ = _mm_loadu_si128(reinterpret_cast<__m128i*>(bucket[loc].fingerprints + k*16));
 		__m128i cmp = _mm_cmpeq_epi8(empty, fingerprints_);
@@ -451,8 +428,8 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
     // migrate keys
     for(int j=0; j<cardinality; j++){
         #ifdef FINGERPRINT
-	#ifdef AVX512
-	__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256*>(bucket[j].fingerprints));
+	#ifdef AVX_256
+	__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(bucket[j].fingerprints));
 	__m256i cmp = _mm256_cmpeq_epi8(empty, fingerprints_);
 	uint32_t bitfield = _mm256_movemask_epi8(cmp);
 	for(int i=0; i<32; i++){
@@ -465,7 +442,7 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
 		}
 	    }
 	}
-	#elif defined AVX2
+	#elif defined AVX_128
 	for(int k=0; k<2; k++){
 	    __m128i fingerprints_ = _mm_loadu_si128(reinterpret_cast<__m128i*>(bucket[j].fingerprints + k*16));
 	    __m128i cmp = _mm_cmpeq_epi8(empty, fingerprints_);
@@ -514,7 +491,7 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
 	for(int j=0; j<NUM_SLOT; j++){
 	    auto loc = (target[m].loc + j) % cardinality;
 	    #ifdef FINGERPRINT
-	    #ifdef AVX512
+	    #ifdef AVX_256
 	    __m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(target_node->bucket[loc].fingerprints));
 	    __m256i cmp = _mm256_cmpeq_epi8(empty, fingerprints_);
 	    uint32_t bitfield = _mm256_movemask_epi8(cmp);
@@ -528,7 +505,7 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
 		    goto PROCEED;
 		}
 	    }
-	    #elif defined AVX2
+	    #elif defined AVX_128
 	    for(int k=0; k<2; k++){
 		__m128i fingerprints_ = _mm_loadu_si128(reinterpret_cast<__m128i*>(target_node->bucket[loc].fingerprints));
 		__m128i cmp = _mm_cmpeq_epi8(empty, fingerprints_);
@@ -595,9 +572,9 @@ int lnode_hash_t<Key_t, Value_t>::update(Key_t key, Value_t value, uint64_t vsta
     for(int k=0; k<HASH_FUNCS_NUM; k++){
 	auto hash_key = h(&key, sizeof(Key_t), k);
     #ifdef FINGERPRINT
-	#ifdef AVX512
+	#ifdef AVX_256
 	__m256i fingerprint = _mm256_set1_epi8(_hash(hash_key) | 1);
-	#elif defined AVX2
+	#elif defined AVX_128
 	__m128i fingerprint = _mm_set1_epi8(_hash(hash_key) | 1);
 	#else
 	uint8_t fingerprint = _hash(hash_key) | 1;
@@ -648,9 +625,9 @@ Value_t lnode_hash_t<Key_t, Value_t>::find(Key_t key, bool& need_restart){
     for(int k=0; k<HASH_FUNCS_NUM; k++){
 	auto hash_key = h(&key, sizeof(Key_t), k);
     #ifdef FINGERPRINT
-	#ifdef AVX512
+	#ifdef AVX_256
 	__m256i fingerprint = _mm256_set1_epi8(_hash(hash_key) | 1);
-	#elif defined AVX2
+	#elif defined AVX_128
 	__m128i fingerprint = _mm_set1_epi8(_hash(hash_key) | 1);
 	#else
 	uint8_t fingerprint = _hash(hash_key) | 1;
@@ -723,9 +700,9 @@ int lnode_hash_t<Key_t, Value_t>::range_lookup(Key_t key, Value_t* buf, int coun
     int idx = 0;
 
 #ifdef FINGERPRINT
-    #ifdef AVX512
+    #ifdef AVX_256
     __m256i empty = _mm256_setzero_si256();
-    #elif defined AVX2
+    #elif defined AVX_128
     __m128i empty = _mm_setzero_si128();
     #else
     uint8_t empty = 0;
@@ -825,9 +802,9 @@ lnode_btree_t<Key_t, Value_t>** lnode_hash_t<Key_t, Value_t>::convert(int& num, 
     }
 
 #ifdef FINGERPRINT
-    #ifdef AVX512
+    #ifdef AVX_256
     __m256i empty = _mm256_setzero_si256();
-    #elif defined AVX2
+    #elif defined AVX_128
     __m128i empty = _mm_setzero_si128();
     #else
     uint8_t empty = 0;
@@ -862,15 +839,16 @@ lnode_btree_t<Key_t, Value_t>** lnode_hash_t<Key_t, Value_t>::convert(int& num, 
 	leaf[i]->batch_insert(buf, batch_size, from, idx);
     }
     leaf[num-1]->high_key = this->high_key;
+    (static_cast<node_t*>(leaf[0]))->writelock();
 
     if(left){
 	left->sibling_ptr = static_cast<node_t*>(leaf[0]);
-//	(reinterpret_cast<node_t*>(left))->write_unlock();
+	(reinterpret_cast<node_t*>(left))->write_unlock();
     }
 
     if(right_latch){
 	(static_cast<lnode_hash_t<Key_t, Value_t>*>(right))->left_sibling_ptr = reinterpret_cast<lnode_hash_t<Key_t, Value_t>*>(leaf[num-1]);
-//	(static_cast<node_t*>(right))->write_unlock();
+	(static_cast<node_t*>(right))->write_unlock();
     }
 
     return leaf;
@@ -918,9 +896,9 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_all(uint64_t version){
     return false;
 #else
     bool need_restart = false;
-    #ifdef AVX512
+    #ifdef AVX_256
     __m256i empty = _mm256_setzero_si256();
-    #elif defined AVX2
+    #elif defined AVX_128
     __m128i empty = _mm_setzero_si128();
     #else
     uint8_t empty = 0;
@@ -957,7 +935,7 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_all(uint64_t version){
 		bucket[j].unlock();
 		return false;
 	    }
-	    #ifdef AVX512
+	    #ifdef AVX_256
 	    __m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(left_bucket->fingerprints));
 	    __m256i cmp = _mm256_cmpeq_epi8(empty, fingerprints_);
 	    uint32_t bitfield = _mm256_movemask_epi8(cmp);
@@ -972,7 +950,7 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_all(uint64_t version){
 		    // else key-value stays in left node's bucket
 		}
 	    }
-	    #elif defined AVX2
+	    #elif defined AVX_128
 	    for(int m=0; m<2; m++){
 		__m128i fingerprints_ = _mm_loadu_si128(reinterpret_cast<__m128i*>(left_bucket->fingerprints + m*16));
 		__m128i cmp = _mm_cmpeq_epi8(empty, fingerprints_);
@@ -1014,14 +992,14 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_all(uint64_t version){
 		bucket[j].unlock();
 		return false;
 	    }
-	    #ifdef AVX512
+	    #ifdef AVX_256
 	    __m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(bucket[j].fingerprints));
 	    __m256i cmp = _mm256_cmpeq_epi8(empty, fingerprints_);
 	    uint32_t bitfield = _mm256_movemask_epi8(cmp);
 	    for(int i=0; i<32; i++){
 		auto bit = (bitfield >> i);
 		if((bit & 0x1) == 0){
-		    if(high_key < bucket[j].entry[i].key){ // migrate key-value in current node's bucket to right node's bucket
+		    if(this->high_key < bucket[j].entry[i].key){ // migrate key-value in current node's bucket to right node's bucket
 			right_bucket->fingerprints[i] = bucket[j].fingerprints[i];
 			memcpy(&right_bucket->entry[i], &bucket[j].entry[i], sizeof(entry_t<Key_t, Value_t>));
 			bucket[j].fingerprints[i] = 0;
@@ -1029,7 +1007,7 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_all(uint64_t version){
 		    // else key-value stays in current node's bucket
 		}
 	    }
-	    #elif defined AVX2
+	    #elif defined AVX_128
 	    for(int m=0; m<2; m++){
 		__m128i fingerprints_ = _mm_loadu_si128(reinterpret_cast<__m128i*>(bucket[j].fingerprints + m*16));
 		__m128i cmp = _mm_cmpeq_epi8(empty, fingerprints_);
@@ -1038,7 +1016,7 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_all(uint64_t version){
 		    auto bit = (bitfield >> i);
 		    if((bit & 0x1) == 0){
 			auto idx = m*16 + i;
-			if(lnode_t<Key_t, Value_t>::high_key < bucket[j].entry[idx].key){ // migrate key-value in current node's bucket to right node's bucket
+			if(this->high_key < bucket[j].entry[idx].key){ // migrate key-value in current node's bucket to right node's bucket
 			    right_bucket->fingerprints[idx] = bucket[j].fingerprints[idx];
 			    memcpy(&right_bucket->entry[idx], &bucket[j].entry[idx], sizeof(entry_t<Key_t, Value_t>));
 			    bucket[j].fingerprints[idx] = 0;
@@ -1050,7 +1028,7 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_all(uint64_t version){
 	    #else
 	    for(int i=0; i<entry_num; i++){
 		if(bucket[j].fingerprints[i] != empty){
-		    if(high_key < bucket[j].entry[i].key){ // migrate key-value in current node's bucket to right node's bucket
+		    if(this->high_key < bucket[j].entry[i].key){ // migrate key-value in current node's bucket to right node's bucket
 			right_bucket->fingerprints[i] = bucket[j].fingerprints[i];
 			memcpy(&right_bucket->entry[i], &bucket[j].entry[i], sizeof(entry_t<Key_t, Value_t>));
 			bucket[j].fingerprints[i] = 0;
@@ -1097,7 +1075,7 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_bucket(int loc){
 	}
 
 	if(left_bucket->state == bucket_t<Key_t, Value_t>::LINKED_RIGHT){
-	    #ifdef AVX512
+	    #ifdef AVX_256
 	    __m256i empty = _mm256_setzero_si256();
 	    __m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(left_bucket->fingerprints));
 	    __m256i cmp = _mm256_cmpeq_epi8(empty, fingerprints_);
@@ -1113,7 +1091,7 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_bucket(int loc){
 		    // else stays in left node's bucket
 		}
 	    }
-	    #elif defined AVX2
+	    #elif defined AVX_128
 	    __m128i empty = _mm_setzero_si128();
 	    for(int m=0; m<2; m++){
 		__m128i fingerprints_ = _mm_loadu_si128(reinterpret_cast<__m128i*>(left_bucket->fingerprints + m*16));
@@ -1171,7 +1149,7 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_bucket(int loc){
 	}
 
 	if(right_bucket->state == bucket_t<Key_t, Value_t>::LINKED_LEFT){
-	    #ifdef AVX512
+	    #ifdef AVX_256
 	    __m256i empty = _mm256_setzero_si256();
 	    __m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(bucket[loc].fingerprints));
 	    __m256i cmp = _mm256_cmpeq_epi8(empty, fingerprints_);
@@ -1179,7 +1157,7 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_bucket(int loc){
 	    for(int i=0; i<32; i++){
 		auto bit = (bitfield >> i);
 		if((bit & 0x1) == 0){
-		    if(high_key < bucket[loc].entry[i].key){ // migrate key-value from current node's bucket to right node's bucket
+		    if(this->high_key < bucket[loc].entry[i].key){ // migrate key-value from current node's bucket to right node's bucket
 			right_bucket->fingerprints[i] = bucket[loc].fingerprints[i];
 			memcpy(&right_bucket->entry[i], &bucket[loc].entry[i], sizeof(entry_t<Key_t, Value_t>));
 			bucket[loc].fingerprints[i] = 0;
@@ -1187,7 +1165,7 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_bucket(int loc){
 		    // else stays in current node's bucket
 		}
 	    }
-	    #elif defined AVX2
+	    #elif defined AVX_128
 	    __m128i empty = _mm_setzero_si128();
 	    for(int m=0; m<2; m++){
 		__m128i fingerprints_ = _mm_loadu_si128(reinterpret_cast<__m128i*>(bucket[loc].fingerprints + m*16));
@@ -1197,7 +1175,7 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_bucket(int loc){
 		    auto bit = (bitfield >> i);
 		    if((bit & 0x1) == 0){
 			auto idx = m*16 + i;
-			if(lnode_t<Key_t, Value_t>::high_key < bucket[loc].entry[idx].key){ // migrate key-value from current node's bucket to right node's bucket
+			if(this->high_key < bucket[loc].entry[idx].key){ // migrate key-value from current node's bucket to right node's bucket
 			    right_bucket->fingerprints[idx] = bucket[loc].fingerprints[idx];
 			    memcpy(&right_bucket->entry[idx], &bucket[loc].entry[idx], sizeof(entry_t<Key_t, Value_t>));
 			    bucket[loc].fingerprints[idx] = 0;
@@ -1209,7 +1187,7 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_bucket(int loc){
 	    #else
 	    for(int i=0; i<entry_num; i++){
 		if(bucket[loc].fingerprints[i] != 0){
-		    if(high_key < bucket[loc].entry[i].key){ // migrate key-value from current node's bucket to right node's bucket
+		    if(this->high_key < bucket[loc].entry[i].key){ // migrate key-value from current node's bucket to right node's bucket
 			right_bucket->fingerprints[i] = bucket[loc].fingerprints[i];
 			memcpy(&right_bucket->entry[i], &bucket[loc].entry[i], sizeof(entry_t<Key_t, Value_t>));
 			bucket[loc].fingerprints[i] = 0;

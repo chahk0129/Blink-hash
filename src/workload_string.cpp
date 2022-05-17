@@ -358,7 +358,7 @@ inline void exec(int wl, int index_type, int num_thread, kvpair_t<keytype>* init
     };
 
 
-    uint64_t build_thread = static_cast<uint64_t>(MAX_CORE_NUM/2);
+    uint64_t build_thread = static_cast<uint64_t>(MAX_CORE_NUM);
     auto func_build = [idx, init_kv, init_num, build_thread, index_type] (uint64_t thread_id, bool) {
         size_t total_num_key = init_num;
         size_t key_per_thread = total_num_key / build_thread;
@@ -574,7 +574,6 @@ inline void exec(int wl, int index_type, int num_thread, kvpair_t<keytype>* init
 		local_run_latency[thread_id].push_back(std::chrono::high_resolution_clock::now());
 
 	    int op = ops[i];
-
 	    if (op == OP_INSERT) { //INSERT
 		idx->insert(run_kv[i].key, run_kv[i].value, ti);
 	    }
@@ -992,10 +991,10 @@ int main(int argc, char *argv[]) {
 	    LEAF_DELTA_CHAIN_LENGTH_THRESHOLD,
 	    INNER_DELTA_CHAIN_LENGTH_THRESHOLD);
 
-    int init_num = 70000000;
-    int run_num = 70000000;
-//    int init_num = 100000000;
-//    int run_num = 100000000;
+//    int init_num = 70000000;
+//    int run_num = 70000000;
+    int init_num = 100000000;
+    int run_num = 100000000;
     kvpair_t<keytype>* init_kv = new kvpair_t<keytype>[init_num];
     kvpair_t<keytype>* run_kv = new kvpair_t<keytype>[run_num];
     int* ranges = new int[run_num];

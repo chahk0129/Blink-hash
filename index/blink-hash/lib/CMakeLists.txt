@@ -12,46 +12,39 @@ INSTALL(TARGETS fingerprint
 	ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR})
 
 add_library(simd STATIC ${Blinkhash_SRC})
-target_compile_definitions(fingerprint PUBLIC -DAVX2 -DFINGERPRINT)
+target_compile_definitions(fingerprint PUBLIC -DAVX_128 -DFINGERPRINT)
 target_link_libraries(simd tcmalloc_minimal TBB::tbb)
 INSTALL(TARGETS simd 
 	ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR})
 
 add_library(sampling STATIC ${Blinkhash_SRC})
-target_compile_definitions(sampling PUBLIC -DAVX2 -DFINGERPRINT -DSAMPLING)
+target_compile_definitions(sampling PUBLIC -DAVX_128 -DFINGERPRINT -DSAMPLING)
 target_link_libraries(sampling tcmalloc_minimal TBB::tbb)
 INSTALL(TARGETS sampling 
 	ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR})
 
 add_library(sampling_debug STATIC ${Blinkhash_SRC})
-target_compile_definitions(sampling_debug PUBLIC -DAVX2 -DFINGERPRINT -DSAMPLING -DDEBUG)
+target_compile_definitions(sampling_debug PUBLIC -DAVX_128 -DFINGERPRINT -DSAMPLING -DDEBUG)
 target_link_libraries(sampling_debug tcmalloc_minimal TBB::tbb)
 INSTALL(TARGETS sampling_debug
 	ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR})
 
 add_library(linked STATIC ${Blinkhash_SRC})
-target_compile_definitions(linked PUBLIC -DAVX2 -DFINGERPRINT -DSAMPLING -DLINKED)
+target_compile_definitions(linked PUBLIC -DAVX_128 -DFINGERPRINT -DSAMPLING -DLINKED)
 target_link_libraries(linked tcmalloc_minimal TBB::tbb)
 INSTALL(TARGETS linked
 	ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR})
 
 add_library(adapt STATIC ${Blinkhash_SRC})
-target_compile_definitions(adapt PUBLIC -DAVX2 -DFINGERPRINT -DSAMPLING -DLINKED -DADAPTATION)
+target_compile_definitions(adapt PUBLIC -DAVX_128 -DFINGERPRINT -DSAMPLING -DLINKED -DADAPTATION)
 target_link_libraries(adapt tcmalloc_minimal TBB::tbb)
 INSTALL(TARGETS adapt 
 	ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR})
 
-add_library(syncopt STATIC ${Blinkhash_SRC})
-target_compile_definitions(syncopt PUBLIC -DAVX2 -DFINGERPRINT -DSAMPLING -DLINKED -DADAPTATION -DCONVERT_LOCK)
-target_link_libraries(syncopt tcmalloc_minimal TBB::tbb)
-INSTALL(TARGETS syncopt
-	ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR})
-
-
 
 
 add_library(blinkhash STATIC ${Blinkhash_SRC})
-target_compile_definitions(blinkhash PUBLIC -DAVX2 -DFINGERPRINT -DSAMPLING -DLINKED -DADAPTATION)
+target_compile_definitions(blinkhash PUBLIC -DAVX_128 -DFINGERPRINT -DSAMPLING -DLINKED -DADAPTATION)
 target_link_libraries(blinkhash tcmalloc_minimal TBB::tbb)
 INSTALL(TARGETS blinkhash 
 	ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR})
