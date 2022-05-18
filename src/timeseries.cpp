@@ -389,7 +389,9 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	    hashmap.insert(std::make_pair(v.key, true));
 	}
     }
-	    
+
+    std::default_random_engine generator;
+    std::poisson_distribution<uint64_t> distribution((double)(fuzzy * frequency));
     for(int i=0; i<num_thread; i++){
 	for(auto& v: keys[i]){
 	    int r = rand() % 100;
@@ -408,9 +410,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
 		    ops.push_back(std::make_pair(*kv, std::make_pair(OP_RANDOMINSERT, 0))); // RANDOM INSERT
 		}
 		else{
-		    uint64_t latency = 0;
-		    if(fuzzy)
-			latency = rand() % (fuzzy * frequency);
+		    auto latency = distribution(generator);
 		    ops.push_back(std::make_pair(v, std::make_pair(OP_INSERT, latency))); // INSERT
 		}
 	    }
