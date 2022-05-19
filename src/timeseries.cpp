@@ -105,6 +105,9 @@ inline void run(int index_type, int wl, int num_thread, int num){
     breakdown_t breakdown[num_thread];
     std::vector<kvpair_t<keytype>> keys[num_thread];
 
+    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+    std::default_random_engine generator(seed);
+    std::poisson_distribution<uint64_t> distribution((double)fuzzy);
     std::vector<std::pair<kvpair_t<keytype>, std::pair<int, uint64_t>>> load_ops;
     load_ops.reserve(num);
     int sensor_id = 0;
@@ -121,7 +124,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	    auto kv = new kvpair_t<keytype>;
 	    uint64_t latency = 0;
 	    if(fuzzy)
-		latency = rand() % (fuzzy * frequency);
+		latency = std::round(distribution(generator) * fuzzy);
 	    load_ops.push_back(std::make_pair(*kv, std::make_pair(OP_INSERT, latency)));
 	}
     }
@@ -380,6 +383,9 @@ inline void run(int index_type, int wl, int num_thread, int num){
     }
 
 
+    unsigned _seed = std::chrono::system_clock::now().time_since_epoch().count();
+    std::default_random_engine _generator(_seed);
+    std::poisson_distribution<uint64_t> _distribution((double)fuzzy);
     std::vector<std::pair<kvpair_t<keytype>, std::pair<int, uint64_t>>> ops;
     std::unordered_map<keytype, bool> hashmap;
     hashmap.reserve(num);
@@ -390,8 +396,6 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	}
     }
 
-    std::default_random_engine generator;
-    std::poisson_distribution<uint64_t> distribution((double)(fuzzy * frequency));
     for(int i=0; i<num_thread; i++){
 	for(auto& v: keys[i]){
 	    int r = rand() % 100;
@@ -410,7 +414,9 @@ inline void run(int index_type, int wl, int num_thread, int num){
 		    ops.push_back(std::make_pair(*kv, std::make_pair(OP_RANDOMINSERT, 0))); // RANDOM INSERT
 		}
 		else{
-		    auto latency = distribution(generator);
+		    uint64_t latency = 0;
+		    if(fuzzy)
+			latency = std::round(_distribution(_generator) * fuzzy);
 		    ops.push_back(std::make_pair(v, std::make_pair(OP_INSERT, latency))); // INSERT
 		}
 	    }
