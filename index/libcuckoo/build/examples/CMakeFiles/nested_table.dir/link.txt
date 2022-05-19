@@ -1,1 +1,0 @@
-/usr/bin/c++ -rdynamic CMakeFiles/nested_table.dir/nested_table.cc.o -o nested_table  -pthread 

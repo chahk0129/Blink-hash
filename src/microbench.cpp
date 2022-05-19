@@ -1091,6 +1091,8 @@ int main(int argc, char *argv[]) {
 	index_type = TYPE_BLINKTREE;
     else if(opt.index == "blinkhash")
 	index_type = TYPE_BLINKHASH;
+    else if(opt.index == "cuckoo")
+	index_type = TYPE_CUCKOOHASH;
     else{
 	std::cout << "Invalid index type: " << opt.index << std::endl;
 	exit(0);

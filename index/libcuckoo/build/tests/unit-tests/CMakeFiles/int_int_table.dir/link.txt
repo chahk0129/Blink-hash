@@ -1,2 +1,0 @@
-/usr/bin/ar qc libint_int_table.a CMakeFiles/int_int_table.dir/int_int_table.cc.o
-/usr/bin/ranlib libint_int_table.a

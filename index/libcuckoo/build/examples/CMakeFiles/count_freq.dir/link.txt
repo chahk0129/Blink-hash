@@ -1,1 +1,0 @@
-/usr/bin/c++ -rdynamic CMakeFiles/count_freq.dir/count_freq.cc.o -o count_freq  -pthread 

@@ -1,1 +1,0 @@
-/usr/bin/c++ -rdynamic CMakeFiles/stress_checked.dir/stress_checked.cc.o -o stress_checked  -pthread 

@@ -25,12 +25,9 @@ endif
 
 micro.o: src/microbench.cpp include/index.h include/util.h
 	$(CXX) $(CFLAGS) -c -o obj/microbench.o src/microbench.cpp $(LDFLAGS) 
-	$(CXX) $(CFLAGS) -c -o obj/microbench_optimal.o src/microbench.cpp $(LDFLAGS)  -DOPTIMAL
 
 micro: micro.o bwtree.o artolc.o artrowex.o index/masstree/mtIndexAPI.a index/hot/build/src/libhot-rowex.a index/blink-hash/build/lib/libblinkhash.a
 	$(CXX) $(CFLAGS) -o bin/microbench obj/microbench.o obj/bwtree.o obj/artolc.o obj/artrowex.o index/masstree/mtIndexAPI.a index/hot/build/src/libhot-rowex.a index/blink-hash/build/lib/libblinkhash.a $(MEMMGR) $(LDFLAGS) -lpthread -lm -ltbb 
-	$(CXX) $(CFLAGS) -o bin/microbench_optimal obj/microbench.o obj/bwtree.o obj/artolc.o obj/artrowex.o index/masstree/mtIndexAPI.a index/hot/build/src/libhot-rowex.a index/blink-hash/build/lib/libblinkhash.a $(MEMMGR) $(LDFLAGS) -lpthread -lm -ltbb -DOPTIMAL 
-	$(CXX) $(CFLAGS) -o bin/microbench_baseline obj/microbench.o obj/bwtree.o obj/artolc.o obj/artrowex.o index/masstree/mtIndexAPI.a index/hot/build/src/libhot-rowex.a index/blink-hash/build/lib/libblinkhash_baseline.a $(MEMMGR) $(LDFLAGS) -lpthread -lm -ltbb 
 
 workload.o: src/workload.cpp include/microbench.h include/index.h include/util.h index/masstree/mtIndexAPI.hh index/BwTree/bwtree.h index/hot/src/wrapper.h src/papi_util.cpp index/BTreeOLC/BTreeOLC_adjacent_layout.h index/blink/tree_optimized.h index/blink-hash/lib/tree.h pcm/pcm-memory.cpp pcm/pcm-numa.cpp
 	$(CXX) $(CFLAGS) -c -o obj/workload.o src/workload.cpp $(LDFLAGS) $(PROFFLAGS)
