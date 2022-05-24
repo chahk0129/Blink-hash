@@ -376,7 +376,9 @@ inline void run(int index_type, int wl, int num_thread, int num){
     }
     #endif
     if(insert_only == true) {
-	idx->getMemory();
+	//idx->getMemory();
+	idx->find_depth();
+	idx->AfterLoadCallback();
 	idx->find_depth();
 	delete idx;
 	return;

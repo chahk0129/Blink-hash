@@ -547,7 +547,13 @@ template<typename KeyType,
 
 	}
 
-	void find_depth(){ }
+	void find_depth(){
+	    auto index_root_id = index_p->root_id.load();
+	    int depth = 0;
+	    int depth_with_delta = 0;
+	    index_p->findDepth(index_root_id, depth, depth_with_delta);
+	    std::cout << "Depth: " << depth << " , depth with deta records: " << depth_with_delta << std::endl;
+	}
 	void convert(){ }
 
 	#ifdef BREAKDOWN
@@ -971,7 +977,7 @@ class CuckooIndex : public Index<KeyType, KeyComparator>
 	    #else
 	    idx = new cuckoohash_map<KeyType, uint64_t>;
 	    #endif
-	    idx->reserve(100000000u);
+	    idx->reserve(200000000u);
 	}
 
     private:

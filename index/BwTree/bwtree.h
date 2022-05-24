@@ -3968,6 +3968,68 @@ retry_traverse:
       }
   }  
 
+  void findDepth(const NodeID node_id, int& depth, int& depth_with_delta){
+      depth++;
+      if(node_id == INVALID_NODE_ID){
+	  return;
+      }
+
+      const BaseNode* node_p = GetNode(node_id);
+      NodeSnapshot snapshot{node_id, node_p};
+
+      if(node_p->IsOnLeafDeltaChain() == true){
+	  leaf_delta:
+	  NodeType type = node_p->GetType();
+	  depth_with_delta++;
+	  switch(type){
+	      case NodeType::LeafType:
+		  return;
+	      case NodeType::LeafInsertType:{
+		  const LeafInsertNode* leaf = static_cast<const LeafInsertNode*>(node_p);
+		  node_p = leaf->child_node_p;
+		  goto leaf_delta;
+	      }
+	      case NodeType::LeafSplitType:{
+		  const LeafSplitNode* leaf = static_cast<const LeafSplitNode*>(node_p);
+		  node_p = leaf->child_node_p;
+		  goto leaf_delta;
+	      }
+
+	      default:
+		  fprintf(stderr, "Unexpected leaf node type: %d\n", static_cast<int>(type));
+		  exit(1);
+	  }
+      }
+      else{
+	  inner_delta:
+	  NodeType type = node_p->GetType();
+	  depth_with_delta++;
+	  switch(type){
+	      case NodeType::InnerType:{
+		  const InnerNode* inner = static_cast<const InnerNode*>(node_p);
+		  findDepth(*static_cast<const NodeID*>(inner->NodeIDBegin()), depth, depth_with_delta);
+		  return;
+	      }
+	      case NodeType::InnerInsertType:{
+		  const InnerInsertNode* inner = static_cast<const InnerInsertNode*>(node_p);
+		  node_p = inner->child_node_p;
+		  goto inner_delta;
+	      }
+	      case NodeType::InnerSplitType:{
+		  const InnerSplitNode* inner = static_cast<const InnerSplitNode*>(node_p);
+		  node_p = inner->child_node_p;
+		  goto inner_delta;
+	      }
+
+	      default:
+		fprintf(stderr, "Unexpected inner node type: %d\n", static_cast<int>(type));
+		exit(1);
+	  }
+      }
+  }  
+
+
+
   void Consolidate(NodeID node_id){
       const BaseNode* node_p = GetNode(node_id);
       NodeType type = node_p->GetType();

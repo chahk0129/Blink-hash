@@ -905,17 +905,6 @@ bool lnode_hash_t<Key_t, Value_t>::stabilize_all(uint64_t version){
     #endif
 
     for(int j=0; j<cardinality; j++){
-	/*
-	auto bucket_version = bucket[j].get_version(need_restart);
-	if(need_restart)
-	    return false;
-
-	if(bucket[j].state != bucket_t<Key_t, Value_t>::STABLE){
-	    if(!bucket[j].upgrade_lock(bucket_version))
-		return false;
-	}
-	else continue;
-*/
 	if(bucket[j].state != bucket_t<Key_t, Value_t>::STABLE){
 	    if(!bucket[j].try_lock())
 		return false;
