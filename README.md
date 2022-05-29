@@ -1,4 +1,4 @@
-# $Blink-hash
+# Blink-hash
 
 The evaluation benchmark of Blink-hash extends the index-microbench (https://github.com/wangziqi2016/index-microbench).
 
