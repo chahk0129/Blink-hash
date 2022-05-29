@@ -52,17 +52,6 @@ int lnode_btree_t<Key_t, Value_t>::insert(Key_t key, Value_t value, uint64_t ver
 	return 0;
     }
     else{ // need split
-	auto sibling = static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr);
-	if(sibling){
-	    auto sibling_v = sibling->get_version(need_restart);
-	    if(sibling->type == lnode_t<Key_t, Value_t>::HASH_NODE){
-		(static_cast<node_t*>(sibling))->try_upgrade_writelock(sibling_v, need_restart);
-		if(need_restart){
-		    this->write_unlock();
-		    return -1;
-		}
-	    }
-	}
 	return 1;
     }
 }
@@ -99,7 +88,6 @@ lnode_btree_t<Key_t, Value_t>* lnode_btree_t<Key_t, Value_t>::split(Key_t& split
     if(sibling){
 	if(sibling->type == lnode_t<Key_t, Value_t>::HASH_NODE){
 	    (static_cast<lnode_hash_t<Key_t, Value_t>*>(sibling))->left_sibling_ptr = reinterpret_cast<lnode_hash_t<Key_t, Value_t>*>(new_leaf);
-	    (static_cast<node_t*>(sibling))->write_unlock();
 	}
     }
 

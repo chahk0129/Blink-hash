@@ -8,8 +8,7 @@ mkdir output/latency
 output_int=output/latency/int
 output_ts=output/latency/timestamp
 output_email=output/latency/email
-output_url=output/latency/url
-mkdir $output_int $output_ts $output_email $output_url
+mkdir $output_int $output_ts $output_email
 
 int_path=/remote_dataset/workloads/100M/
 str_path=/remote_dataset/workloads/100M/
@@ -19,7 +18,7 @@ index="artolc artrowex hot masstree bwtree btreeolc blink blinkhash"
 threads="32 64"
 workloads="load a b c e mixed"
 ts_workloads="load read scan mixed"
-iterations="1 2"
+iterations="1 2 3"
 
 ## integer keys
 for iter in $iterations; do
@@ -46,7 +45,7 @@ for iter in $iterations; do
         done
 done
 
-"
+
 ## email keys
 for iter in $iterations; do
 	for idx in $index; do
@@ -56,14 +55,3 @@ for iter in $iterations; do
 		done
 	done
 done
-
-## url keys
-for iter in $iterations; do
-	for idx in $index; do
-		for t in $threads; do
-			echo "threads $t" >> ${output_url}/${idx}_${wk}
-			./bin/workload_url --input $str_path --index $idx --workload mixed --key_type url --latency 0.3 --threads $t --hyper --earliest >> ${output_url}/${idx}_${wk}
-		done
-	done
-done
-"

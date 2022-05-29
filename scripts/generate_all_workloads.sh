@@ -8,7 +8,7 @@ fi
 output_dir=$1
 mkdir $output_dir
 CUR_DIR=$(pwd)
-"
+
 ## integer keys
 KEY_TYPE=randint
 old_skew=0.99
@@ -27,11 +27,11 @@ for new_skew in 0.99; do
     done
     old_skew=$new_skew
 done
-"
+
 
 # email keys
 cd $output_dir
-#wget https://archive.org/download/300MillionEmailDatabase/300%20million%20email%20database.rar
+wget https://archive.org/download/300MillionEmailDatabase/300%20million%20email%20database.rar
 unrar x '300 million email database.rar'
 cd 300\ MILLION\ EMAIL\ DATABASE/worldwide
 unrar x Country.rar

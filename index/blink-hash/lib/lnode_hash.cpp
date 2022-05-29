@@ -157,28 +157,6 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
 	return nullptr;
     }
 
-    bool right_latch = false;
-    bool need_restart = false;
-    auto sibling = static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr);
-    if(sibling){
-	auto sibling_v = sibling->get_version(need_restart);
-	if(sibling->type == lnode_t<Key_t, Value_t>::HASH_NODE){
-	    if(need_restart){
-		split_unlock();
-		delete new_right;
-		return nullptr;
-	    }
-
-	    (static_cast<node_t*>(sibling))->try_upgrade_writelock(sibling_v, need_restart);
-	    if(need_restart){
-		split_unlock();
-		delete new_right;
-		return nullptr;
-	    }
-	    right_latch = true;
-	}
-    }
-
     /*
        auto util = utilization() * 100;
        std::cout << util << std::endl;
@@ -549,10 +527,11 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
     
 
     PROCEED:
+    auto sibling = static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr);
     this->sibling_ptr = new_right;
-    if(right_latch){
-	(static_cast<lnode_hash_t<Key_t, Value_t>*>(sibling))->left_sibling_ptr = new_right;
-	(static_cast<node_t*>(sibling))->write_unlock();
+    if(sibling){
+	if(sibling->type == lnode_t<Key_t, Value_t>::HASH_NODE)
+	    (static_cast<lnode_hash_t<Key_t, Value_t>*>(sibling))->left_sibling_ptr = new_right;
     }
     // update current node's right sibling pointer
 
@@ -778,29 +757,6 @@ lnode_btree_t<Key_t, Value_t>** lnode_hash_t<Key_t, Value_t>::convert(int& num, 
 	}
     }
 
-    bool right_latch = false;
-    auto right = static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr);
-    if(right){
-	auto right_v = right->get_version(need_restart);
-	if(right->type == lnode_t<Key_t, Value_t>::HASH_NODE){
-	    if(need_restart){
-		if(left)
-		    (static_cast<node_t*>(left))->write_unlock();
-		convert_unlock();
-		return nullptr;
-	    }
-
-	    (static_cast<node_t*>(right))->try_upgrade_writelock(right_v, need_restart);
-	    if(need_restart){
-		if(left)
-		    (static_cast<node_t*>(left))->write_unlock();
-		convert_unlock();
-		return nullptr;
-	    }
-	    right_latch = true;
-	}
-    }
-
 #ifdef FINGERPRINT
     #ifdef AVX_256
     __m256i empty = _mm256_setzero_si256();
@@ -846,9 +802,10 @@ lnode_btree_t<Key_t, Value_t>** lnode_hash_t<Key_t, Value_t>::convert(int& num, 
 	(reinterpret_cast<node_t*>(left))->write_unlock();
     }
 
-    if(right_latch){
-	(static_cast<lnode_hash_t<Key_t, Value_t>*>(right))->left_sibling_ptr = reinterpret_cast<lnode_hash_t<Key_t, Value_t>*>(leaf[num-1]);
-	(static_cast<node_t*>(right))->write_unlock();
+    auto right = static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr);
+    if(right){
+	if(right->type == lnode_t<Key_t, Value_t>::HASH_NODE)
+	    (static_cast<lnode_hash_t<Key_t, Value_t>*>(right))->left_sibling_ptr = reinterpret_cast<lnode_hash_t<Key_t, Value_t>*>(leaf[num-1]);
     }
 
     return leaf;
