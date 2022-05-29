@@ -1,42 +1,44 @@
-# index-microbench
+# $B^{link}$-hash
+
+The evaluation benchmark of $B^{link}$-hash extends the framework (https://github.com/wangziqi2016/index-microbench).
+
+## Dependencies ##
+
+All the dependencies such as CMake, YCSB, memory allocator, etc, are scripted in scripts/install.sh.
+```sh
+./scripts/install.sh
+```
 
 ## Generate Workloads ## 
 
-1. Download [YCSB](https://github.com/brianfrankcooper/YCSB/releases/latest)
+Scripts to generate YCSB-Integer, YCSB-Email workloads are written in scripts/generate_all_workloads.sh.
 
-   ```sh
-   curl -O --location https://github.com/brianfrankcooper/YCSB/releases/download/0.11.0/ycsb-0.11.0.tar.gz
-   tar xfvz ycsb-0.11.0.tar.gz
-   mv ycsb-0.11.0 YCSB
-   ``` 
+The script receives a directory path as a parameter where those workloads are stored.
 
-2. Create Workload Spec 
- 
-   The default workload a-f are in ./workload_spec 
- 
-   You can of course generate your own spec and put it in this folder. 
+```sh
+./scripts/generate_all_workloads.sh ${workload_directory_path}
+```
 
-3. Modify workload_config.inp
+## Compilation ##
 
-   1st arg: workload spec file name
-   2nd arg: key type (randint = random integer; monoint = monotonically increasing integer; email = email keys with host name reversed)
+Some indexes such as Masstree and HOT require explicit compilation separately.
 
-4. Generate
+```sh
+# Blink-hash
+cd index/blink-hash
+mkdir build && cd build
+cmake .. && make -j
 
-   ```sh
-   make generate_workload
-   ```
+# Masstree
+cd index/Masstree
+./compile.sh
 
-   The generated workload files will be in ./workloads
+# HOT
+cd index/HOT
+mkdir build && cd build
+cmake .. && make -j
 
-5. NOTE: To generate email-key workloads, you need an email list (list.txt)# index-microbench 
-
-## Publications ##
-
-This index benchmarking framework has been used as the experimental environment for the following research papers:
-
-Ziqi Wang, Andrew Pavlo, Hyeontaek Lim, Viktor Leis, Huanchen Zhang,
-Michael Kaminsky, and David G. Andersen. 2018. **Building a Bw-Tree Takes
-More Than Just Buzz Words.** In Proceedings of 2018 International Conference
-on Management of Data (SIGMOD’18). ACM, New York, NY, USA, 16 pages.
-https://doi.org/10.1145/3183713.3196895
+# Benchmark
+mkdir obj bin
+make -j
+```
