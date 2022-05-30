@@ -6,7 +6,7 @@ DEPSDIR := index/masstree/.deps
 DEPCFLAGS = -MD -MF $(DEPSDIR)/$*.d -MP
 MEMMGR = -lpapi -latomic -ltcmalloc_minimal 
 LDFLAGS = -Wno-invalid-offsetof -Wno-deprecated-declarations -Wall -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -faligned-new $(DEPCFLAGS) -include index/masstree/config.h -I./
-LDFLAGS += -DBWTREE_NODEBUG -DNDEBUG -DSIMD -DAVX2 -mavx -mavx2 -mbmi2 -mlzcnt -mcx16 -DAVX2 
+LDFLAGS += -DBWTREE_NODEBUG -DNDEBUG -mavx -mavx2 -mbmi2 -mlzcnt -mcx16 
 MICROFLAGS = -Wno-invalid-offsetof -Wno-deprecated-declarations -Wall -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -faligned-new
 # By default just use 1 thread. Override this option to allow running the
 # benchmark with 20 threads. i.e. THREAD_NUM=20 make run_all_atrloc

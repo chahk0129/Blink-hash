@@ -28,6 +28,3 @@ target_link_libraries(sampling_ sampling pthread)
 target_link_libraries(linked_ linked pthread)
 target_link_libraries(adapt_ adapt pthread)
 target_link_libraries(timestamp blinkhash pthread)
-
-#add_test(NAME blinkhash_test 
-#        COMMAND blinkhash_test)

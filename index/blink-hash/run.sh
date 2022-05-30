@@ -2,19 +2,19 @@
 num=100000000
 
 mkdir out
-load_path=out/insert2
-read_path=out/lookup2
+load_path=out/insert
+read_path=out/lookup
 scan_path=out/scan
 mixed_path=out/mixed
 mkdir $load_path $read_path $scan_path $mixed_path
 
 threads="1 4 8 16 32 64"
-iteration="1"
+iteration="1 2 3"
 
 #rw_target="baseline_ fingerprint_ sampling_ linked_"
 scan_target="baseline_ fingerprint_ sampling_ linked_ adapt_"
 mixed_target="baseline fingerprint_ sampling_ linked_ adapt_"
-"
+
 ## Insert 
 for it in $iteration; do
 	for target in $rw_target; do
@@ -34,7 +34,7 @@ for it in $iteration; do
 		done
 	done
 done
-"
+
 ## Scan 
 for it in $iteration; do
 	for target in $scan_target; do
