@@ -1,6 +1,7 @@
-# Blink-hash
+Blink-hash: An Adaptive Hybrid Index for In-Memory Timeseries Databases
+========================================================================
 
-The evaluation benchmark of Blink-hash extends the index-microbench (https://github.com/wangziqi2016/index-microbench).
+The evaluation benchmark of Blink-hash extends the index-microbench (https://github.com/wangziqi2016/index-microbench) that is used to evaluate OpenBw-tree research paper (https://doi.org/10.1145/3183713.3196895).
 
 ## Dependencies ##
 
@@ -18,6 +19,14 @@ The script receives a directory path as a parameter where those workloads are st
 ```sh
 ./scripts/generate_all_workloads.sh ${workload_directory_path}
 ```
+
+## Directories ##
+
+* include/: includes a warpper for indexes, defines structures, flags, and options used in benchmark
+* src/: includes benchmark implementations
+* workloads/: includes source codes to generate workloads
+* index/: includes the evaluated indexes
+* scripts/: includes scripts to run experiments
 
 ## Compilation ##
 
