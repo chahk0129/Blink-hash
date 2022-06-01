@@ -5,7 +5,7 @@ The evaluation benchmark of Blink-hash extends the index-microbench (https://git
 
 ## Dependencies ##
 
-All the dependencies such as CMake, YCSB, memory allocator, etc, are scripted in scripts/install.sh.
+All the dependency installations for benchmark setup and index compilation such as CMake, YCSB, memory allocator, etc, are scripted in scripts/install.sh.
 ```sh
 ./scripts/install.sh
 ```
@@ -33,21 +33,32 @@ The script receives a directory path as a parameter where those workloads are st
 Some indexes such as Masstree and HOT require explicit compilation separately.
 
 ```sh
-# Blink-hash
+# pwd = Blink-hsah/
+
+## Blink-hash
 cd index/blink-hash
 mkdir build && cd build
 cmake .. && make -j
 
-# Masstree
+cd index/blink-hash-str
+mkdir build && cd build
+cmake .. && make -j
+
+## Masstree
 cd index/Masstree
 ./compile.sh
 
-# HOT
+## HOT
 cd index/HOT
 mkdir build && cd build
 cmake .. && make -j
 
-# Benchmark
+## libcuckoo
+cd index/libcuckoo
+mkdir build && cd build
+cmake .. && make -j
+
+## Benchmark
 mkdir obj bin
 make -j
 ```
