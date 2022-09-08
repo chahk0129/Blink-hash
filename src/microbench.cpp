@@ -1087,6 +1087,8 @@ int main(int argc, char *argv[]) {
 	index_type = TYPE_BWTREE;
     else if(opt.index == "btreeolc")
 	index_type = TYPE_BTREEOLC;
+    else if(opt.index == "bepsilon")
+	index_type = TYPE_BEPSILONTREE;
     else if(opt.index == "blink")
 	index_type = TYPE_BLINKTREE;
     else if(opt.index == "blinkhash")
