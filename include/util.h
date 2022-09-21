@@ -84,8 +84,8 @@ Index<KeyType, KeyComparator> *getInstance(const int type, const uint64_t kt) {
       return new BTreeOLCIndex<KeyType, KeyComparator>(kt);
   else if (type == TYPE_BLINKTREE)
       return new BlinkIndex<KeyType, KeyComparator>(kt);
-  else if (type == TYPE_BEPSILONTREE)
-      return new BEIndex<KeyType, KeyComparator>(kt);
+//  else if (type == TYPE_BEPSILONTREE)
+//      return new BEIndex<KeyType, KeyComparator>(kt);
   else if (type == TYPE_CUCKOOHASH)
       return new CuckooIndex<KeyType, KeyComparator>(kt);
   else if (type == TYPE_BLINKHASH)

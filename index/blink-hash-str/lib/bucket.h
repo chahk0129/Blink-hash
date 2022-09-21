@@ -472,6 +472,30 @@ struct bucket_t{
     }
 #endif
 
+    void footprint(uint64_t& meta, uint64_t& structural_data_occupied, uint64_t& structural_data_unoccupied, uint64_t& key_data_occupied, uint64_t& key_data_unoccupied){
+        meta += sizeof(uint64_t);
+        #ifdef LINKED
+        meta += sizeof(state_t);
+        #endif
+        for(int i=0; i<entry_num; i++){
+            #ifdef FINGERPRINT
+            if((fingerprints[i] & 0b1) == 0b1){
+                structural_data_occupied += sizeof(uint8_t);
+                key_data_occupied += sizeof(entry_t<Key_t, Value_t>);
+            }
+            else{
+                structural_data_unoccupied += sizeof(uint8_t);
+                key_data_unoccupied += sizeof(entry_t<Key_t, Value_t>);
+            }
+            #else
+            if(entry[i].key != EMPTY<Key_t>)
+                key_data_occupied += sizeof(entry_t<Key_t, Value_t>);
+            else
+                key_data_unoccupied += sizeof(entry_t<Key_t, Value_t>);
+            #endif
+        }
+    }
+
     void print(){
     }
 

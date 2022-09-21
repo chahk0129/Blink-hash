@@ -983,7 +983,7 @@ int main(int argc, char *argv[]) {
 	    ("workload", "Workload type (load,update,read,scan)", cxxopts::value<std::string>())
 	    ("init_num", "Size of workload to load", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.num)))
 	    ("run_num", "Size of workload to run", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.num)))
-	    ("index", "Index type (artolc, artrowex, hot, masstree, btreeolc, blink, bwtree)", cxxopts::value<std::string>())
+	    ("index", "Index type (artolc, artrowex, hot, masstree, btreeolc, blink, bwtree, cuckoo)", cxxopts::value<std::string>())
 	    ("threads", "Number of threads to run", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.threads)))
 	    ("mem", "Measure memory bandwidth", cxxopts::value<bool>()->default_value((opt.mem ? "true" : "false")))
 	    ("profile", "Enable CPU profiling", cxxopts::value<bool>()->default_value((opt.profile? "true" : "false")))

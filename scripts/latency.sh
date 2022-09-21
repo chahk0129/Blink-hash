@@ -5,7 +5,7 @@
 mkdir output
 mkdir output/latency
 
-output_int=output/latency/int
+output_int=output/latency/int2
 output_ts=output/latency/timestamp
 output_email=output/latency/email
 mkdir $output_int $output_ts $output_email
@@ -13,12 +13,12 @@ mkdir $output_int $output_ts $output_email
 int_path=/remote_dataset/workloads/100M/
 str_path=/remote_dataset/workloads/100M/
 
-index="artolc artrowex hot masstree bwtree btreeolc blink blinkhash"
-#threads="1 2 4 8 16 32 64"
-threads="32 64"
-workloads="load a b c e mixed"
-ts_workloads="load read scan mixed"
-iterations="1 2 3"
+index="artolc hot masstree bwtree blink blinkhash"
+threads="64"
+#threads="32 64"
+workloads="load a b c e"
+#ts_workloads="load read scan mixed"
+iterations="1 2"
 
 ## integer keys
 for iter in $iterations; do
@@ -26,13 +26,16 @@ for iter in $iterations; do
 		for idx in $index; do
 			for t in $threads; do
 				echo "---------------- running with threads $t ---------------" >> ${output_int}/${idx}_${wk}
-				./bin/workload --input $int_path --index $idx --workload $wk --key_type rand --num 100 --skew 0.99 --latency 0.3 --threads $t --hyper --earliest >> ${output_int}/${idx}_${wk}
+				./bin/workload --input $int_path --index $idx --workload $wk --key_type rand --num 100 --skew 0.99 --latency 0.001 --threads $t --hyper --earliest >> ${output_int}/${idx}_${wk}
+				cp latency.txt /remote_dataset/latency3/${wk}_${idx}_${t}.${iter}
+				rm latency.txt
 			done
 		done
 	done
 done
 
 
+"
 ## timeseries keys
 for iter in $iterations; do
         for wk in $ts_workloads; do
@@ -55,3 +58,4 @@ for iter in $iterations; do
 		done
 	done
 done
+"

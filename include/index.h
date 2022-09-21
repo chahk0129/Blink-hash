@@ -6,7 +6,7 @@
 #include "index/blink/tree_optimized.h"
 #include "index/libcuckoo/libcuckoo/cuckoohash_map.hh"
 #include "index/BTreeOLC/BTreeOLC_adjacent_layout.h"
-#include "index/b-epsilon-tree/lib/tree_optimized.h"
+//#include "index/b-epsilon-tree/lib/tree_optimized.h"
 #include "index/BwTree/bwtree.h"
 #include "index/masstree/mtIndexAPI.hh"
 #include "index/hot/src/wrapper.h"
@@ -851,6 +851,7 @@ class BlinkIndex: public Index<KeyType, KeyComparator>
 //// B epsilon tree ////
 ////////////////////////
 
+/*
 template<typename KeyType, class KeyComparator>
 class BEIndex: public Index<KeyType, KeyComparator>
 {
@@ -884,7 +885,7 @@ class BEIndex: public Index<KeyType, KeyComparator>
 	}
 
 	void getMemory() {
-	    /*
+	/*
 	    uint64_t meta_size, structural_data_occupied, structural_data_unoccupied, key_data_occupied, key_data_unoccupied;
 	    meta_size = structural_data_occupied = structural_data_unoccupied = key_data_occupied = key_data_unoccupied = 0;
 
@@ -894,7 +895,8 @@ class BEIndex: public Index<KeyType, KeyComparator>
 	    std::cout << "Structural_data_unoccupied: \t" << structural_data_unoccupied << std::endl;
 	    std::cout << "Key_data_occupied: \t" << key_data_occupied << std::endl;
 	    std::cout << "Key_data_unoccupied: \t" << key_data_unoccupied << std::endl;
-	    */
+ */
+/*
 	}
 	void find_depth(){
 	    //auto ret = idx->check_height();
@@ -916,7 +918,7 @@ class BEIndex: public Index<KeyType, KeyComparator>
     private:
 	B_EPSILON_TREE::betree_t<KeyType, uint64_t>* idx;
 };
-
+*/
 
 
 //////////////////
@@ -1100,7 +1102,19 @@ class BlinkHashIndex: public Index<KeyType, KeyComparator>
 	    idx = new BLINK_HASH::btree_t<KeyType, uint64_t>();
 	}
 
-	void getMemory() { }
+	void getMemory() { 
+	    uint64_t meta_size, structural_data_occupied, structural_data_unoccupied, key_data_occupied, key_data_unoccupied;
+	    meta_size = structural_data_occupied = structural_data_unoccupied = key_data_occupied = key_data_unoccupied = 0;
+
+	    idx->footprint(meta_size, structural_data_occupied, structural_data_unoccupied, key_data_occupied, key_data_unoccupied);
+	    std::cout << "[Memory Footprint]" << std::endl;
+	    std::cout << "Metadata: \t" << meta_size << std::endl;
+	    std::cout << "Structural_data_occupied: \t" << structural_data_occupied << std::endl;
+	    std::cout << "Structural_data_unoccupied: \t" << structural_data_unoccupied << std::endl;
+	    std::cout << "Key_data_occupied: \t" << key_data_occupied << std::endl;
+	    std::cout << "Key_data_unoccupied: \t" << key_data_unoccupied << std::endl;
+
+	}
 
 	void convert(){
 	    auto t = idx->getThreadInfo();

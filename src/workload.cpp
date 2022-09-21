@@ -8,6 +8,7 @@
 #include <cctype>
 #include <atomic>
 #include <sstream>
+#include <fstream>
 
 thread_local long skiplist_steps = 0;
 std::atomic<long> skiplist_total_steps;
@@ -710,6 +711,12 @@ inline void exec(int wl, int index_type, int num_thread, kvpair_t<keytype>* init
 	    local_load_latency[i].clear();
 	    local_load_latency[i].shrink_to_fit();
 	}
+
+	std::ofstream ofs;
+	ofs.open("latency.txt");
+	for(auto it=global_latency.begin(); it!=global_latency.end(); it++)
+	    ofs << *it << std::endl;
+	ofs.close();
     }
 
     if(profile && insert_only){
@@ -1045,6 +1052,12 @@ inline void exec(int wl, int index_type, int num_thread, kvpair_t<keytype>* init
 	    local_run_latency[i].clear();
 	    local_run_latency[i].shrink_to_fit();
 	}
+
+	std::ofstream ofs;
+	ofs.open("latency.txt");
+	for(auto it=global_latency.begin(); it!=global_latency.end(); it++)
+	    ofs << *it << std::endl;
+	ofs.close();
     }
 
 

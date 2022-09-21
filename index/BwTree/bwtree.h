@@ -5652,7 +5652,11 @@ abort_traverse:
               value_list.push_back(insert_node_p->item.second);
 	      #ifdef BREAKDOWN
 	      end = _rdtsc();
-	      time_node += (end - start);
+	      if(abort)
+		  time_abort += (end - start);
+	      else
+		  time_traversal (end - start);
+	      //time_node += (end - start);
 	      #endif
               return; 
 #endif
@@ -5743,7 +5747,11 @@ abort_traverse:
             value_list.push_back(new_value);
 	    #ifdef BREAKDOWN
 	    end = _rdtsc();
-	    time_node += (end - start);
+	    if(abort)
+		time_abort += (end - start);
+	    else
+		time_traversal += (end - start);
+	    //time_node += (end - start);
 	    #endif
             return;
 #endif
@@ -6010,7 +6018,11 @@ abort_traverse:
 
 	      #ifdef BREAKDOWN
 	      end = _rdtsc();
-	      time_node += (end - start);
+	      if(abort)
+		  time_abort += (end - start);
+	      else
+		  time_traversal += (end - start);
+	      //time_node += (end - start);
 	      #endif
               return &insert_node_p->item;
             }
@@ -6023,7 +6035,11 @@ abort_traverse:
             
 	    #ifdef BREAKDOWN
 	    end = _rdtsc();
-	    time_node += (end - start);
+	    if(abort)
+		time_abort += (end - start);
+	    else
+		time_traversal += (end - start);
+	    //time_node += (end - start);
 	    #endif
             return &insert_node_p->item;
           }
@@ -6041,7 +6057,11 @@ abort_traverse:
 
 	  #ifdef BREAKDOWN
 	  end = _rdtsc();
-	  time_node += (end - start);
+	  if(abort)
+	      time_abort += (end - start);
+	  else
+	      time_traversal += (end - start);
+	  //time_node += (end - start);
 	  start = _rdtsc();
 	  #endif
           break;
@@ -6066,7 +6086,11 @@ abort_traverse:
 
 	      #ifdef BREAKDOWN
 	      end = _rdtsc();
-	      time_node += (end - start);
+	      if(abort)
+		  time_abort += (end - start);
+	      else
+		  time_traversal += (end - start);
+	      //time_node += (end - start);
 	      #endif
               return nullptr;
             }
@@ -6080,7 +6104,11 @@ abort_traverse:
             
 	    #ifdef BREAKDOWN
 	    end = _rdtsc();
-	    time_node += (end - start);
+	    if(abort)
+		time_abort += (end - start);
+	    else
+		time_traversal += (end - start);
+	    //time_node += (end - start);
 	    #endif
             return nullptr;
           }
@@ -6127,14 +6155,22 @@ abort_traverse:
 
 	      #ifdef BREAKDOWN
 	      end = _rdtsc();
-	      time_node += (end - start);
+	      if(abort)
+		  time_abort += (end - start);
+	      else
+		  time_traversal += (end - start);
+	      //time_node += (end - start);
 	      #endif
               return &update_node_p->item;
             } else if(ValueCmpEqual(old_value, search_value)) {
               *index_pair_p = update_node_p->GetIndexPair();
 	      #ifdef BREAKDOWN
 	      end = _rdtsc();
-	      time_node += (end - start);
+	      if(abort)
+		  time_abort += (end - start);
+	      else
+		  time_traversal += (end - start);
+	      //time_node += (end - start);
 	      #endif
               return nullptr;
             }
@@ -6145,7 +6181,11 @@ abort_traverse:
             // Note that we return the new value item
 	    #ifdef BREAKDOWN
 	    end = _rdtsc();
-	    time_node += (end - start);
+	    if(abort)
+		time_abort += (end - start);
+	    else
+		time_traversal += (end - start);
+	    //time_node += (end - start);
 	    #endif
             return &update_node_p->item;
           }
@@ -8403,6 +8443,11 @@ before_switch:
       // Though it brings huge overhead because now we are consolidating
       // every node on the path
 
+      #ifdef BREAKDOWN
+      end = _rdtsc();
+      if(abort) time_abort += (end - start);
+      else time_traversal += (end - start);
+      #endif
       return;
     }
 
@@ -9403,7 +9448,11 @@ before_switch:
           sss.Invalidate();
 	  #ifdef BREAKDOWN
 	  end = _rdtsc();
-	  time_node += (end - start);
+	  if(abort)
+	      time_abort += (end - start);
+	  else
+	      time_traversal += (end - start);
+	  //time_node += (end - start);
 	  start = _rdtsc();
 	  #endif
           
@@ -9590,7 +9639,8 @@ before_switch:
                                  index_pair);
       #ifdef BREAKDOWN
       end = _rdtsc();
-      time_node += (end - start);
+      if(abort) time_abort += (end - start);
+      else time_node += (end - start);
       start = _rdtsc();
       #endif
 
@@ -9614,7 +9664,11 @@ before_switch:
         insert_node_p->~LeafInsertNode();
 	#ifdef BREAKDOWN
 	end = _rdtsc();
-	time_node += (end - start);
+	if(abort)
+	    time_abort += (end - start);
+	else
+	    time_traversal += (end - start);
+	//time_node += (end - start);
 	abort = true;
 	#endif
       }
@@ -9751,7 +9805,8 @@ before_switch:
                                    index_pair);
         #ifdef BREAKDOWN
 	end = _rdtsc();
-	time_node += (end - start);
+	if(abort) time_abort += (end - start);
+	else time_node += (end - start);
 	start = _rdtsc();
         #endif
 
@@ -9770,7 +9825,10 @@ before_switch:
           INC_COUNTER(MODIFY_ABORT, 1);
 	  #ifdef BREAKDOWN
 	  end = _rdtsc();
-	  time_node += (end - start);
+	  if(abort)
+	      time_abort += (end - start);
+	  else
+	      time_traversal += (end - start);
 	  abort = true;
 	  #endif
         }
@@ -9787,7 +9845,8 @@ before_switch:
 
         #ifdef BREAKDOWN
 	end = _rdtsc();
-	time_node += (end - start);
+	if(abort) time_abort += (end - start);
+	else time_node += (end - start);
 	start = _rdtsc();
         #endif
         bool ret = InstallNodeToReplace(node_id,
@@ -9805,7 +9864,10 @@ before_switch:
           INC_COUNTER(MODIFY_ABORT, 1);
 	  #ifdef BREAKDOWN
 	  end = _rdtsc();
-	  time_node += (end - start);
+	  if(abort)
+	      time_abort += (end - start);
+	  else
+	      time_traversal += (end - start);
 	  abort = true;
 	  #endif
         }

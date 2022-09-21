@@ -23,6 +23,8 @@ struct options_t{
     uint32_t init_num = 10000000;
     uint32_t run_num = 10000000;
 
+    uint32_t bench_type = 0;
+
 };
 
 std::ostream& operator<<(std::ostream& os, const options_t& opt){

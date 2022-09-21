@@ -1216,6 +1216,14 @@ inline int lnode_hash_t<Key_t, Value_t>::find_median(Key_t* keys, int n){
 }
 
 template <typename Key_t, typename Value_t>
+void lnode_hash_t<Key_t, Value_t>::footprint(uint64_t& meta, uint64_t& structural_data_occupied, uint64_t& structural_data_unoccupied, uint64_t& key_data_occupied, uint64_t& key_data_unoccupied){
+    structural_data_occupied += sizeof(lnode_t<Key_t, Value_t>*);
+    for(int i=0; i<cardinality; i++){
+        bucket[i].footprint(meta, structural_data_occupied, structural_data_unoccupied, key_data_occupied, key_data_unoccupied);
+    }
+}
+
+template <typename Key_t, typename Value_t>
 inline void lnode_hash_t<Key_t, Value_t>::prefetch_range(void* addr, size_t len){
     void* cp;
     void* end = addr + len;

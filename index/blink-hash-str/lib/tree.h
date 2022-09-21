@@ -66,6 +66,8 @@ class btree_t{
 
 	double utilization();
 
+	void footprint(uint64_t& meta, uint64_t& structural_data_occupied, uint64_t& structural_data_unoccupied, uint64_t& key_data_occupied, uint64_t& key_data_unoccupied);
+
 	int height();
 
 	ThreadInfo getThreadInfo();

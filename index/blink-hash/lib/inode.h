@@ -65,11 +65,14 @@ class inode_t : public node_t{
 
 	inode_t<Key_t>** batch_insert(Key_t* key, node_t** value, int num, int& new_num);
 
+	node_t* rightmost_ptr();
+
         void print();
 
 	void sanity_check(Key_t _high_key, bool first);
 
     private:
+
 	int lowerbound_linear(Key_t key);
 
         int lowerbound_binary(Key_t key);

@@ -608,6 +608,11 @@ void inode_t<Key_t>::move_normal_insertion(int pos, int num, int move_num){
 }
 
 template <typename Key_t>
+node_t* inode_t<Key_t>::rightmost_ptr(){
+    return entry[cnt-1].value;
+}
+
+template <typename Key_t>
 void inode_t<Key_t>::print(){
     std::cout << leftmost_ptr;
     for(int i=0; i<cnt; i++){

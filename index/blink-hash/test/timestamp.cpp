@@ -109,6 +109,12 @@ int main(int argc, char* argv[]){
 	    kv[i].key = ((Rdtsc() << 16) | sensor_id++ << 6) | tid;
 	    kv[i].value = reinterpret_cast<Value_t>(&kv[i].key);
 	    tree->insert(kv[i].key, kv[i].value, t);
+	    /*
+	    if(i % 1000 == 0){
+		auto util = tree->rightmost_utilization();
+		std::cout << util << std::endl;
+	    }
+	    */
 	    if(sensor_id == 1024)
 		sensor_id = 0;
 	    if(earliest){

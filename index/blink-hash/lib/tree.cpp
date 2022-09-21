@@ -694,6 +694,65 @@ double btree_t<Key_t, Value_t>::utilization(){
 }
 
 template <typename Key_t, typename Value_t>
+double btree_t<Key_t, Value_t>::rightmost_utilization(){
+    auto cur = root;
+    auto node = cur;
+    while(cur->level != 0){
+	cur = (static_cast<inode_t<Key_t>*>(cur))->rightmost_ptr();
+    }
+
+    auto leaf = static_cast<lnode_t<Key_t, Value_t>*>(cur);
+    if(leaf->type == lnode_t<Key_t, Value_t>::HASH_NODE){
+	auto util = (double)(static_cast<lnode_hash_t<Key_t, Value_t>*>(leaf))->utilization() * 100;
+	return util;
+    }
+    else{
+	auto cnt = (static_cast<lnode_btree_t<Key_t, Value_t>*>(leaf))->get_cnt();
+	auto util = (double)cnt / lnode_btree_t<Key_t, Value_t>::cardinality * 100;
+	return util;
+    }
+    return 0;
+}
+
+
+template <typename Key_t, typename Value_t>
+void btree_t<Key_t, Value_t>::footprint(uint64_t& meta, uint64_t& structural_data_occupied, uint64_t& structural_data_unoccupied, uint64_t& key_data_occupied, uint64_t& key_data_unoccupied){
+    auto cur = root;
+    auto leftmost_node = cur;
+    while(cur->level != 0){
+	leftmost_node = cur;
+	do{
+	    meta += sizeof(node_t) + sizeof(Key_t) - sizeof(node_t*);
+	    auto cnt = cur->get_cnt();
+	    auto invalid_num = inode_t<Key_t>::cardinality - cnt;
+	    structural_data_occupied += sizeof(entry_t<Key_t, node_t*>)*cnt + sizeof(node_t*);
+	    structural_data_unoccupied += sizeof(entry_t<Key_t, node_t*>)*invalid_num;
+	    cur = static_cast<node_t*>((static_cast<inode_t<Key_t>*>(cur))->sibling_ptr);
+	}while(cur);
+	cur = (static_cast<inode_t<Key_t>*>(leftmost_node))->leftmost_ptr;
+    }
+
+    auto leaf = static_cast<lnode_t<Key_t, Value_t>*>(cur);
+    do{
+	meta += sizeof(lnode_t<Key_t, Value_t>);
+	auto type = leaf->type;
+	if(type == lnode_t<Key_t, Value_t>::BTREE_NODE){
+	    auto lnode = static_cast<lnode_btree_t<Key_t, Value_t>*>(leaf);
+	    auto cnt = lnode->get_cnt();
+	    auto invalid_num = lnode_btree_t<Key_t, Value_t>::cardinality - cnt;
+	    key_data_occupied += sizeof(entry_t<Key_t, Value_t>)*cnt;
+	    key_data_unoccupied += sizeof(entry_t<Key_t, Value_t>)*invalid_num;
+	    leaf = static_cast<lnode_t<Key_t, Value_t>*>(lnode->sibling_ptr);
+	}
+	else{
+	    auto lnode = static_cast<lnode_hash_t<Key_t, Value_t>*>(leaf);
+	    lnode->footprint(meta, structural_data_occupied, structural_data_unoccupied, key_data_occupied, key_data_unoccupied);
+	    leaf = static_cast<lnode_t<Key_t, Value_t>*>(lnode->sibling_ptr);
+	}
+    }while(leaf);
+}
+
+template <typename Key_t, typename Value_t>
 inline int btree_t<Key_t, Value_t>::height(){
     auto cur = root;
     return cur->level;

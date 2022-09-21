@@ -157,10 +157,15 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
 	return nullptr;
     }
 
+    
     /*
-       auto util = utilization() * 100;
-       std::cout << util << std::endl;
-     */
+    #ifndef LINKED
+    if(!this->sibling_ptr){ // print out utilization of rightmost node
+	auto util = utilization() * 100;
+	std::cout << util << std::endl;
+    }
+    #endif
+    */
 
 #ifdef FINGERPRINT
     #ifdef AVX_256
@@ -538,10 +543,16 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
     if(need_insert){
 	blink_printf("insert after split failed -- key: %llu\n", key);
     }
+
     /*
-       util = utilization() * 100;
+    #ifndef LINKED
+    if(!new_right->sibling_ptr){ // print out utilization of rightmost node
+       auto util = new_right->utilization() * 100;
        std::cout << util << std::endl;
-     */
+    }
+    #endif
+    */
+
     return new_right;
 }
 
@@ -835,7 +846,7 @@ double lnode_hash_t<Key_t, Value_t>::utilization(){
     for(int j=0; j<cardinality; j++){
 	for(int i=0; i<entry_num; i++){
 	    #ifdef FINGERPRINT
-	    if(bucket[j].fingerprints[i] != 0)
+	    if((bucket[j].fingerprints[i] && 0b1) != 0b1)
 		cnt++;
 	    #else
 	    if(bucket[j].entry[i].key != EMPTY<Key_t>)
@@ -1211,10 +1222,34 @@ inline void lnode_hash_t<Key_t, Value_t>::median_util(Key_t* keys, int left, int
     }
 }
 
+//#define MEDIAN_POLICY4
+#ifdef MEDIAN_POLICY1
+#define SPLIT_POLICY ((double)10/6)
+#elif defined MEDIAN_POLICY2
+#define SPLIT_POLICY ((double)10/7)
+#elif defined MEDIAN_POLICY3
+#define SPLIT_POLICY ((double)10/8)
+#elif defined MEDIAN_POLICY4
+#define SPLIT_POLICY ((double)10/9)
+#else
+#define SPLIT_POLICY (2)
+#endif
+
 template <typename Key_t, typename Value_t>
 inline int lnode_hash_t<Key_t, Value_t>::find_median(Key_t* keys, int n){
     int ret;
     int a = -1, b = -1;
+    /*
+    if(n % (int)SPLIT_POLICY == 1){
+	median_util(keys, 0, n-1, (int)(n/SPLIT_POLICY)-1, a, b);
+	ret = b;
+    }
+    else{
+	median_util(keys, 0, n-1, (int)(n/SPLIT_POLICY), a, b);
+	ret = (a+b)/2;
+    }
+    */
+    
     if(n % 2 == 1){
 	median_util(keys, 0, n-1, n/2-1, a, b);
 	ret = b;
@@ -1223,7 +1258,16 @@ inline int lnode_hash_t<Key_t, Value_t>::find_median(Key_t* keys, int n){
 	median_util(keys, 0, n-1, n/2, a, b);
 	ret = (a+b)/2;
     }
+
     return ret;
+}
+
+template <typename Key_t, typename Value_t>
+void lnode_hash_t<Key_t, Value_t>::footprint(uint64_t& meta, uint64_t& structural_data_occupied, uint64_t& structural_data_unoccupied, uint64_t& key_data_occupied, uint64_t& key_data_unoccupied){
+    structural_data_occupied += sizeof(lnode_t<Key_t, Value_t>*);
+    for(int i=0; i<cardinality; i++){
+	bucket[i].footprint(meta, structural_data_occupied, structural_data_unoccupied, key_data_occupied, key_data_unoccupied);
+    }
 }
 
 template <typename Key_t, typename Value_t>

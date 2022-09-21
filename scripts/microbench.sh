@@ -10,14 +10,29 @@ mkdir $path_throughput
 mkdir $path_latency
 mkdir $path_profile
 
-index="artolc hot masstree bwtree blink blinkhash"
-workloads="load update read scan"
+index="artolc masstree bwtree blink"
+workloads="load"
+
+#index="artolc hot masstree bwtree blink blinkhash"
+#workloads="load update read scan"
 threads="1 4 8 16 32 64"
 iterations="1 2 3"
 
 init_num=100000000
 run_num=100000000
 
+
+## load throughput
+for iter in $iterations; do
+	for idx in $index; do
+		for t in $threads; do
+			echo "------------------- running with $t threads -------------------------" >> ${path_throughput}/${idx}_${wk}
+			./bin/microbench --workload load --init_num $init_num --run_num $run_num --index $idx --threads $t --hyper --insert_only --earliest >> ${path_throughput}/${idx}_${wk}
+		done
+	done
+done
+
+"
 ## throughput
 for iter in $iterations; do
 	for wk in $workloads; do
@@ -43,4 +58,4 @@ for iter in $iterations; do
 		done
 	done
 done
-
+"

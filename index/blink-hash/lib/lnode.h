@@ -8,7 +8,11 @@
 #define LEAF_HASH_SIZE (1024 * 256)
 #define SEED (0xc70697UL)
 #define HASH_FUNCS_NUM (2)
+//#define NUM_SLOT (1)
+//#define NUM_SLOT (2)
 #define NUM_SLOT (4)
+//#define NUM_SLOT (8)
+//#define NUM_SLOT (16)
 
 namespace BLINK_HASH{
 
@@ -182,6 +186,7 @@ class lnode_hash_t : public lnode_t<Key_t, Value_t>{
 
         double utilization();
 
+	void footprint(uint64_t& meta, uint64_t& structural_data_occupied, uint64_t& structural_data_unoccupied, uint64_t& key_data_occupied, uint64_t& key_data_unoccupied);
 
     private:
 	bool stabilize_all(uint64_t version);
