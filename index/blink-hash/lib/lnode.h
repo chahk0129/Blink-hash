@@ -5,6 +5,7 @@
 #include "bucket.h"
 
 #define LEAF_BTREE_SIZE (PAGE_SIZE)
+//#define LEAF_HASH_SIZE (1024 * 512)
 #define LEAF_HASH_SIZE (1024 * 256)
 #define SEED (0xc70697UL)
 #define HASH_FUNCS_NUM (2)

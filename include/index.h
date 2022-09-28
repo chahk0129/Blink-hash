@@ -505,6 +505,7 @@ template<typename KeyType,
 
 	    auto root_id = index_p->root_id.load();
 	    index_p->getMemory(root_id, meta_size, structural_data_occupied, structural_data_unoccupied, key_data_occupied, key_data_unoccupied);
+	    index_p->getMemoryMappingTable(structural_data_occupied, structural_data_unoccupied);
 	    std::cout << "[Memory Footprint] - before delta chain consolidation" << std::endl;
 	    std::cout << "Metadata: \t" << meta_size << std::endl;
 	    std::cout << "Structural_data_occupied: \t" << structural_data_occupied << std::endl;
@@ -539,6 +540,7 @@ template<typename KeyType,
 
 	    root_id = index_p->root_id.load();
 	    index_p->getMemory(root_id, meta_size, structural_data_occupied, structural_data_unoccupied, key_data_occupied, key_data_unoccupied);
+	    index_p->getMemoryMappingTable(structural_data_occupied, structural_data_unoccupied);
 	    std::cout << "[Memory Footprint] - after delta chain consolidation" << std::endl;
 	    std::cout << "Metadata: \t" << meta_size << std::endl;
 	    std::cout << "Structural_data_occupied: \t" << structural_data_occupied << std::endl;

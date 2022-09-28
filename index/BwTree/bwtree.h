@@ -3882,6 +3882,14 @@ retry_traverse:
       return true;
   }
 
+  void getMemoryMappingTable(uint64_t& structural_data_occupied, uint64_t& structural_data_unoccupied){
+      for(uint64_t i=0; i<MAPPING_TABLE_SIZE; i++){
+	  if(mapping_table[i].load() != nullptr)
+	      structural_data_occupied += sizeof(BaseNode*);
+	  else
+	      structural_data_unoccupied += sizeof(BaseNode*);
+      }
+  }
 
   void getMemory(const NodeID node_id, uint64_t& meta, uint64_t& structural_data_occupied, uint64_t& structural_data_unoccupied, uint64_t& key_data_occupied, uint64_t& key_data_unoccupied){
       if(node_id == INVALID_NODE_ID){
