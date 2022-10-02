@@ -368,6 +368,67 @@ struct bucket_t{
 
 #ifdef FINGERPRINT
     #ifdef AVX_256
+    bool remove(Key_t key, __m256i fingerprint){
+        __m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(fingerprints));
+        __m256i cmp = _mm256_cmpeq_epi8(fingerprint, fingerprints_);
+        uint32_t bitfield = _mm256_movemask_epi8(cmp);
+        for(int i=0; i<32; i++){
+            auto bit = (bitfield >> i);
+            if((bit & 0x1) == 1){
+                if(entry[i].key == key){
+                    fingerprints[i] = 0;
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    #elif defined AVX_128
+    bool remove(Key_t key, __m128i fingerprint){
+        for(int m=0; m<2; m++){
+            __m128i fingerprints_ = _mm_loadu_si128(reinterpret_cast<__m128i*>(fingerprints + m*16));
+            __m128i cmp = _mm_cmpeq_epi8(fingerprint, fingerprints_);
+            uint32_t bitfield = _mm_movemask_epi8(cmp);
+            for(int i=0; i<16; i++){
+                auto bit = (bitfield >> i);
+                if((bit & 0x1) == 1){
+                    auto idx = m*16 + i;
+                    if(entry[idx].key == key){
+                        fingerprints[idx] = 0;
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    #else
+    bool remove(Key_t key, uint8_t fingerprint){
+        for(int i=0; i<entry_num; i++){
+            if(fingerprints[i] == fingerprint){
+                if(entry[i].key == key){
+                    fingerprints[i] = 0;
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    #endif
+#else
+    bool remove(Key_t key){
+        for(int i=0; i<entry_num; i++){
+            if(entry[i].key == key){
+                entry[i].key = EMPTY<Key_t>;
+                return true;
+            }
+        }
+        return false;
+    }
+#endif
+
+#ifdef FINGERPRINT
+    #ifdef AVX_256
     bool collect_keys(Key_t* keys, int& num, int cardinality, __m256i empty){
 	__m256i fingerprints_ = _mm256_loadu_si256(reinterpret_cast<__m256i*>(fingerprints));
 	__m256i cmp = _mm256_cmpeq_epi8(empty, fingerprints_);

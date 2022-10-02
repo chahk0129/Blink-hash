@@ -118,6 +118,21 @@ int lnode_t<Key_t, Value_t>::update(Key_t key, Value_t value, uint64_t version){
 }
 
 template <typename Key_t, typename Value_t>
+int lnode_t<Key_t, Value_t>::remove(Key_t key, uint64_t version){
+    switch(type){
+	case BTREE_NODE:
+	    return (static_cast<lnode_btree_t<Key_t, Value_t>*>(this))->remove(key, version);
+	case HASH_NODE:
+	    return (static_cast<lnode_hash_t<Key_t, Value_t>*>(this))->remove(key, version);
+	default:
+	    std::cerr << __func__ << ": node type error: " << type << std::endl;
+	    return 0;
+    }
+    std::cerr << __func__ << ": should not reach here" << std::endl;
+    return 0;
+}
+
+template <typename Key_t, typename Value_t>
 Value_t lnode_t<Key_t, Value_t>::find(Key_t key, bool& need_restart){
     switch(type){
 	case BTREE_NODE:

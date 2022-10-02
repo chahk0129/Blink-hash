@@ -120,14 +120,14 @@ int lnode_btree_t<Key_t, Value_t>::remove(Key_t key, uint64_t version){
     if(this->cnt){
 	int pos = find_pos_linear(key);
 	// no matching key found
-	if(pos == -1) return false;
+	if(pos == -1) return 1;
 	memmove(&entry[pos], &entry[pos+1], sizeof(entry_t<Key_t, Value_t>)*(lnode_t<Key_t, Value_t>::cnt - pos - 1));
 	this->cnt--;
 	write_unlock();
 	return 0;
     }
     write_unlock();
-    return -2;
+    return 1;
 }
 
 template <typename Key_t, typename Value_t>
@@ -143,7 +143,7 @@ int lnode_btree_t<Key_t, Value_t>::update(Key_t key, Value_t value, uint64_t ver
     }
 
     write_unlock();
-    return -2;
+    return 1;
 }
 
 template <typename Key_t, typename Value_t>

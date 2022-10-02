@@ -42,6 +42,8 @@ class btree_t{
 
 	bool update(Key_t key, Value_t value, ThreadInfo& threadEpocheInfo);
 
+	bool remove(Key_t key, ThreadInfo& threadEpocheInfo);
+
 	Value_t lookup(Key_t key, ThreadInfo& threadEpocheInfo);
 
 	inode_t<Key_t>** new_root_for_adjustment(Key_t* key, node_t** value, int num, int& new_num);

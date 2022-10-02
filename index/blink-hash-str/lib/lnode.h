@@ -46,6 +46,8 @@ class lnode_t : public node_t{
 
 	int update(Key_t key, Value_t value, uint64_t version);
 
+	int remove(Key_t key, uint64_t version);
+
 	Value_t find(Key_t key, bool& need_restart);
 
 	int range_lookup(Key_t key, Value_t* buf, int count, int range, bool continued);
@@ -168,6 +170,8 @@ class lnode_hash_t : public lnode_t<Key_t, Value_t>{
 	lnode_hash_t<Key_t, Value_t>* split(Key_t& split_key, Key_t key, Value_t value, uint64_t version);
 
 	int update(Key_t key, Value_t value, uint64_t vstart);
+
+	int remove(Key_t key, uint64_t version);
 
 	Value_t find(Key_t key, bool& need_restart);
 

@@ -611,6 +611,61 @@ int lnode_hash_t<Key_t, Value_t>::update(Key_t key, Value_t value, uint64_t vsta
 }
 
 template <typename Key_t, typename Value_t>
+int lnode_hash_t<Key_t, Value_t>::remove(Key_t key, uint64_t vstart){
+    bool need_restart = false;
+    for(int k=0; k<HASH_FUNCS_NUM; k++){
+	auto hash_key = h(&key, sizeof(Key_t), k);
+    #ifdef FINGERPRINT
+	#ifdef AVX_256
+	__m256i fingerprint = _mm256_set1_epi8(_hash(hash_key) | 1);
+	#elif defined AVX_128
+	__m128i fingerprint = _mm_set1_epi8(_hash(hash_key) | 1);
+	#else
+	uint8_t fingerprint = _hash(hash_key) | 1;
+	#endif
+    #endif
+
+	for(int j=0; j<NUM_SLOT; j++){
+	    auto loc = (hash_key + j) % cardinality;
+	    if(!bucket[loc].try_lock())
+		return -1;
+
+	    auto vend = (static_cast<node_t*>(this))->get_version(need_restart);
+	    if(need_restart || (vstart != vend)){
+		bucket[loc].unlock();
+		return -1;
+	    }
+
+	    #ifdef LINKED
+	    if(bucket[loc].state != bucket_t<Key_t, Value_t>::STABLE){
+		auto ret = stabilize_bucket(loc);
+		if(!ret){
+		    bucket[loc].unlock();
+		    return -1;
+		}
+	    }
+	    #endif
+
+	    #ifdef FINGERPRINT
+	    if(bucket[loc].remove(key, fingerprint)){ // removed
+		bucket[loc].unlock();
+		return 0;
+	    }
+	    #else
+	    if(bucket[loc].remove(key)){ // removed
+		bucket[loc].unlock();
+		return 0;
+	    }
+	    #endif
+
+	    bucket[loc].unlock();
+	}
+    }
+    return 1; // key not found
+}
+
+
+template <typename Key_t, typename Value_t>
 Value_t lnode_hash_t<Key_t, Value_t>::find(Key_t key, bool& need_restart){
     for(int k=0; k<HASH_FUNCS_NUM; k++){
 	auto hash_key = h(&key, sizeof(Key_t), k);

@@ -291,6 +291,59 @@ bool btree_t<Key_t, Value_t>::update(Key_t key, Value_t value, ThreadInfo& threa
 }
 
 template <typename Key_t, typename Value_t>
+bool btree_t<Key_t, Value_t>::remove(Key_t key, ThreadInfo& threadEpocheInfo){
+    EpocheGuard epocheGuard(threadEpocheInfo);
+    restart:
+    auto cur = root;
+    bool need_restart = false;
+
+    auto cur_vstart = cur->try_readlock(need_restart);
+    if(need_restart)
+        goto restart;
+
+    // traversal
+    while(cur->level != 0){
+        auto child = (static_cast<inode_t<Key_t>*>(cur))->scan_node(key);
+        auto child_vstart = child->try_readlock(need_restart);
+        if(need_restart)
+            goto restart;
+
+        auto cur_vend = cur->get_version(need_restart);
+        if(need_restart || (cur_vstart != cur_vend))
+            goto restart;
+
+        cur = child;
+        cur_vstart = child_vstart;
+    }
+
+    // found leaf
+    auto leaf = static_cast<lnode_t<Key_t, Value_t>*>(cur);
+    auto leaf_vstart = cur_vstart;
+
+    // move right if necessary
+    while(leaf->sibling_ptr && (leaf->high_key < key)){
+        auto sibling = leaf->sibling_ptr;
+
+        auto sibling_v = sibling->try_readlock(need_restart);
+        if(need_restart) goto restart;
+
+        auto leaf_vend = leaf->get_version(need_restart);
+        if(need_restart || (leaf_vstart != leaf_vend)) goto restart;
+
+        leaf = static_cast<lnode_t<Key_t, Value_t>*>(sibling);
+        leaf_vstart = sibling_v;
+    }
+
+    auto ret = leaf->remove(key, leaf_vstart);
+    if(ret == -1) // leaf node has been updated
+        goto restart;
+    else if(ret == 0)
+        return true;
+    else
+        return false;
+}
+
+template <typename Key_t, typename Value_t>
 Value_t btree_t<Key_t, Value_t>::lookup(Key_t key, ThreadInfo& threadEpocheInfo){
     EpocheGuardReadonly epocheGuard(threadEpocheInfo);
     restart:
