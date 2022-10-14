@@ -981,8 +981,8 @@ int main(int argc, char *argv[]) {
 
 	options.add_options()
 	    ("workload", "Workload type (load,update,read,scan)", cxxopts::value<std::string>())
-	    ("init_num", "Size of workload to load", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.num)))
-	    ("run_num", "Size of workload to run", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.num)))
+	    ("init_num", "Size of workload to load in million records", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.num)))
+	    ("run_num", "Size of workload to run in million records", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.num)))
 	    ("index", "Index type (artolc, artrowex, hot, masstree, btreeolc, blink, bwtree, cuckoo)", cxxopts::value<std::string>())
 	    ("threads", "Number of threads to run", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.threads)))
 	    ("mem", "Measure memory bandwidth", cxxopts::value<bool>()->default_value((opt.mem ? "true" : "false")))
@@ -1166,6 +1166,9 @@ int main(int argc, char *argv[]) {
     if(measure_latency == true){
 	fprintf(stderr, "Measuring latency with sampling rate of %lf\n", sampling_rate);
     }
+
+    init_num *= 1000000;
+    run_num *= 1000000;
 
     kvpair_t<keytype>* init_kv = new kvpair_t<keytype>[init_num];
     kvpair_t<keytype>* run_kv = new kvpair_t<keytype>[run_num];

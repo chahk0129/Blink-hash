@@ -1010,7 +1010,7 @@ int main(int argc, char *argv[]) {
 
 	options.add_options()
 	    ("workload", "Workload type (load,read,scan,mixed)", cxxopts::value<std::string>())
-	    ("num", "Size of workload to run", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.num)))
+	    ("num", "Size of workload to run in million records", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.num)))
 	    ("index", "Index type (artolc, artrowex, hot, masstree, cuckoo, btreeolc, blink, blinkhash, bwtree)", cxxopts::value<std::string>())
 	    ("threads", "Number of threads to run", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.threads)))
 	    ("mem", "Measure memory bandwidth", cxxopts::value<bool>()->default_value((opt.mem ? "true" : "false")))
@@ -1188,6 +1188,7 @@ int main(int argc, char *argv[]) {
 
 
     int num_thread = opt.threads;
+    num *= 1000000;
 
     /* Bw-tree option flags */
     #ifdef BWTREE_CONSOLIDATE_AFTER_INSERT

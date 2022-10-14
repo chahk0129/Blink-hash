@@ -4,8 +4,8 @@ mkdir output
 motiv=output/motiv
 mkdir $motiv
 
-num=100000000
-index="cuckoo btreeolc"
+num=100
+index="artolc masstree bwtree blink cuckoo"
 threads="1 4 8 16 32 64"
 iterations="1 2 3"
 

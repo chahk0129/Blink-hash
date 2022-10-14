@@ -1,6 +1,6 @@
 sudo apt-get update
 
-## make extra fs space
+## make extra fs space - specific to Cloudlab
 sudo mkdir /hk
 sudo /usr/local/etc/emulab/mkextrafs.pl /hk
 sudo chown hcha /hk

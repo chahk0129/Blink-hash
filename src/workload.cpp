@@ -1111,7 +1111,7 @@ int main(int argc, char *argv[]) {
 	    ("input", "Absolute path to workload directory", cxxopts::value<std::string>())
 	    ("workload", "Workload type (load,a,b,c,e)", cxxopts::value<std::string>())
 	    ("key_type", "Key type (rand, mono, rdtsc)", cxxopts::value<std::string>())
-	    ("num", "Size of workload to run", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.num)))
+	    ("num", "Size of workload to run in million records", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.num)))
 	    ("index", "Index type (artolc, artrowex, hot, masstree, cuckoo, btreeolc, bepsilon, blink, blinkhash, bwtree)", cxxopts::value<std::string>())
 	    ("threads", "Number of threads to run", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.threads)))
 	    ("skew", "Key distribution skew factor to use", cxxopts::value<float>()->default_value(std::to_string(opt.skew)))
@@ -1370,12 +1370,6 @@ int main(int argc, char *argv[]) {
 	fprintf(stderr, "Measuring latency with sampling rate of %lf\n", sampling_rate);
     }
 
-    //int init_num = 50000000;
-    //int run_num = 50000000;
-    //int init_num = 100000000;
-    //int run_num = 100000000;
-    //int init_num = 200000000;
-    //int run_num = 200000000;
     if(kt == RDTSC_KEY){
 	load_rdtsc(index_type, num_thread, init_num);
     }

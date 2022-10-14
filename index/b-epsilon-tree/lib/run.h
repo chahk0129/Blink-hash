@@ -2,7 +2,7 @@
 #define BETREE_RUN_H__
 
 #include "buffer.h"
-#include "tree_optimized.h"
+#include "tree.h"
 
 #define BUFFER_NUM (64)
 namespace B_EPSILON_TREE{
