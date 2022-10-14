@@ -33,10 +33,10 @@ The script receives a directory path as a parameter where those workloads are st
 ## Indexes ##
 
 This repository includes various in-memory index types such as tries, B+-trees, hybrid structures, and hash table.
-Tries include Adaptive Radix Tree (ART), and Height Optimized Tree (HOT).
-B+-trees include OpenBw-tree, top-down latching B+-tree, Blink-tree, and Bepsilon-tree.
-Hybrid structures include Masstree and Blink-hash.
-Hash table includes cuckoo hashing.
+* Tries include Adaptive Radix Tree (ART), and Height Optimized Tree (HOT).
+* B+-trees include OpenBw-tree, top-down latching B+-tree, Blink-tree, and Bepsilon-tree.
+* Hybrid structures include Masstree and Blink-hash.
+* Hash table includes cuckoo hashing.
 
 
 ## Compilation ##
