@@ -31,7 +31,7 @@ for iter in $iterations; do
         done
 done
 
-## timeseries keys
+## timeseries keys --- monotonic insertion
 for iter in $iterations; do
         for wk in $ts_workloads; do
 		for idx in $index; do
@@ -43,27 +43,17 @@ for iter in $iterations; do
         done
 done
 
-## random insertion
-mkdir ${output_ts}/random
-for iter in $iterations; do
-	for random in 0.0 0.2 0.4 0.6 0.8 1.0; do
-		for idx in $index; do
-			./bin/timeseries --index $idx --num $num --workload load --threads 64 --hyper --earliest --random $random >> ${output_ts}/random/insert_${idx}${random}
-			./bin/timeseries --index $idx --num $num --workload mixed --threads 64 --hyper --earliest --random $random >> ${output_ts}/random/mixed_${idx}${random}
-		done
-	done
-done
-
-## fuzzy insertion
+## timeseries keys --- fuzzy monotonic insertion
 mkdir ${output_ts}/fuzzy
 for iter in $iterations; do
-	for fuzzy in 1 10 100 1000 10000 100000; do
+	for fuzzy in 0 1 10 100 1000 10000 100000; do
 		for idx in $index; do
 			./bin/timeseries --index $idx --num $num --workload load --threads 64 --hyper --earliest --fuzzy $fuzzy >> ${output_ts}/fuzzy/insert_${idx}${fuzzy}
 			./bin/timeseries --index $idx --num $num --workload mixed --threads 64 --hyper --earliest --fuzzy $fuzzy >> ${output_ts}/fuzzy/mixed_${idx}${fuzzy}
 		done
 	done
 done
+
 
 ## email keys
 for iter in $iterations; do

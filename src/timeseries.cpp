@@ -104,6 +104,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
     std::vector<uint64_t> inserted_num(num_thread);
     breakdown_t breakdown[num_thread];
     std::vector<kvpair_t<keytype>> keys[num_thread];
+    std::vector<uint64_t> outoforder(num_thread);
 
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::default_random_engine generator(seed);
@@ -113,17 +114,16 @@ inline void run(int index_type, int wl, int num_thread, int num){
     int sensor_id = 0;
     for(int i=0; i<num; i++){
 	auto r = (rand() % 100) / 100.0;
+	auto kv = new kvpair_t<keytype>;
 	if(r < random_rate){
-	    auto kv = new kvpair_t<keytype>;
 	    kv->key = ((Rdtsc() << 16) | sensor_id++ << 6);
 	    kv->value = reinterpret_cast<uint64_t>(&kv->key);
 	    load_ops.push_back(std::make_pair(*kv, std::make_pair(OP_RANDOMINSERT, 0)));
 	    if(sensor_id == 1024) sensor_id = 0;
 	}
 	else{
-	    auto kv = new kvpair_t<keytype>;
 	    uint64_t latency = 0;
-	    if(fuzzy)
+	    if(fuzzy) // fuzzy insertion
 		latency = std::round(distribution(generator) * fuzzy);
 	    load_ops.push_back(std::make_pair(*kv, std::make_pair(OP_INSERT, latency)));
 	}
@@ -134,7 +134,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
     for(int i=0; i<num_thread; i++)
 	keys[i].reserve(chunk);
 
-    auto load_earliest = [idx, num, num_thread, &earliest_finished, &inserted_num, &local_load_latency, &breakdown, &params, &perf_block, profile, &load_ops](uint64_t thread_id, bool){
+    auto load_earliest = [idx, num, num_thread, &earliest_finished, &inserted_num, &local_load_latency, &breakdown, &params, &perf_block, profile, &load_ops, &outoforder](uint64_t thread_id, bool){
 	auto random_bool = std::bind(std::bernoulli_distribution(sampling_rate), std::knuth_b());
 	threadinfo *ti = threadinfo::make(threadinfo::TI_MAIN, -1);
 	size_t chunk = num / num_thread;
@@ -197,6 +197,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
 		    perf_block[thread_id] = e;
 		}
 		inserted_num[thread_id] = j;
+		outoforder[thread_id] = idx->get_outoforder();
 		#ifdef BREAKDOWN
 		idx->get_breakdown(time.traversal, time.abort, time.latch, time.node, time.split, time.consolidation);
 		memcpy(&breakdown[thread_id], &time, sizeof(breakdown_t));
@@ -212,6 +213,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	    perf_block[thread_id] = e;
 	}
 	inserted_num[thread_id] = chunk;
+		outoforder[thread_id] = idx->get_outoforder();
 	#ifdef BREAKDOWN
 	idx->get_breakdown(time.traversal, time.abort, time.latch, time.node, time.split, time.consolidation);
 	memcpy(&breakdown[thread_id], &time, sizeof(breakdown_t));
@@ -305,10 +307,17 @@ inline void run(int index_type, int wl, int num_thread, int num){
 
     if(insert_only && earliest){
 	uint64_t _num = 0;
+	uint64_t _outoforder = 0;
 	for(int i=0; i<num_thread; i++){
 	    _num += inserted_num[i];
+	    _outoforder += outoforder[i];
 	}
 	std::cout << "Processed " << _num << " / " << num << " (" << (double)_num/num*100 << " \%)" << std::endl;
+	std::cout << "Out-of-order keys: " << _outoforder << " / " <<  _num << " (" << (double)_outoforder/_num*100 << " \%)" << std::endl;
+	for(int i=0; i<num_thread; i++){
+	    outoforder[i] = 0;
+	    inserted_num[i] = 0;
+	}
 	num = _num;
     }
     double tput = num / (end_time - start_time) / 1000000; //Mops/sec
@@ -407,6 +416,8 @@ inline void run(int index_type, int wl, int num_thread, int num){
 		    uint32_t sensor_id = 0;
 		    auto key = v.key | ((sensor_id++ << 6) | i);
 		    while(hashmap.find(key) != hashmap.end()){
+			if(sensor_id == 1024)
+			    sensor_id = 0;
 			key = v.key | ((sensor_id++ << 6) | i);
 		    }
 		    hashmap.insert(std::make_pair(key, true));
@@ -450,6 +461,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
 
     earliest_finished = false;
     std::vector<uint64_t> run_num(num_thread);
+
     auto read_earliest = [idx, num, num_thread, &earliest_finished, &run_num, &local_run_latency, ops, &params, &perf_block, profile, &breakdown](uint64_t thread_id, bool){
 	auto random_bool = std::bind(std::bernoulli_distribution(sampling_rate), std::knuth_b());
 	threadinfo *ti = threadinfo::make(threadinfo::TI_MAIN, -1);
@@ -709,9 +721,10 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	#endif
     };
 
-    auto mix_earliest = [idx, num, num_thread, &earliest_finished, &run_num, &local_run_latency, ops, &params, &perf_block, profile, &breakdown](uint64_t thread_id, bool){
+    auto mix_earliest = [idx, num, num_thread, &earliest_finished, &run_num, &local_run_latency, ops, &params, &perf_block, profile, &breakdown, &inserted_num, &outoforder](uint64_t thread_id, bool){
 	auto random_bool = std::bind(std::bernoulli_distribution(sampling_rate), std::knuth_b());
 	threadinfo *ti = threadinfo::make(threadinfo::TI_MAIN, -1);
+	uint64_t _inserted_num = 0;
 	size_t chunk = num / num_thread;
 	size_t start = chunk * thread_id;
 	size_t end = chunk * (thread_id + 1);
@@ -748,12 +761,14 @@ inline void run(int index_type, int wl, int num_thread, int num){
 		kv->value = reinterpret_cast<uint64_t>(&kv->key);
 		if(sensor_id == 1024) sensor_id = 0;
 		idx->insert(kv->key, kv->value, ti);
+		_inserted_num++;
 	    }
 	    else if(op == OP_RANDOMINSERT){
 		auto kv = new kvpair_t<keytype>;
 		kv->key = ops[i].first.key;
 		kv->value = reinterpret_cast<uint64_t>(&kv->key);
 		idx->insert(kv->key, kv->value, ti);
+		_inserted_num++;
 	    }
 	    else if(op == OP_READ){
 		#ifdef BWTREE_USE_MAPPING_TABLE
@@ -782,6 +797,8 @@ inline void run(int index_type, int wl, int num_thread, int num){
 		    perf_block[thread_id] = e;
 		}
 		run_num[thread_id] = i - start;
+		inserted_num[thread_id] = _inserted_num;
+		outoforder[thread_id] = idx->get_outoforder();
 		#ifdef BREAKDOWN
 		idx->get_breakdown(time.traversal, time.abort, time.latch, time.node, time.split, time.consolidation);
 		memcpy(&breakdown[thread_id], &time, sizeof(breakdown_t));
@@ -797,6 +814,8 @@ inline void run(int index_type, int wl, int num_thread, int num){
         }
 	earliest_finished = true;
 	run_num[thread_id] = chunk;
+	inserted_num[thread_id] = _inserted_num;
+	outoforder[thread_id] = idx->get_outoforder();
 	#ifdef BREAKDOWN
 	idx->get_breakdown(time.traversal, time.abort, time.latch, time.node, time.split, time.consolidation);
 	memcpy(&breakdown[thread_id], &time, sizeof(breakdown_t));
@@ -911,10 +930,15 @@ inline void run(int index_type, int wl, int num_thread, int num){
 
     if(earliest){
 	uint64_t _num = 0;
+	uint64_t _inserted_num = 0;
+	uint64_t _outoforder = 0;
 	for(int i=0; i<num_thread; i++){
 	    _num += run_num[i];
+	    _inserted_num += inserted_num[i];
+	    _outoforder += outoforder[i];
 	}
 	std::cout << "Processed " << _num << " / " << num << " (" << (double)_num/num*100 << " \%)" << std::endl;
+	std::cout << "Out-of-order keys: " << _outoforder << " / " << _num << " (" << (double)_outoforder/_inserted_num*100 << " \%)" << std::endl;
 	num = _num;
     }
 
@@ -1126,6 +1150,10 @@ int main(int argc, char *argv[]) {
 	index_type = TYPE_CUCKOOHASH;
     else if(opt.index == "blink")
 	index_type = TYPE_BLINKTREE;
+    else if(opt.index == "blinkbuffer")
+	index_type = TYPE_BLINKBUFFER;
+    else if(opt.index == "blinkbufferbatch")
+	index_type = TYPE_BLINKBUFFERBATCH;
     else if(opt.index == "blinkhash")
 	index_type = TYPE_BLINKHASH;
     else{
@@ -1180,7 +1208,7 @@ int main(int argc, char *argv[]) {
     }
     fuzzy = opt.fuzzy;
 
-    if(opt.random < 0 || opt.random > 1){
+    if(opt.random < 0.0 || opt.random > 1.0){
 	std::cout << "Random insertion rate should be between 0.0 and 1.0" << std::endl;
 	exit(0);
     }
