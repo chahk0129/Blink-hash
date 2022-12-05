@@ -15,6 +15,9 @@
 #else
 #include "index/blink-hash/lib/tree.h"
 #endif
+#include "index/blink-buffer/lib/run.h"
+#include "index/blink-buffer-batch/lib/run.h"
+
 #ifndef _INDEX_H
 #define _INDEX_H
 
@@ -39,6 +42,7 @@ class Index
 	virtual void getMemory() = 0;
 	virtual void find_depth() = 0;
 	virtual void convert() = 0;
+	virtual uint64_t get_outoforder() = 0;
 
 	// This initializes the thread pool
 	virtual void UpdateThreadLocal(size_t thread_num) = 0;
@@ -140,6 +144,8 @@ class ArtOLCIndex : public Index<KeyType, KeyComparator>
 	}
 
 	void convert(){ }
+
+	uint64_t get_outoforder(){ return 0; }
 
 	#ifdef BREAKDOWN
 	void get_breakdown(uint64_t& time_traversal, uint64_t& time_abort, uint64_t& time_latch, uint64_t& time_node, uint64_t& time_split, uint64_t& time_consolidation){
@@ -259,6 +265,8 @@ class ArtROWEXIndex : public Index<KeyType, KeyComparator>
 	void find_depth(){ }
 
 	void convert(){ }
+
+	uint64_t get_outoforder(){ return 0; }
 
 	#ifdef BREAKDOWN
 	void get_breakdown(uint64_t& time_traversal, uint64_t& time_abort, uint64_t& time_latch, uint64_t& time_node, uint64_t& time_split, uint64_t& time_consolidation){
@@ -559,6 +567,8 @@ template<typename KeyType,
 	}
 	void convert(){ }
 
+	uint64_t get_outoforder(){ return 0; }
+
 	#ifdef BREAKDOWN
 	void get_breakdown(uint64_t& time_traversal, uint64_t& time_abort, uint64_t& time_latch, uint64_t& time_node, uint64_t& time_split, uint64_t& time_consolidation){
 	    index_p->get_breakdown(time_traversal, time_abort, time_latch, time_node, time_split, time_consolidation);
@@ -675,7 +685,10 @@ class MassTreeIndex : public Index<KeyType, KeyComparator>
 	    std::cout << "Layer num: " << layer_num << std::endl;
 	    std::cout << "Max depth : " << max_depth << std::endl;
 	}
+
 	void convert(){ }
+
+	uint64_t get_outoforder(){ return 0; }
 
 	#ifdef BREAKDOWN
 	void get_breakdown(uint64_t& time_traversal, uint64_t& time_abort, uint64_t& time_latch, uint64_t& time_node, uint64_t& time_split, uint64_t& time_consolidation){
@@ -763,7 +776,10 @@ class HOTIndex : public Index<KeyType, KeyComparator>
 	void find_depth(){
 	    idx->find_depth();
 	}
+
 	void convert(){ }
+
+	uint64_t get_outoforder(){ return 0; }
 
 	#ifdef BREAKDOWN
 	void get_breakdown(uint64_t& time_traversal, uint64_t& time_abort, uint64_t& time_latch, uint64_t& time_node, uint64_t& time_split, uint64_t& time_consolidation){
@@ -831,8 +847,11 @@ class BlinkIndex: public Index<KeyType, KeyComparator>
 	    auto ret = idx->check_height();
 	    std::cout << "height of blink-tree: \t" << ret << std::endl;
 	}
+
 	void convert(){ }
 
+	uint64_t get_outoforder(){ return 0; }
+	
 	#ifdef BREAKDOWN
 	void get_breakdown(uint64_t& time_traversal, uint64_t& time_abort, uint64_t& time_latch, uint64_t& time_node, uint64_t& time_split, uint64_t& time_consolidation){
 	    time_consolidation = 0;
@@ -848,6 +867,110 @@ class BlinkIndex: public Index<KeyType, KeyComparator>
 	BLINK_OPTIMIZED::btree_t<KeyType>* idx;
 };
 
+////////////////////
+/// Blink-buffer ///
+////////////////////
+
+template<typename KeyType, class KeyComparator>
+class BlinkBufferIndex: public Index<KeyType, KeyComparator>
+{
+    public:
+
+	bool insert(KeyType key, uint64_t value, threadinfo *ti) {
+	    idx->insert(key, value);
+	    return 0;
+	}
+
+	uint64_t find(KeyType key, std::vector<uint64_t> *v, threadinfo *ti) {
+	    auto ret = idx->find(key);
+	    v->clear();
+	    v->push_back(ret);
+	    return 0;
+	}
+
+	bool upsert(KeyType key, uint64_t value, threadinfo *ti) {
+	    return false;
+	}
+
+	uint64_t scan(KeyType key, int range, threadinfo *ti) {
+	    uint64_t buf[range];
+	    return idx->range_lookup(key, range, buf);
+	}
+
+	BlinkBufferIndex(uint64_t kt){
+	    idx = new BLINK_BUFFER::run_t<KeyType, uint64_t>();
+	}
+
+	void getMemory() { }
+	void find_depth(){ }
+	void convert() { }
+
+	uint64_t get_outoforder(){ return 0; }
+	
+	#ifdef BREAKDOWN
+	void get_breakdown(uint64_t& time_traversal, uint64_t& time_abort, uint64_t& time_latch, uint64_t& time_node, uint64_t& time_split, uint64_t& time_consolidation){ }
+	#endif
+
+	void UpdateThreadLocal(size_t thread_num){ }
+	void AssignGCID(size_t thread_id){ }
+	void UnregisterThread(size_t thread_id) { }
+
+    private:
+	BLINK_BUFFER::run_t<KeyType, uint64_t>* idx;
+};
+
+
+//////////////////////////
+/// Blink-buffer-batch ///
+//////////////////////////
+
+template<typename KeyType, class KeyComparator>
+class BlinkBufferBatchIndex: public Index<KeyType, KeyComparator>
+{
+    public:
+
+	bool insert(KeyType key, uint64_t value, threadinfo *ti) {
+	    idx->insert(key, value);
+	    return 0;
+	}
+
+	uint64_t find(KeyType key, std::vector<uint64_t> *v, threadinfo *ti) {
+	    auto ret = idx->find(key);
+	    v->clear();
+	    v->push_back(ret);
+	    return 0;
+	}
+
+	bool upsert(KeyType key, uint64_t value, threadinfo *ti) {
+	    return false;
+	}
+
+	uint64_t scan(KeyType key, int range, threadinfo *ti) {
+	    uint64_t buf[range];
+	    return idx->range_lookup(key, range, buf);
+	}
+
+	BlinkBufferBatchIndex(uint64_t kt){
+	    idx = new BLINK_BUFFER_BATCH::run_t<KeyType, uint64_t>();
+	}
+
+	void getMemory() { }
+	void find_depth(){ }
+	void convert() { }
+
+	uint64_t get_outoforder(){ return idx->get_outoforder(); }
+	
+	#ifdef BREAKDOWN
+	void get_breakdown(uint64_t& time_traversal, uint64_t& time_abort, uint64_t& time_latch, uint64_t& time_node, uint64_t& time_split, uint64_t& time_consolidation){ }
+	#endif
+
+	void UpdateThreadLocal(size_t thread_num){ }
+	void AssignGCID(size_t thread_id){ }
+	void UnregisterThread(size_t thread_id) { }
+
+    private:
+	BLINK_BUFFER_BATCH::run_t<KeyType, uint64_t>* idx;
+};
 
 ////////////////////////
 //// B epsilon tree ////
@@ -977,6 +1100,8 @@ class BTreeOLCIndex: public Index<KeyType, KeyComparator>
 	    std::cout << "depth: " << idx->find_depth() << std::endl;
 	}
 
+	uint64_t get_outoforder() { return 0; }
+
 	void convert(){ }
 	#ifdef BREAKDOWN
 	void get_breakdown(uint64_t& time_traversal, uint64_t& time_abort, uint64_t& time_latch, uint64_t& time_node, uint64_t& time_split, uint64_t& time_consolidation){
@@ -1041,7 +1166,10 @@ class CuckooIndex : public Index<KeyType, KeyComparator>
 	void getMemory() { }
 
 	void find_depth(){ }
+
 	void convert(){ }
+
+	uint64_t get_outoforder() { return 0; }
 
 	#ifdef BREAKDOWN
 	void get_breakdown(uint64_t& time_traversal, uint64_t& time_abort, uint64_t& time_latch, uint64_t& time_node, uint64_t& time_split, uint64_t& time_consolidation){ }
@@ -1127,6 +1255,8 @@ class BlinkHashIndex: public Index<KeyType, KeyComparator>
 	    auto ret = idx->check_height();
 	    std::cout << "height of blink-tree hashed: \t" << ret << std::endl;
 	}
+
+	uint64_t get_outoforder() { return 0; }
 
 	#ifdef BREAKDOWN
 	void get_breakdown(uint64_t& time_traversal, uint64_t& time_abort, uint64_t& time_latch, uint64_t& time_node, uint64_t& time_split, uint64_t& time_consolidation){

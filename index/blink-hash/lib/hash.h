@@ -3,6 +3,7 @@
 
 #include <functional>
 #include <stddef.h>
+namespace BLINK_HASH{
 
 inline size_t standard(const void* _ptr, size_t _len, size_t _seed=static_cast<size_t>(0xc70f6907UL));
 
@@ -61,4 +62,5 @@ size_t h(const void* key, size_t len, int func_num, size_t seed);
 
 size_t h(const void* key, size_t len, int func_num);
 
+}
 #endif  // UTIL_HASH_H_

@@ -30,6 +30,8 @@ enum {
   TYPE_BLINKHASH,
   TYPE_CUCKOOHASH,
   TYPE_BTREEOLC,
+  TYPE_BLINKBUFFER,
+  TYPE_BLINKBUFFERBATCH,
   TYPE_NONE,
 };
 
@@ -84,6 +86,10 @@ Index<KeyType, KeyComparator> *getInstance(const int type, const uint64_t kt) {
       return new BTreeOLCIndex<KeyType, KeyComparator>(kt);
   else if (type == TYPE_BLINKTREE)
       return new BlinkIndex<KeyType, KeyComparator>(kt);
+  else if (type == TYPE_BLINKBUFFER)
+      return new BlinkBufferIndex<KeyType, KeyComparator>(kt);
+  else if (type == TYPE_BLINKBUFFERBATCH)
+      return new BlinkBufferBatchIndex<KeyType, KeyComparator>(kt);
 //  else if (type == TYPE_BEPSILONTREE)
 //      return new BEIndex<KeyType, KeyComparator>(kt);
   else if (type == TYPE_CUCKOOHASH)

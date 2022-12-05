@@ -801,7 +801,6 @@ int lnode_hash_t<Key_t, Value_t>::range_lookup(Key_t key, Value_t* buf, int coun
 // need to use structure to return output
 template <typename Key_t, typename Value_t>
 lnode_btree_t<Key_t, Value_t>** lnode_hash_t<Key_t, Value_t>::convert(int& num, uint64_t version){
-    _mm_pause();
     bool need_restart = false;
     int idx = 0;
     entry_t<Key_t, Value_t> buf[cardinality * entry_num];

@@ -1,5 +1,7 @@
 #include "hash.h"
 
+namespace BLINK_HASH{
+
 inline size_t standard(const void* _ptr, size_t _len, size_t _seed){
     return std::_Hash_bytes(_ptr, _len, _seed);
 }
@@ -228,4 +230,5 @@ size_t h(const void* key, size_t len, int func_num, size_t seed) {
 
 size_t h(const void* key, size_t len, int func_num) {
     return hash_funcs[func_num](key, len, SEED);
+}
 }
