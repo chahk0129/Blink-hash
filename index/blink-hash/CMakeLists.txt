@@ -3,7 +3,7 @@ project(Blinkhash)
 
 option(USEAVX2 "USEAVX2" ON)
 
-set(CMAKE_CXX_FLAGS "-std=c++17 -pthread -Wall -Wextra -march=native -mavx2 -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -faligned-new=64")
+set(CMAKE_CXX_FLAGS "-std=c++17 -pthread -march=native -mavx2 -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -faligned-new=64")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 

@@ -4,6 +4,8 @@
 #include "node.h"
 #include "bucket.h"
 
+namespace BLINK_HASH{
+
 #define LEAF_BTREE_SIZE (PAGE_SIZE)
 //#define LEAF_HASH_SIZE (1024 * 512)
 #define LEAF_HASH_SIZE (1024 * 256)
@@ -15,8 +17,6 @@
 //#define NUM_SLOT (8)
 //#define NUM_SLOT (16)
 
-namespace BLINK_HASH{
-
 template <typename Key_t, typename Value_t>
 class lnode_t : public node_t{
     public:
@@ -26,7 +26,6 @@ class lnode_t : public node_t{
 	};
 
 	node_type_t type;
-	char dummy[4];
 	Key_t high_key;
 
 	// initial constructor
@@ -94,7 +93,7 @@ class lnode_btree_t : public lnode_t<Key_t, Value_t>{
 	
 	void insert_after_split(Key_t key, Value_t value);
 
-	void batch_insert(entry_t<Key_t, Value_t>* buf, size_t batch_size, int& from, int to);
+	void batch_insert(entry_t<Key_t, Value_t>* buf, int batch_size, int& from, int to);
 
 	int remove(Key_t key, uint64_t version);
 
@@ -208,9 +207,6 @@ class lnode_hash_t : public lnode_t<Key_t, Value_t>{
 
         int find_median(Key_t* keys, int n);
 
-	void prefetch_range(void* addr, size_t len);
-
-        void prefetch(const void* addr);
 };
 
 }

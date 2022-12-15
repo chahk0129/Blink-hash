@@ -149,12 +149,6 @@ class inode_t: public node_t{
 	    entry[1].value = right;
 	}
 
-	void* operator new(size_t size) {
-	    void* ret;
-	    posix_memalign(&ret, 64, size);
-	    return ret;
-	}
-
 	bool is_full(){
 	    return (cnt == cardinality-1);
 	}
@@ -264,12 +258,6 @@ class lnode_t: public node_t{
 
 	// constructor when leaf splits
         lnode_t(node_t* sibling, int _cnt, uint32_t _level): node_t(sibling, _cnt, _level) { }
-
-	void* operator new(size_t size) {
-	    void* ret;
-	    posix_memalign(&ret, 64, size);
-	    return ret;
-	}
 
 	bool is_full(){
 	    return (cnt == cardinality);

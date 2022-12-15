@@ -142,8 +142,6 @@ int main(int argc, char* argv[]){
     std::vector<uint64_t> notfound_keys[num_threads];
 
     auto tree = new btree_t<Key_t, Value_t>();
-    std::cout << "inode_size(" << inode_t<Key_t>::cardinality << "), lnode_size(" << lnode_t<Key_t, Value_t>::cardinality << ")" << std::endl;
-
     struct timespec start, end;
 
     std::atomic<uint64_t> insert_time = 0;

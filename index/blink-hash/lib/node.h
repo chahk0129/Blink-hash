@@ -16,6 +16,8 @@
 #include <x86intrin.h>
 #include <immintrin.h>
 
+namespace BLINK_HASH{
+
 #define BITS_PER_LONG 64
 #define BITOP_WORD(nr) ((nr) / BITS_PER_LONG)
 
@@ -27,9 +29,7 @@
 
 #define CAS(_p, _u, _v)  (__atomic_compare_exchange_n (_p, _u, _v, false, __ATOMIC_ACQUIRE, __ATOMIC_ACQUIRE))
 
-static void dummy(const char*, ...) {}
-
-#define BLINK_DEBUG
+//#define BLINK_DEBUG
 #ifdef BLINK_DEBUG
 #define blink_printf(fmt, ...) \
   do { \
@@ -43,6 +43,7 @@ static void dummy(const char*, ...) {}
 
 #else
 
+static void dummy(const char*, ...) {}
 #define blink_printf(fmt, ...)   \
   do {                         \
     dummy(fmt, ##__VA_ARGS__); \
@@ -51,8 +52,6 @@ static void dummy(const char*, ...) {}
 #endif
 
 extern bool print_flag;
-
-namespace BLINK_HASH{
 
 inline void mfence(void){
     asm volatile("mfence" ::: "memory");

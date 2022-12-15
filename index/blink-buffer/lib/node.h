@@ -14,6 +14,8 @@
 
 #include "entry.h"
 
+namespace BLINK_BUFFER{
+
 #ifdef URL_KEYS
 #define PAGE_SIZE (4096)
 #elif defined STRING_KEY
@@ -30,8 +32,6 @@
 #define CAS(_p, _u, _v) (__atomic_compare_exchange_n (_p, _u, _v, false, __ATOMIC_ACQUIRE, __ATOMIC_ACQUIRE))
 
 #define FILL_FACTOR (0.8)
-
-namespace BLINK_BUFFER{
 
 class node_t{
     public:

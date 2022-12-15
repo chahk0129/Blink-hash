@@ -6,24 +6,24 @@
 #include "node.h"
 #include "hash.h"
 
+namespace BLINK_BUFFER_BATCH{
+
 #define HASH_FUNCS_NUM (2)
 #define NUM_SLOT (4)
-#define TABLE_SIZE (256*1024*4)
-
-namespace BLINK_BUFFER_BATCH{
+#define BATCH_TABLE_SIZE (256*1024*4)
 
 template <typename Key_t, typename Value_t>
 class table_t{
     public:
-	static constexpr size_t cardinality = (TABLE_SIZE - sizeof(uint64_t) - sizeof(Key_t)) / sizeof(bucket_t<Key_t, Value_t>);
+	static constexpr size_t cardinality = (BATCH_TABLE_SIZE - sizeof(uint64_t) - sizeof(Key_t)) / sizeof(bucket_t<Key_t, Value_t>);
 	std::atomic<uint64_t> lock;
 	#ifdef FLUSH
 	std::atomic<uint64_t> cnt;
 	#endif
-	Key_t high_key;
+	std::atomic<Key_t> high_key;
 
 	table_t(): lock(0){ 
-	    memset(&high_key, 0, sizeof(Key_t));
+	    high_key.store(0);
 	    #ifdef FLUSH
 	    cnt.store(0);
 	    #endif
@@ -256,6 +256,16 @@ class table_t{
 	    }
 
 	    return leaf;
+	}
+
+	Key_t get_high_key(bool& need_restart, uint64_t _version){
+	    auto key = high_key.load();
+	    if(key == 0){
+		need_restart = true;
+		return 0;
+	    }
+
+	    return key;
 	}
 
 	void clear(){

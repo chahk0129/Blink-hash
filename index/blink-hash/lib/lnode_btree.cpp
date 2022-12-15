@@ -95,7 +95,7 @@ lnode_btree_t<Key_t, Value_t>* lnode_btree_t<Key_t, Value_t>::split(Key_t& split
 }
 
 template <typename Key_t, typename Value_t>
-void lnode_btree_t<Key_t, Value_t>::batch_insert(entry_t<Key_t, Value_t>* buf, size_t batch_size, int& from, int to){
+void lnode_btree_t<Key_t, Value_t>::batch_insert(entry_t<Key_t, Value_t>* buf, int batch_size, int& from, int to){
     if(from + batch_size < to){
 	memcpy(entry, &buf[from], sizeof(entry_t<Key_t, Value_t>)*batch_size);
 	from += batch_size;

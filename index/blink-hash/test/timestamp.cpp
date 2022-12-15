@@ -51,7 +51,7 @@ void start_threads(btree_t<Key_t, Value_t>* tree, uint64_t num_threads, Fn&& fn,
         return;
     };
 
-    for(auto thread_iter=0; thread_iter<num_threads; ++thread_iter){
+    for(uint64_t thread_iter=0; thread_iter<num_threads; ++thread_iter){
         threads.emplace_back(std::thread(fn2, thread_iter, std::ref(args...)));
     }
 
@@ -104,7 +104,7 @@ int main(int argc, char* argv[]){
 	size_t chunk = num_data / num_threads;
 	kvpair_t<Key_t, Value_t>* kv = new kvpair_t<Key_t, Value_t>[chunk];
 
-	for(int i=0; i<chunk; i++){
+	for(size_t i=0; i<chunk; i++){
 	    auto t = tree->getThreadInfo();
 	    kv[i].key = ((Rdtsc() << 16) | sensor_id++ << 6) | tid;
 	    kv[i].value = reinterpret_cast<Value_t>(&kv[i].key);
@@ -131,7 +131,7 @@ int main(int argc, char* argv[]){
 	size_t chunk = num_data / num_threads;
 	kvpair_t<Key_t, Value_t>* kv = new kvpair_t<Key_t, Value_t>[chunk];
 
-	for(int i=0; i<chunk; i++){
+	for(size_t i=0; i<chunk; i++){
 	    auto t = tree->getThreadInfo();
 	    kv[i].key = ((Rdtsc() << 16) | sensor_id++ << 6) | tid;
 	    kv[i].value = reinterpret_cast<Value_t>(&kv[i].key);
@@ -219,7 +219,7 @@ int main(int argc, char* argv[]){
 	size_t chunk = num_data / num_threads;
 	size_t start = chunk * tid;
 	size_t end = chunk * (tid+1);
-	if(end > num_data)
+	if(end > (size_t)num_data)
 	    end = num_data;
 
 	for(auto i=start; i<end; i++){
@@ -240,7 +240,7 @@ int main(int argc, char* argv[]){
 	size_t chunk = num_data / num_threads;
 	size_t start = chunk * tid;
 	size_t end = chunk * (tid+1);
-	if(end > num_data)
+	if(end > (size_t)num_data)
 	    end = num_data;
 
 	for(auto i=start; i<end; i++){
@@ -260,7 +260,7 @@ int main(int argc, char* argv[]){
 	size_t chunk = num_data / num_threads;
 	size_t start = chunk * tid;
 	size_t end = chunk * (tid+1);
-	if(end > num_data)
+	if(end > (size_t)num_data)
 	    end = num_data;
 
 	int sensor_id = 0;

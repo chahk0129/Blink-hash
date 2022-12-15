@@ -6,7 +6,10 @@
 #include <string>
 #include <cassert>
 
+namespace BLINK_HASH{
+
 typedef uint64_t key64_t;
 typedef uint64_t value64_t;
 
+}
 #endif

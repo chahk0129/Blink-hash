@@ -6,7 +6,6 @@
 #include <tbb/enumerable_thread_specific.h>
 #include <tbb/combinable.h>
 
-
 namespace BLINK_HASH{
 
     struct LabelDelete {

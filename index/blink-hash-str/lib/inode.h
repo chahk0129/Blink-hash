@@ -30,13 +30,6 @@ class inode_t : public node_t{
             entry[0].key = split_key;
         }
 
-	/*
-        void* operator new(size_t size) {
-            void* mem;
-            auto ret = posix_memalign(&mem, 64, size);
-            return mem;
-        }*/
-
         bool is_full();
 
         int find_lowerbound(Key_t& key);

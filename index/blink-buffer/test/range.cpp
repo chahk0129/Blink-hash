@@ -72,8 +72,6 @@ int main(int argc, char* argv[]){
     std::random_shuffle(keys, keys+num_data);
 
     btree_t<Key_t>* tree = new btree_t<Key_t>();
-//    std::cout << "inode_size(" << inode_t<Key_t>::cardinality << "), lnode_btree_size(" << lnode_btree_t<Key_t, Value_t>::cardinality << "), lnode_hash_size(" << lnode_hash_t<Key_t, Value_t>::cardinality << ")" << std::endl;
-
     struct timespec start, end;
     int warmup_threads= 64;
 

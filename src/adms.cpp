@@ -293,7 +293,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
     for(int i=0; i<num_thread; i++)
         keys[i].reserve(chunk);
 
-    auto load_func = [idx, num, num_thread, &earliest_finished, &inserted_num, &local_load_latency, &breakdown, &params, &perf_block, profile,         &load_ops](uint64_t thread_id, bool){
+    auto load_func = [idx, num, num_thread, &earliest_finished, &inserted_num, &local_load_latency, &breakdown, &params, &perf_block, &load_ops](uint64_t thread_id, bool){
         auto random_bool = std::bind(std::bernoulli_distribution(sampling_rate), std::knuth_b());
         threadinfo *ti = threadinfo::make(threadinfo::TI_MAIN, -1);
         size_t chunk = num / num_thread;
@@ -505,6 +505,7 @@ int main(int argc, char *argv[]) {
     int num;
     if(opt.num != 0)
         num = opt.num;
+    num *= 1000000;
 
     int num_thread = opt.threads;
 

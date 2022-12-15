@@ -141,8 +141,6 @@ int main(int argc, char* argv[]){
     std::vector<uint64_t> notfound_keys[num_threads];
 
     auto tree = new btree_t<Key_t, Value_t>();
-    std::cout << "inode_size(" << inode_t<Key_t>::cardinality << "), lnode_size(" << lnode_t<Key_t, Value_t>::cardinality << ")" << std::endl;
-
     struct timespec start, end;
 
     std::atomic<uint64_t> insert_time = 0;
@@ -227,38 +225,7 @@ int main(int argc, char* argv[]){
 	elapsed = end.tv_nsec - start.tv_nsec + (end.tv_sec - start.tv_sec)*1000000000;
 	std::cout << "elapsed time: " << elapsed/1000.0 << " usec" << std::endl;
 	std::cout << "throughput: " << num_data / (double)(elapsed/1000000000.0) / 1000000 << " mops/sec" << std::endl;
-
-	bool not_found = false;
-	for(int i=0; i<num_threads; i++){
-	    for(auto& it: notfound_keys[i]){
-		auto ret = tree->lookup(keys[it]);
-		if(ret != (uint64_t)&keys[it]){
-		    not_found = true;
-		    std::cout << "key " << keys[it] << " not found" << std::endl;
-		}
-	    }
-	}
-
-	if(not_found){
-	    std::cout << "finding it anyway\n\n" << std::endl;
-	    for(int i=0; i<num_threads; i++){
-		for(auto& it: notfound_keys[i]){
-		    auto ret = tree->find_anyway(keys[it]);
-		    if(ret != (uint64_t)&keys[it])
-			std::cout << "key " << keys[it] << " not found" << std::endl;
-		    else{
-			// lower key
-			std::cout << "lower key find_anyway" << std::endl;
-			ret = tree->find_anyway(keys[it]-1);
-			if(ret != (uint64_t)&keys[it]-1)
-			    std::cout << "key " << keys[it]-1 << " not found" << std::endl;
-		    }
-		}
-	    }
-	}
     }
-
-    tree->sanity_check();
 
     auto height = tree->height();
     std::cout << "Height of tree: " << height+1 << std::endl;
@@ -266,9 +233,6 @@ int main(int argc, char* argv[]){
     auto util = tree->utilization();
     std::cout << "Utilization of leaf nodes: " << util*100 << " \%" << std::endl;
 
-
 #endif
-//    tree->print_internal();
-//    tree->print_leaf();
     return 0;
 }

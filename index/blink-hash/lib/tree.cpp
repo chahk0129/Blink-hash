@@ -398,7 +398,7 @@ Value_t btree_t<Key_t, Value_t>::lookup(Key_t key, ThreadInfo& threadEpocheInfo)
 
 template <typename Key_t, typename Value_t>
 inode_t<Key_t>** btree_t<Key_t, Value_t>::new_root_for_adjustment(Key_t* key, node_t** value, int num, int& new_num){
-    size_t batch_size = inode_t<Key_t>::cardinality * FILL_FACTOR;
+    int batch_size = inode_t<Key_t>::cardinality * FILL_FACTOR;
     if(num % batch_size == 0)
 	new_num = num / batch_size;
     else

@@ -202,7 +202,7 @@ inline void exec(int wl, int index_type, int num_thread, kvpair_t<keytype>* init
     breakdown_t breakdown[num_thread];
     memset(breakdown, 0, sizeof(breakdown_t)*num_thread);
 
-    auto func_earliest = [idx, init_kv, init_num, num_thread, &earliest_finished, &inserted_num, &local_load_latency, measure_latency, sampling_rate, &params, &perf_block, profile, insert_only, &breakdown](uint64_t thread_id, bool) {
+    auto func_earliest = [idx, init_kv, init_num, num_thread, &earliest_finished, &inserted_num, &local_load_latency, &params, &perf_block, &breakdown](uint64_t thread_id, bool) {
 	auto random_bool = std::bind(std::bernoulli_distribution(sampling_rate), std::knuth_b());
 	size_t total_num_key = init_num;
 	size_t key_per_thread = total_num_key / num_thread;
@@ -271,7 +271,7 @@ inline void exec(int wl, int index_type, int num_thread, kvpair_t<keytype>* init
 	return;
     };
 
-    auto func = [idx, init_kv, init_num, num_thread, &local_load_latency, measure_latency, sampling_rate, &params, &perf_block, profile, insert_only, &breakdown](uint64_t thread_id, bool) {
+    auto func = [idx, init_kv, init_num, num_thread, &local_load_latency, &params, &perf_block, &breakdown](uint64_t thread_id, bool) {
 	auto random_bool = std::bind(std::bernoulli_distribution(sampling_rate), std::knuth_b());
 	size_t total_num_key = init_num;
 	size_t key_per_thread = total_num_key / num_thread;
@@ -505,7 +505,7 @@ inline void exec(int wl, int index_type, int num_thread, kvpair_t<keytype>* init
 
     earliest_finished = false;
     std::vector<uint64_t> op_num(num_thread);
-    auto func2_earliest = [num_thread, idx, run_kv, &earliest_finished, &op_num, run_num, ranges, ops, &local_run_latency, measure_latency, sampling_rate, &params, &perf_block, profile, &breakdown](uint64_t thread_id, bool) {
+    auto func2_earliest = [num_thread, idx, run_kv, &earliest_finished, &op_num, run_num, ranges, ops, &local_run_latency, &params, &perf_block, &breakdown](uint64_t thread_id, bool) {
 	auto random_bool = std::bind(std::bernoulli_distribution(sampling_rate), std::knuth_b());
 	size_t total_num_op = run_num; 
 	size_t op_per_thread = total_num_op / num_thread;
@@ -592,7 +592,7 @@ inline void exec(int wl, int index_type, int num_thread, kvpair_t<keytype>* init
     };
 
 
-    auto func2 = [num_thread, idx, run_kv, run_num, ranges, ops, &local_run_latency, measure_latency, sampling_rate, &params, &perf_block, profile, &breakdown](uint64_t thread_id, bool) {
+    auto func2 = [num_thread, idx, run_kv, run_num, ranges, ops, &local_run_latency, &params, &perf_block, &breakdown](uint64_t thread_id, bool) {
 	auto random_bool = std::bind(std::bernoulli_distribution(sampling_rate), std::knuth_b());
 	size_t total_num_op = run_num; 
 	size_t op_per_thread = total_num_op / num_thread;

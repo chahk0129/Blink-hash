@@ -14,6 +14,8 @@
 
 #include "entry.h"
 
+namespace BLINK_BUFFER_BATCH{
+
 #ifdef URL_KEYS
 #define PAGE_SIZE (4096)
 #elif defined STRING_KEY
@@ -30,8 +32,6 @@
 #define CAS(_p, _u, _v) (__atomic_compare_exchange_n (_p, _u, _v, false, __ATOMIC_ACQUIRE, __ATOMIC_ACQUIRE))
 
 #define FILL_FACTOR (0.8)
-
-namespace BLINK_BUFFER_BATCH{
 
 class node_t{
     public:
@@ -218,12 +218,6 @@ class inode_t: public node_t{
 	    entry[1].value = right;
 	}
 
-	void* operator new(size_t size) {
-	    void* ret;
-	    posix_memalign(&ret, 64, size);
-	    return ret;
-	}
-
 	bool is_full(){
 	    return (cnt == cardinality-1);
 	}
@@ -271,65 +265,47 @@ class inode_t: public node_t{
 	}
 
 	void batch_insert_root(Key_t* key, node_t** value, int num, node_t* leftmost_ptr){
-//	    std::cout << __func__ << ", " << this << " : num " << num << ", level = " << level << std::endl;
 	    if(leftmost_ptr){ // leftmost node
 		entry[cnt].value = leftmost_ptr;
-//		std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = left = " << leftmost_ptr << std::endl;
 		for(int i=0; i<num; i++){
 		    entry[cnt++].key = key[i];
 		    entry[cnt].value = value[i];
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt-1 << "].key = key[" << i << "] = " << key[i]<< std::endl;
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = value[" << i << "] = " << value[i]<< std::endl;
 		}
 	    }
 	    else{
 		for(int i=0; i<num; i++, cnt++){
 		    entry[cnt].key = key[i];
 		    entry[cnt].value = value[i];
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].key = key[" << i << "] = " << key[i]<< std::endl;
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = value[" << i << "] = " << value[i]<< std::endl;
 		}
 		cnt--;
 	    }
 	}
     
 	void batch_insert_root(Key_t* key, node_t** value, int batch_size, int& from, int to, node_t* leftmost_ptr=nullptr){
-//	    std::cout << __func__ << ", " << this << " : batchsize " << batch_size << ", from " << from << ", to " << to << ", level = " << level << std::endl;
 	    if(leftmost_ptr){ // leftmost node
 		entry[cnt].value = leftmost_ptr;
-//		std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = left = " << leftmost_ptr << std::endl;
 		for(int i=from; i<batch_size; i++){
 		    entry[cnt++].key = key[i];
 		    entry[cnt].value = value[i];
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt-1 << "].key = key[" << i << "] = " << key[i]<< std::endl;
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt << ".value = value[" << i << "] = " << value[i]<< std::endl;
 		}
 		from += batch_size;
 		high_key = key[from];
-//		std::cout << "    " << __LINE__ << ": high_key = key[" << from << "] = " << high_key << std::endl;
 	    }
 	    else{
 		if(batch_size < (to - from)){ // intermediate nodes
 		    entry[cnt].value = value[from++];
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt << ".value = value[" << from-1 << "] = " << value[from-1]<< std::endl;
 		    for(int i=from; i<from+batch_size; i++){
 			entry[cnt++].key = key[i];
 			entry[cnt].value = value[i];
-//			std::cout << "    " << __LINE__ << ": insert entry[" << cnt-1 << "].key = key[" << i << "] = " << key[i]<< std::endl;
-//			std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = value[" << i << "] = " << value[i]<< std::endl;
 		    }
 		    from += batch_size;
 		    high_key = key[from];
-//		    std::cout << "    " << __LINE__ << ": high_key = key[" << from << "] = " << high_key << std::endl;
 		}
 		else{ // rightmost node
 		    entry[cnt].value = value[from++];
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = value[" << from-1 << "] = " << value[from-1]<< std::endl;
 		    for(int i=from; i<to; i++){
 			entry[cnt++].key = key[i];
 			entry[cnt].value = value[i];
-//			std::cout << "    " << __LINE__ << ": insert entry[" << cnt-1 << "].key = key[" << i << "] = " << key[i]<< std::endl;
-//			std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = value[" << i << "] = " << value[i]<< std::endl;
 		    }
 		    from = to;
 		}
@@ -594,17 +570,13 @@ class inode_t: public node_t{
 
 	void batch_insert(entry_t<Key_t, node_t*>* migrate, int& migrate_idx, int migrate_num, Key_t* key, node_t** value,    int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num){
 	    bool from_start = true;
-//	    std::cout << __func__ << ": " << this << " with migrate " << std::endl;
 	    if(migrate_idx < migrate_num){
 		from_start = false;
 		entry[cnt].value = migrate[migrate_idx++].value;
-//		std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = migrate[ " << migrate_idx-1 << "].value = " << migrate[migrate_idx-1].value << std::endl;
 		int copy_num = migrate_num - migrate_idx;
 		for(; cnt<copy_num; migrate_idx++){
 		    entry[cnt++].key = migrate[migrate_idx].key;
 		    entry[cnt].value = migrate[migrate_idx].value;
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt-1 << "].key = migrate[ " << migrate_idx << "].key = " << migrate[migrate_idx].key << std::endl;
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = migrate[ " << migrate_idx << "].value = " << migrate[migrate_idx].value << std::endl;
 		}
 		migrate_idx += copy_num;
 	    }
@@ -612,31 +584,24 @@ class inode_t: public node_t{
 	    if(idx < num && cnt < batch_size){
 		if(from_start){
 		    entry[cnt].value = value[idx++];
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = value[ " << idx-1 << "] = " << value[idx-1] << std::endl;
 		}
 		from_start = false;
 		if(idx < num){
 		    for(; cnt<batch_size && idx<num-1; idx++){
 			entry[cnt++].key = key[idx];
 			entry[cnt].value = value[idx];
-//			std::cout << "    " << __LINE__ << ": insert entry[" << cnt-1 << "].key = key[ " << idx << "] = " << key[idx] << std::endl;
-//                        std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = value[ " << idx << "] = " << value[idx] << std::endl;
 		    }
 
 		    if(cnt == batch_size){ // insert in next node
 			high_key = key[idx];
-//			std::cout << "    " << __LINE__ << ": high_key = key[" << idx << "] = " << key[idx] << std::endl;
 			return;
 		    }
 		    else{
 			entry[cnt++].key = key[idx];
 			entry[cnt].value = value[idx];
-//			std::cout << "    " << __LINE__ << ": insert entry[" << cnt-1 << "].key = key[ " << idx << "] = " << key[idx] << std::endl;
-  //                      std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = value[ " << idx << "] = " << value[idx] << std::endl;
 			idx++; 
 			if(idx == num && cnt == batch_size && buf_num != 0){
 			    high_key = buf[buf_idx].key;
-//			    std::cout << "    " << __LINE__ << ": high_key = buf[" << buf_idx << "].key = " << buf[buf_idx].key << std::endl;
 			}
 		    }
 		}
@@ -645,58 +610,44 @@ class inode_t: public node_t{
 	    if(buf_idx < buf_num && cnt < batch_size){
 		if(from_start){
 		    entry[cnt].value = buf[buf_idx++].value;
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = buf[ " << buf_idx-1 << "].value = " << buf[buf_idx-1].value << std::endl;
 		}
 		for(; cnt<batch_size && buf_idx<buf_num-1; buf_idx++){
 		    entry[cnt++].key = buf[buf_idx].key;
 		    entry[cnt].value = buf[buf_idx].value;
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt-1 << "].key = buf[ " << buf_idx << "].key = " << buf[buf_idx].key << std::endl;
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = buf[ " << buf_idx << "].value = " << buf[buf_idx].key << std::endl;
 		}
 
 		if(cnt == batch_size){ // insert in next node
 		    high_key = buf[buf_idx].key;
-//		    std::cout << "    " << __LINE__ << ": high_key = buf[ " << buf_idx << "].key = " << buf[buf_idx].key << std::endl;
 		}
 		else{
 		    entry[cnt++].key = buf[buf_idx].key;
 		    entry[cnt].value = buf[buf_idx].value;
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt-1 << "].key = buf[ " << buf_idx << "].key = " << buf[buf_idx].key << std::endl;
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = buf[ " << buf_idx << "].value = " << buf[buf_idx].key << std::endl;
 		    buf_idx++;
 		}
 	    }
 	}
 
 	void batch_insert(Key_t* key, node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num){
-//	    std::cout << __func__ << ": " << this << std::endl;
 	    bool from_start = true;
 	    if(idx < num){
 		entry[cnt].value = value[idx++];
-//		std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = value[ " << idx-1 << "] = " << value[idx-1] << std::endl;
 		from_start = false;
 		if(idx < num){
 		    for(; cnt<batch_size && idx<num-1; idx++){
 			entry[cnt++].key = key[idx];
 			entry[cnt].value = value[idx];
-//			std::cout << "    " << __LINE__ << ": insert entry[" << cnt-1 << "].key = key[ " << idx << "] = " << key[idx] << std::endl;
-//			std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = value[ " << idx << "] = " << value[idx] << std::endl;
 		    }
 
 		    if(cnt == batch_size){ // insert in next node
 			high_key = key[idx];
-//			std::cout << "    " << __LINE__ << ": high_key = key[" << idx << "] = " << key[idx] << std::endl;
 			return;
 		    }
 		    else{
 			entry[cnt++].key = key[idx];
 			entry[cnt].value = value[idx];
-//			std::cout << "    " << __LINE__ << ": insert entry[" << cnt-1 << "].key = key[ " << idx << "] = " << key[idx] << std::endl;
-//			std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = value[ " << idx << "] = " << value[idx] << std::endl;
 			idx++; 
 			if(idx == num && cnt == batch_size && buf_num != 0){
 			    high_key = buf[buf_idx].key;
-//			    std::cout << "    " << __LINE__ << ": high_key = buf[" << buf_idx << "] = " << buf[buf_idx].key << std::endl;
 			}
 		    }
 		}
@@ -705,25 +656,18 @@ class inode_t: public node_t{
 	    if(buf_idx < buf_num && cnt < batch_size){
 		if(from_start){
 		    entry[cnt].value = buf[buf_idx++].value;
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = buf[ " << buf_idx-1 << "].value = " << entry[cnt].value << std::endl;
 		}
 
 		for(; cnt<batch_size && buf_idx<buf_num-1; buf_idx++){
 		    entry[cnt++].key = buf[buf_idx].key;
 		    entry[cnt].value = buf[buf_idx].value;
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt-1 << "].key = buf[ " << buf_idx << "].key = " << buf[buf_idx].key << std::endl;
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = buf[ " << buf_idx << "].value = " << buf[buf_idx].value << std::endl;
 		}
 		if(cnt == batch_size){ // insert in next node
 		    high_key = buf[buf_idx].key;
-//		    std::cout << "    " << __LINE__ << ": high_key = buf[" << buf_idx << "] = " << buf[buf_idx].key << std::endl;
-		    return;
 		}
 		else{
 		    entry[cnt++].key = buf[buf_idx].key;
 		    entry[cnt].value = buf[buf_idx].value;
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt-1 << "].key = buf[ " << buf_idx << "].key = " << buf[buf_idx].key << std::endl;
-//		    std::cout << "    " << __LINE__ << ": insert entry[" << cnt << "].value = buf[ " << buf_idx << "].value = " << buf[buf_idx].value << std::endl;
 		    buf_idx++;
 		}
 	    }
@@ -738,32 +682,21 @@ class inode_t: public node_t{
 	    int from = pos;
 
 	    if(inplace){
-//		std::cout << __func__ << ": " << this << ": inplace, num = " << num << std::endl;
-//		std::cout << "   " << " key: " << key[0] << " at pos " << pos << std::endl;
 		move_normal_insertion(pos, num, move_num);
-		//entry[from].value = value[idx++];
-		//std::cout << "   " << __LINE__ << ": insert entry[" << from << "].value = value[" << idx-1 << "] = " << value[idx-1] << std::endl;
 		for(; from<pos+num; idx++){
 		    entry[from++].key = key[idx];
 		    entry[from].value = value[idx];
-//		    std::cout << "   " << __LINE__ << ": insert entry[" << from-1 << "].key = key[" << idx << "].key = " << key[idx] << std::endl;
-//		    std::cout << "   " << __LINE__ << ": insert entry[" << from << "].value = value[" << idx << "].value = " << value[idx] << std::endl;
 		}
 		cnt += num-1;
-//		std::cout << "cnt: " << cnt << std::endl;
 		return nullptr;
 	    }
 	    else{
 		auto prev_high_key = high_key;
-//		entry[from].value = value[idx++];
 
 		if(batch_size < pos){ // need insert in the middle (migrated + new kvs + moved)
 		    int migrate_num = pos - batch_size;
 		    entry_t<Key_t, node_t*> migrate[migrate_num];
 		    memcpy(migrate, &entry[batch_size], sizeof(entry_t<Key_t, node_t*>) * migrate_num);
-
-//		    std::cout << __func__ << ": " << this << ": insert in the middle + migrate, num = " << num << std::endl;
-//		    std::cout << "   " << __LINE__ << ": insert entry[" << from << "].value = value[" << idx-1 << "] = " << value[idx-1] << std::endl;
 
 		    entry_t<Key_t, node_t*> buf[move_num];
 		    memcpy(buf, &entry[pos+1], sizeof(entry_t<Key_t, node_t*>) * move_num);
@@ -820,35 +753,23 @@ class inode_t: public node_t{
 		    entry_t<Key_t, node_t*> buf[move_num];
 		    memcpy(buf, &entry[pos+1], sizeof(entry_t<Key_t, node_t*>)*move_num);
 
-//		    std::cout << __func__ << ": " << this << ": insert in the middle, num = " << num << std::endl;
-//		    std::cout << "   " << __LINE__ << ": insert entry[" << from << "].value = value[" << idx-1 << "] = " << value[idx-1] << std::endl;
-
 		    for(; from<batch_size && idx<num; idx++){
 			entry[from++].key = key[idx];
 			entry[from].value = value[idx];
-//			std::cout << "   " << __LINE__ << ": insert entry[" << from-1 << "].key = key[" << idx << "] = " << key[idx] << std::endl;
-//			std::cout << "   " << __LINE__ << ": insert entry[" << from << "].value = value[" << idx << "] = " << value[idx] << std::endl;
 		    }
 
 		    cnt += (idx - move_num);
 
-//		    entry[cnt++].key = buf[move_idx].key;
-//		    std::cout << "   " << __LINE__ << ": insert entry[" << cnt-1 << "].key = buf[" << move_idx << "].key = " << buf[move_idx].key << std::endl;
-
 		    for(; cnt<batch_size; move_idx++){
 			entry[cnt++].key = buf[move_idx].key;
 			entry[cnt].value = buf[move_idx].value;
-//			std::cout << "   " << __LINE__ << ": insert entry[" << cnt-1 << "].key = buf[" << move_idx << "].key = " << buf[move_idx].key << std::endl;
-//			std::cout << "   " << __LINE__ << ": insert entry[" << cnt << "].value = buf[" << move_idx << "].value = " << buf[move_idx].value << std::endl;
 		    }
 
 		    if(idx < num){
 			high_key = key[idx];
-//			std::cout << "    " << __LINE__ <<": high_key = " << high_key << " (key[" << idx << "])" << std::endl;
 		    }
 		    else{
 			high_key = buf[move_idx].key;
-//			std::cout << "    " << __LINE__ << ": high_key = " << high_key << " (move[" << move_idx << "])" << std::endl;
 		    }
 
 		    int total_num = num - idx + move_num - move_idx;
@@ -897,45 +818,18 @@ class inode_t: public node_t{
 	}
 
 	void move_normal_insertion(int pos, int num, int move_num){
-
-//	    std::cout << __func__ << " num=" << num << ", move_num=" << move_num << std::endl;
-//	    std::cout << "  before move" << std::endl;
-//	    int j;
-//	    for(j=0; j<cnt; j++){
-//		std::cout << "    entry[" << j << "].key = " << entry[j].key << std::endl;
-//		std::cout << "    entry[" << j << "].value = " << entry[j].value << std::endl;
-//	    }
-//	    std::cout << "    entry[" << j << "].value = " << entry[j].value << std::endl;
-
 	    if(!move_num)
 		return;
 
 	    memmove(&entry[pos+num], &entry[pos], sizeof(entry_t<Key_t, node_t*>)*move_num);
-//	    std::cout << "move normal insertion : moved " << pos << " th entry to " << pos+num << " th entry" << std::endl;
-//	    std::cout << "  after move" << std::endl;
-//	    for(int i=0; i<cnt+move_num; i++){
-//		std::cout << "    entry[" << i << "].key = " << entry[i].key << std::endl;
-//		std::cout << "    entry[" << i << "].value = " << entry[i].value << std::endl;
-//	    }
 	    std::swap(entry[pos].value, entry[pos+num].value);
-//	    std::cout << "    " << __LINE__<< ": value after swap: " << "entry[" << pos <<"].value: " << entry[pos].value << ", entry[" << pos+num << "].value: " << entry[pos+num].value << std::endl;
-//	    std::cout << "  after swap" << std::endl;
-//	    for(int i=0; i<cnt+move_num; i++){
-//		std::cout << "    entry[" << i << "].key = " << entry[i].key << std::endl;
-//		std::cout << "    entry[" << i << "].value = " << entry[i].value << std::endl;
-//	    }
-
 	}
 
 	void insert_for_root(Key_t* key, node_t** value, node_t* left, int num){
-//	    std::cout << __func__ << std::endl;
 	    entry[cnt].value = left;
-//	    std::cout << "    " << __LINE__ << ": insert left " << left << std::endl;
 	    for(int i=0; i<num; i++){
 		entry[cnt++].key = key[i];
 		entry[cnt].value = value[i];
-//		std::cout << "    " << __LINE__ << ": insert key[" << i << "] = " << key[i]<< std::endl;
-//		std::cout << "    " << __LINE__ << ": insert value[" << i << "] = " << value[i]<< std::endl;
 	    }
 	}
 
@@ -1003,12 +897,6 @@ class lnode_t: public node_t{
 
 	// constructor when leaf splits
         lnode_t(node_t* sibling, int _cnt, uint32_t _level): node_t(sibling, _cnt, _level) { }
-
-	void* operator new(size_t size) {
-	    void* ret;
-	    posix_memalign(&ret, 64, size);
-	    return ret;
-	}
 
 	bool is_full(){
 	    return (cnt == cardinality);

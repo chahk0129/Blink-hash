@@ -1276,21 +1276,5 @@ void lnode_hash_t<Key_t, Value_t>::footprint(uint64_t& meta, uint64_t& structura
     }
 }
 
-template <typename Key_t, typename Value_t>
-inline void lnode_hash_t<Key_t, Value_t>::prefetch_range(void* addr, size_t len){
-    void* cp;
-    void* end = addr + len;
-    typedef struct {char x[64]; } cacheline_t;
-    for(cp=addr; cp<end; cp+=64){
-	asm volatile("prefetcht0 %0" : : "m" (*(const cacheline_t*)cp));
-    }
-}
-
-template <typename Key_t, typename Value_t>
-inline void lnode_hash_t<Key_t, Value_t>::prefetch(const void* addr){
-    __builtin_prefetch(addr);
-    //_mm_prefetch(addr, _MM_HINT_T0);
-}
-
 template class lnode_hash_t<StringKey, value64_t>;
 }

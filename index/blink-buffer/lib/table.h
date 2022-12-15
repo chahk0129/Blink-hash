@@ -6,11 +6,11 @@
 #include "node.h"
 #include "hash.h"
 
+namespace BLINK_BUFFER{
+
 #define HASH_FUNCS_NUM (2)
 #define NUM_SLOT (4)
 #define TABLE_SIZE (256*1024)
-
-namespace BLINK_BUFFER{
 
 template <typename Key_t, typename Value_t>
 class table_t{

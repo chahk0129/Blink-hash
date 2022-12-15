@@ -134,7 +134,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
     for(int i=0; i<num_thread; i++)
 	keys[i].reserve(chunk);
 
-    auto load_earliest = [idx, num, num_thread, &earliest_finished, &inserted_num, &local_load_latency, &breakdown, &params, &perf_block, profile, &load_ops, &outoforder](uint64_t thread_id, bool){
+    auto load_earliest = [idx, num, num_thread, &earliest_finished, &inserted_num, &local_load_latency, &breakdown, &params, &perf_block, &load_ops, &outoforder](uint64_t thread_id, bool){
 	auto random_bool = std::bind(std::bernoulli_distribution(sampling_rate), std::knuth_b());
 	threadinfo *ti = threadinfo::make(threadinfo::TI_MAIN, -1);
 	size_t chunk = num / num_thread;
@@ -220,7 +220,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	#endif
     };
 
-    auto load = [idx, num, num_thread, &local_load_latency, &keys, &params, &perf_block, profile, &breakdown,  &load_ops](uint64_t thread_id, bool){
+    auto load = [idx, num, num_thread, &local_load_latency, &keys, &params, &perf_block, &breakdown,  &load_ops](uint64_t thread_id, bool){
 	auto random_bool = std::bind(std::bernoulli_distribution(sampling_rate), std::knuth_b());
 	threadinfo *ti = threadinfo::make(threadinfo::TI_MAIN, -1);
 	size_t chunk = num / num_thread;
@@ -462,7 +462,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
     earliest_finished = false;
     std::vector<uint64_t> run_num(num_thread);
 
-    auto read_earliest = [idx, num, num_thread, &earliest_finished, &run_num, &local_run_latency, ops, &params, &perf_block, profile, &breakdown](uint64_t thread_id, bool){
+    auto read_earliest = [idx, num, num_thread, &earliest_finished, &run_num, &local_run_latency, ops, &params, &perf_block, &breakdown](uint64_t thread_id, bool){
 	auto random_bool = std::bind(std::bernoulli_distribution(sampling_rate), std::knuth_b());
 	threadinfo *ti = threadinfo::make(threadinfo::TI_MAIN, -1);
 	size_t chunk = num / num_thread;
@@ -538,7 +538,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	#endif
     };
 
-    auto read = [idx, num, num_thread, &local_run_latency, ops, &params, &perf_block, profile, &breakdown](uint64_t thread_id, bool){
+    auto read = [idx, num, num_thread, &local_run_latency, ops, &params, &perf_block, &breakdown](uint64_t thread_id, bool){
 	auto random_bool = std::bind(std::bernoulli_distribution(sampling_rate), std::knuth_b());
 	threadinfo *ti = threadinfo::make(threadinfo::TI_MAIN, -1);
 	size_t chunk = num / num_thread;
@@ -601,7 +601,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
     for(int i=0; i<num; i++){
 	scan_range[i] = rand() % 100;
     }
-    auto scan_earliest = [idx, num, num_thread, &earliest_finished, &run_num, &local_run_latency, ops, &scan_range, &params, &perf_block, profile, &breakdown](uint64_t thread_id, bool){
+    auto scan_earliest = [idx, num, num_thread, &earliest_finished, &run_num, &local_run_latency, ops, &scan_range, &params, &perf_block, &breakdown](uint64_t thread_id, bool){
 	auto random_bool = std::bind(std::bernoulli_distribution(sampling_rate), std::knuth_b());
 	threadinfo *ti = threadinfo::make(threadinfo::TI_MAIN, -1);
 	size_t chunk = num / num_thread;
@@ -669,7 +669,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	#endif
     };
 
-    auto scan = [idx, num, num_thread, &local_run_latency, ops, &scan_range, &params, &perf_block, profile, &breakdown](uint64_t thread_id, bool){
+    auto scan = [idx, num, num_thread, &local_run_latency, ops, &scan_range, &params, &perf_block, &breakdown](uint64_t thread_id, bool){
 	auto random_bool = std::bind(std::bernoulli_distribution(sampling_rate), std::knuth_b());
 	threadinfo *ti = threadinfo::make(threadinfo::TI_MAIN, -1);
 	size_t chunk = num / num_thread;
@@ -721,7 +721,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	#endif
     };
 
-    auto mix_earliest = [idx, num, num_thread, &earliest_finished, &run_num, &local_run_latency, ops, &params, &perf_block, profile, &breakdown, &inserted_num, &outoforder](uint64_t thread_id, bool){
+    auto mix_earliest = [idx, num, num_thread, &earliest_finished, &run_num, &local_run_latency, ops, &params, &perf_block, &breakdown, &inserted_num, &outoforder](uint64_t thread_id, bool){
 	auto random_bool = std::bind(std::bernoulli_distribution(sampling_rate), std::knuth_b());
 	threadinfo *ti = threadinfo::make(threadinfo::TI_MAIN, -1);
 	uint64_t _inserted_num = 0;
@@ -822,7 +822,7 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	#endif
     };
 
-    auto mix = [idx, num, num_thread, &local_run_latency, ops, &params, &perf_block, profile, &breakdown](uint64_t thread_id, bool){
+    auto mix = [idx, num, num_thread, &local_run_latency, ops, &params, &perf_block, &breakdown](uint64_t thread_id, bool){
 	auto random_bool = std::bind(std::bernoulli_distribution(sampling_rate), std::knuth_b());
 	threadinfo *ti = threadinfo::make(threadinfo::TI_MAIN, -1);
 	size_t chunk = num / num_thread;

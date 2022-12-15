@@ -147,8 +147,6 @@ int main(int argc, char* argv[]){
     std::vector<uint64_t> notfound_keys[num_threads];
 
     auto tree = new run_t<Key_t, Value_t>();
-    std::cout << "inode_size(" << inode_t<Key_t>::cardinality << "), lnode_size(" << lnode_t<Key_t, Value_t>::cardinality << "), table_size(" << table_t<Key_t, Value_t>::cardinality * entry_num << ")" << std::endl;
-
     struct timespec start, end;
 
     std::atomic<uint64_t> insert_time = 0;
@@ -186,8 +184,6 @@ int main(int argc, char* argv[]){
     std::cout << "elapsed time: " << elapsed/1000.0 << " usec" << std::endl;
     std::cout << "throughput: " << num_data / (double)(elapsed/1000000000.0) / 1000000 << " mops/sec" << std::endl;
 
-    tree->check_locks();
-
     if(insert_only){
 	std::cout << "Search starts" << std::endl;
 	clock_gettime(CLOCK_MONOTONIC, &start);
@@ -196,13 +192,6 @@ int main(int argc, char* argv[]){
 	elapsed = end.tv_nsec - start.tv_nsec + (end.tv_sec - start.tv_sec)*1000000000;
 	std::cout << "elapsed time: " << elapsed/1000.0 << " usec" << std::endl;
 	std::cout << "throughput: " << num_data / (double)(elapsed/1000000000.0) / 1000000 << " mops/sec" << std::endl;
-
-	bool not_found = false;
-	for(int i=0; i<num_threads; i++){
-	    for(auto& it: notfound_keys[i]){
-		std::cout << "key " << it << " not found" << std::endl;
-	    }
-	}
     }
 
 //    tree->sanity_check();

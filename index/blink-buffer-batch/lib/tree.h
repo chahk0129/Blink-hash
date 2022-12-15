@@ -8,15 +8,6 @@
 
 namespace BLINK_BUFFER_BATCH{
 
-#ifdef BREAKDOWN
-static thread_local uint64_t time_traversal;
-static thread_local uint64_t time_abort;
-static thread_local uint64_t time_latch;
-static thread_local uint64_t time_node;
-static thread_local uint64_t time_split;
-static thread_local bool abort;
-#endif
-
 template <typename Key_t, typename Value_t>
 class btree_t{
     public:
@@ -31,15 +22,6 @@ class btree_t{
 	}
 	~btree_t(){ }
 
-	#ifdef BREAKDOWN
-	void get_breakdown(uint64_t& _time_traversal, uint64_t& _time_abort, uint64_t& _time_latch, uint64_t& _time_node, uint64_t& _time_split){
-	    _time_traversal = time_traversal;
-	    _time_abort = time_abort;
-	    _time_latch = time_latch;
-	    _time_node = time_node;
-	    _time_split = time_split;
-	}
-        #endif
 
 	void backoff(int count){
 	    #ifdef BACKOFF
@@ -259,15 +241,8 @@ class btree_t{
 	}
 	    
 	void insert(Key_t key, Value_t value) {
-	    #ifdef BREAKDOWN
-            uint64_t start, end;
-            abort = false;
-            #endif
 	    int restart_cnt = -1;
 	restart:
-	    #ifdef BREAKDOWN
-            start = _rdtsc();
-            #endif
 	    auto cur = root;
 
 	    int stack_cnt = 0;
@@ -276,12 +251,6 @@ class btree_t{
 	    bool need_restart = false;
 	    auto cur_vstart = cur->try_readlock(need_restart);
 	    if(need_restart){
-		#ifdef BREAKDOWN
-                end = _rdtsc();
-                if(abort) time_abort += (end - start);
-                else time_traversal += (end - start);
-		abort = true;
-                #endif
 		goto restart;
 	    }
 
@@ -290,23 +259,11 @@ class btree_t{
 		auto child = (static_cast<inode_t<Key_t>*>(cur))->scan_node(key);
 		auto child_vstart = child->try_readlock(need_restart);
 		if(need_restart){
-		    #ifdef BREAKDOWN
-                    end = _rdtsc();
-                    if(abort) time_abort += (end - start);
-                    else time_traversal += (end - start);
-		    abort = true;
-                    #endif
 		    goto restart;
 		}
 
 		auto cur_vend = cur->get_version(need_restart);
 		if(need_restart || (cur_vstart != cur_vend)){
-		    #ifdef BREAKDOWN
-                    end = _rdtsc();
-                    if(abort) time_abort += (end - start);
-                    else time_traversal += (end - start);
-		    abort = true;
-                    #endif
 		    goto restart;
 		}
 
@@ -325,23 +282,11 @@ class btree_t{
 		auto sibling = static_cast<lnode_t<Key_t, Value_t>*>(leaf->sibling_ptr);
 		auto sibling_v = sibling->try_readlock(need_restart);
 		if(need_restart){
-		    #ifdef BREAKDOWN
-                    end = _rdtsc();
-                    if(abort) time_abort += (end - start);
-                    else time_traversal += (end - start);
-		    abort = true;
-                    #endif
 		    goto restart;
 		}
 
 		auto leaf_vend = leaf->get_version(need_restart);
 		if(need_restart || (leaf_vstart != leaf_vend)){
-		    #ifdef BREAKDOWN
-                    end = _rdtsc();
-                    if(abort) time_abort += (end - start);
-                    else time_traversal += (end - start);
-		    abort = true;
-                    #endif
 		    goto restart;
 		}
 		
@@ -349,38 +294,14 @@ class btree_t{
 		leaf_vstart = sibling_v;
 	    }
 
-	    #ifdef BREAKDOWN
-	    end = _rdtsc();
-	    if(abort) time_abort += (end - start);
-	    else time_traversal += (end - start);
-	    start = _rdtsc();
-            #endif
-
 	    leaf->try_upgrade_writelock(leaf_vstart, need_restart);
-	    #ifdef BREAKDOWN
-            end = _rdtsc();
-            time_latch += (end - start);
-            start = _rdtsc();
-            #endif
 	    if(need_restart){
-		#ifdef BREAKDOWN
-                abort = true;
-                #endif
 		goto restart;
 	    }
 		
 	    if(!leaf->is_full()){ // normal insert
 		leaf->insert(key, value);
-		#ifdef BREAKDOWN
-                end = _rdtsc();
-                time_node += (end - start);
-                start = _rdtsc();
-                #endif
 		leaf->write_unlock();
-		#ifdef BREAKDOWN
-                end = _rdtsc();
-                time_latch += (end - start);
-                #endif
 		return;
 	    }
 	    else{ // leaf node split
@@ -391,11 +312,6 @@ class btree_t{
 		else
 		    new_leaf->insert(key, value);
 
-		#ifdef BREAKDOWN
-                end = _rdtsc();
-                time_split += (end - start);
-                #endif
-
 		if(stack_cnt){
 		    int stack_idx = stack_cnt-1;
 		    auto old_parent = stack[stack_idx];
@@ -405,23 +321,11 @@ class btree_t{
 
 		    while(stack_idx > -1){ // backtrack
 			old_parent = stack[stack_idx];
-			#ifdef BREAKDOWN
-			bool parent_abort = false;
-			#endif
 
 		    parent_restart:
-			#ifdef BREAKDOWN
-                        start = _rdtsc();
-                        #endif
 			need_restart = false;
 			auto parent_vstart = old_parent->try_readlock(need_restart);
 			if(need_restart){
-			    #ifdef BREAKDOWN
-                            end = _rdtsc();
-                            if(parent_abort) time_abort += (end - start);
-                            else time_traversal += (end - start);
-			    parent_abort = true;
-                            #endif
 			    goto parent_restart;
 			}
 		
@@ -429,23 +333,11 @@ class btree_t{
 			    auto p_sibling = old_parent->sibling_ptr;
 			    auto p_sibling_v = p_sibling->try_readlock(need_restart);
 			    if(need_restart){
-			    	#ifdef BREAKDOWN
-				end = _rdtsc();
-				if(parent_abort) time_abort += (end - start);
-				else time_traversal += (end - start);
-				parent_abort = true;
-                            	#endif
 				goto parent_restart;
 			    }
 
 			    auto parent_vend = old_parent->get_version(need_restart);
 			    if(need_restart || (parent_vstart != parent_vend)){
-			    	#ifdef BREAKDOWN
-				end = _rdtsc();
-				if(parent_abort) time_abort += (end - start);
-				else time_traversal += (end - start);
-				parent_abort = true;
-                            	#endif
 				goto parent_restart;
 			    }
 
@@ -453,42 +345,16 @@ class btree_t{
 			    parent_vstart = p_sibling_v;
 			}
 
-			#ifdef BREAKDOWN
-			end = _rdtsc();
-			if(parent_abort) time_abort += (end - start);
-			else time_traversal += (end - start);
-			start = _rdtsc();
-                        #endif
-
 			old_parent->try_upgrade_writelock(parent_vstart, need_restart);
 			if(need_restart){
-			    #ifdef BREAKDOWN
-                            end = _rdtsc();
-                            time_latch += (end - start);
-                            parent_abort = true;
-                            #endif
 			    goto parent_restart;
 			}
 
 			original_node->write_unlock();
-			#ifdef BREAKDOWN
-                        end = _rdtsc();
-                        time_latch += (end - start);
-                        start = _rdtsc();
-                        #endif
 
 			if(!old_parent->is_full()){ // normal insert
 			    old_parent->insert(split_key, new_node);
-			    #ifdef BREAKDOWN
-                            end = _rdtsc();
-                            time_split += (end - start);
-                            start = _rdtsc();
-                            #endif
 			    old_parent->write_unlock();
-			    #ifdef BREAKDOWN
-                            end = _rdtsc();
-                            time_latch += (end - start);
-			    #endif
 			    return;
 			}
 
@@ -500,12 +366,6 @@ class btree_t{
 			else
 			    new_parent->insert(split_key, new_node);
 
-			#ifdef BREAKDOWN
-                        end = _rdtsc();
-                        time_split += (end - start);
-			start = _rdtsc();
-                        #endif
-
 			if(stack_idx){
 			    original_node = static_cast<node_t*>(old_parent);
 			    new_node = static_cast<node_t*>(new_parent);
@@ -516,16 +376,7 @@ class btree_t{
 			    if(old_parent == root){ // current node is root
 				auto new_root = new inode_t<Key_t>(_split_key, old_parent, new_parent, nullptr, old_parent->level+1, new_parent->high_key);
 				root = static_cast<node_t*>(new_root);
-				#ifdef BREAKDOWN
-                                end = _rdtsc();
-                                time_split += (end - start);
-                                start = _rdtsc();
-                                #endif
 				old_parent->write_unlock();
-				#ifdef BREAKDOWN
-                                end = _rdtsc();
-                                time_latch += (end - start);
-                                #endif
 				return;
 			    }
 			    else{ // other thread has already created a new root
@@ -537,21 +388,9 @@ class btree_t{
 		}
 		else{ // set new root
 		    if(root == leaf){ // current node is root
-			#ifdef BREAKDOWN
-                        start = _rdtsc();
-                        #endif
 			auto new_root = new inode_t<Key_t>(split_key, leaf, new_leaf, nullptr, root->level+1, new_leaf->high_key);
 			root = static_cast<node_t*>(new_root);
-			#ifdef BREAKDOWN
-                        end = _rdtsc();
-                        time_split += (end - start);
-                        start = _rdtsc();
-                        #endif
 			leaf->write_unlock();
-			#ifdef BREAKDOWN
-                        end = _rdtsc();
-                        time_latch += (end - start);
-                        #endif
 			return;
 		    }
 		    else{ // other thread has already created a new root
@@ -564,25 +403,12 @@ class btree_t{
 
 	/* this function is called when root has been split by another threads */
 	void insert_key(Key_t key, node_t* value, node_t* prev){
-	    #ifdef BREAKDOWN
-            uint64_t start, end;
-            abort = false;
-            #endif
 	restart:
-	    #ifdef BREAKDOWN
-            start = _rdtsc();
-            #endif
 	    auto cur = root;
 	    bool need_restart = false;
 
 	    auto cur_vstart = cur->try_readlock(need_restart);
 	    if(need_restart){
-		#ifdef BREAKDOWN
-                end = _rdtsc();
-                if(abort) time_abort += (end - start);
-                else time_traversal += (end - start);
-		abort = true;
-                #endif
 		goto restart;
 	    }
 
@@ -591,23 +417,11 @@ class btree_t{
 		auto child = (static_cast<inode_t<Key_t>*>(cur))->scan_node(key);
 		auto child_vstart = child->try_readlock(need_restart);
 		if(need_restart){
-		    #ifdef BREAKDOWN
-		    end = _rdtsc();
-		    if(abort) time_abort += (end - start);
-		    else time_traversal += (end - start);
-		    abort = true;
-                    #endif
 		    goto restart;
 		}
 
 		auto cur_vend = cur->get_version(need_restart);
 		if(need_restart || (cur_vstart != cur_vend)){
-		    #ifdef BREAKDOWN
-		    end = _rdtsc();
-		    if(abort) time_abort += (end - start);
-		    else time_traversal += (end - start);
-		    abort = true;
-                    #endif
 		    goto restart;
 		}
 
@@ -620,23 +434,11 @@ class btree_t{
 		auto sibling = (static_cast<inode_t<Key_t>*>(cur))->sibling_ptr;
 		auto sibling_vstart = sibling->try_readlock(need_restart);
 		if(need_restart){
-		    #ifdef BREAKDOWN
-		    end = _rdtsc();
-		    if(abort) time_abort += (end - start);
-		    else time_traversal += (end - start);
-		    abort = true;
-                    #endif
 		    goto restart;
 		}
 
 		auto cur_vend = cur->get_version(need_restart);
 		if(need_restart || (cur_vstart != cur_vend)){
-		    #ifdef BREAKDOWN
-		    end = _rdtsc();
-		    if(abort) time_abort += (end - start);
-		    else time_traversal += (end - start);
-		    abort = true;
-                    #endif
 		    goto restart;
 		}
 
@@ -644,43 +446,17 @@ class btree_t{
 		cur_vstart = sibling_vstart;
 	    }
 
-	    #ifdef BREAKDOWN
-	    end = _rdtsc();
-	    if(abort) time_abort += (end - start);
-	    else time_traversal += (end - start);
-	    start = _rdtsc();
-            #endif
-
 	    cur->try_upgrade_writelock(cur_vstart, need_restart);
 	    if(need_restart){
-		#ifdef BREAKDOWN
-                end = _rdtsc();
-                time_latch += (end - start);
-                abort = true;
-                #endif
 		goto restart;
 	    }
 	    prev->write_unlock();
-	    #ifdef BREAKDOWN
-            end = _rdtsc();
-            time_latch += (end - start);
-            start = _rdtsc();
-            #endif
 
 	    auto node = static_cast<inode_t<Key_t>*>(cur);
 	    
 	    if(!node->is_full()){
 		node->insert(key, value);
-		#ifdef BREAKDOWN
-                end = _rdtsc();
-                time_split += (end - start);
-                start = _rdtsc();
-                #endif
 		node->write_unlock();
-		#ifdef BREAKDOWN
-                end = _rdtsc();
-                time_latch += (end - start);
-                #endif
 		return;
 	    }
 	    else{
@@ -690,25 +466,11 @@ class btree_t{
 		    node->insert(key, value);
 		else
 		    new_node->insert(key, value);
-		#ifdef BREAKDOWN
-                end = _rdtsc();
-                time_split += (end - start);
-                start = _rdtsc();
-                #endif
 
 		if(node == root){ // if current nodes is root
 		    auto new_root = new inode_t<Key_t>(split_key, node, new_node, nullptr, node->level+1, new_node->high_key);
 		    root = static_cast<node_t*>(new_root);
-		    #ifdef BREAKDOWN
-                    end = _rdtsc();
-                    time_split += (end - start);
-                    start = _rdtsc();
-                    #endif
 		    node->write_unlock();
-		    #ifdef BREAKDOWN
-                    end = _rdtsc();
-                    time_latch += (end - start);
-                    #endif
 		    return;
 		}
 		else{ // other thread has already created a new root
@@ -721,27 +483,13 @@ class btree_t{
 
 
 	bool update(Key_t key, Value_t value){
-	    #ifdef BREAKDOWN
-            uint64_t start, end;
-            abort = false;
-            #endif
-
 	    int restart_cnt = -1;
 	restart:
 	    backoff(restart_cnt++);
-	    #ifdef BREAKDOWN
-            start = _rdtsc();
-            #endif
 	    auto cur = root;
 	    bool need_restart = false;
 	    auto cur_vstart = cur->try_readlock(need_restart);
 	    if(need_restart){
-		#ifdef BREAKDOWN
-                end = _rdtsc();
-                if(abort) time_abort += (end - start);
-                else time_traversal += (end - start);
-		abort = true;
-                #endif
 		goto restart;
 	    }
 
@@ -750,12 +498,6 @@ class btree_t{
 		auto child = (static_cast<inode_t<Key_t>*>(cur))->scan_node(key);
 		auto child_vstart = child->try_readlock(need_restart);
 		if(need_restart){
-		    #ifdef BREAKDOWN
-		    end = _rdtsc();
-		    if(abort) time_abort += (end - start);
-		    else time_traversal += (end - start);
-		    abort = true;
-                    #endif
 		    goto restart;
 		}
 
@@ -765,12 +507,6 @@ class btree_t{
                 #else
 		if(need_restart || (cur_vstart != cur_vend)){
 		#endif
-		    #ifdef BREAKDOWN
-		    end = _rdtsc();
-		    if(abort) time_abort += (end - start);
-		    else time_traversal += (end - start);
-		    abort = true;
-                    #endif
 		    goto restart;
 		}
 
@@ -787,12 +523,6 @@ class btree_t{
 		auto sibling = leaf->sibling_ptr;
 		auto sibling_v = sibling->try_readlock(need_restart);
 		if(need_restart){
-		    #ifdef BREAKDOWN
-		    end = _rdtsc();
-		    if(abort) time_abort += (end - start);
-		    else time_traversal += (end - start);
-		    abort = true;
-                    #endif
 		    goto restart;
 		}
 
@@ -802,12 +532,6 @@ class btree_t{
 		#else
 		if(need_restart || (leaf_vstart != leaf_vend)){
 		#endif
-		    #ifdef BREAKDOWN
-                    end = _rdtsc();
-                    if(abort) time_abort += (end - start);
-                    else time_traversal += (end - start);
-                    abort = true;
-                    #endif
 		    goto restart;
 		}
 
@@ -815,40 +539,16 @@ class btree_t{
 		leaf_vstart = sibling_v;
 	    }
 
-	    #ifdef BREAKDOWN
-	    end = _rdtsc();
-	    if(abort) time_abort += (end - start);
-	    else time_traversal += (end - start);
-	    start = _rdtsc();
-            #endif
-    
 	    #ifdef UPDATE_LOCK
 	    leaf->try_upgrade_updatelock(leaf_vstart, need_restart);
 	    #else
 	    leaf->try_upgrade_writelock(leaf_vstart, need_restart);
 	    #endif
 	    if(need_restart){
-		#ifdef BREAKDOWN
-                end = _rdtsc();
-                time_latch += (end - start);
-                abort = true;
-                #endif
 		goto restart;
 	    }
 
-	    #ifdef BREAKDOWN
-            end = _rdtsc();
-            time_latch += (end - start);
-            start = _rdtsc();
-            #endif
-
 	    bool ret = leaf->update(key, value);
-
-	    #ifdef BREAKDOWN
-            end = _rdtsc();
-            time_node += (end - start);
-            start = _rdtsc();
-            #endif
 
 	    #ifdef UPDATE_LOCK
 	    leaf->update_unlock();
@@ -856,35 +556,17 @@ class btree_t{
 	    leaf->write_unlock();
 	    #endif
 
-	    #ifdef BREAKDOWN
-            end = _rdtsc();
-            time_latch += (end - start);
-            #endif
-
 	    return ret;
 	}
 
 
 	Value_t lookup(Key_t key){
-	    #ifdef BREAKDOWN
-            abort = false;
-            uint64_t start, end;
-            #endif
 	restart:
-	    #ifdef BREAKDOWN
-            start = _rdtsc();
-            #endif
 	    auto cur = root;
 	    bool need_restart = false;
 
 	    auto cur_vstart = cur->try_readlock(need_restart);
 	    if(need_restart){
-		#ifdef BREAKDOWN
-                end = _rdtsc();
-                if(abort) time_abort += (end - start);
-                else time_traversal += (end - start);
-		abort = true;
-                #endif
 		goto restart;
 	    }
 
@@ -893,12 +575,6 @@ class btree_t{
 		auto child = (static_cast<inode_t<Key_t>*>(cur))->scan_node(key);
 		auto child_vstart = child->try_readlock(need_restart);
 		if(need_restart){
-		    #ifdef BREAKDOWN
-		    end = _rdtsc();
-		    if(abort) time_abort += (end - start);
-		    else time_traversal += (end - start);
-		    abort = true;
-                    #endif
 		    goto restart;
 		}
 
@@ -908,12 +584,6 @@ class btree_t{
                 #else
 		if(need_restart || (cur_vstart != cur_vend)){
 		#endif
-		    #ifdef BREAKDOWN
-		    end = _rdtsc();
-		    if(abort) time_abort += (end - start);
-		    else time_traversal += (end - start);
-		    abort = true;
-                    #endif
 		    goto restart;
 		}
 
@@ -930,12 +600,6 @@ class btree_t{
 		auto sibling = leaf->sibling_ptr;
 		auto sibling_v = sibling->try_readlock(need_restart);
 		if(need_restart){
-		    #ifdef BREAKDOWN
-		    end = _rdtsc();
-		    if(abort) time_abort += (end - start);
-		    else time_traversal += (end - start);
-		    abort = true;
-                    #endif
 		    goto restart;
 		}
 
@@ -945,12 +609,6 @@ class btree_t{
 		#else
 		if(need_restart || (leaf_vstart != leaf_vend)){
 		#endif
-		    #ifdef BREAKDOWN
-		    end = _rdtsc();
-		    if(abort) time_abort += (end - start);
-		    else time_traversal += (end - start);
-		    abort = true;
-                    #endif
 		    goto restart;
 		}
 
@@ -958,20 +616,8 @@ class btree_t{
 		leaf_vstart = sibling_v;
 	    }
 
-	    #ifdef BREAKDOWN
-            end = _rdtsc();
-            if(abort) time_abort += (end - start);
-            else time_traversal += (end - start);
-            start = _rdtsc();
-            #endif
 
 	    auto ret = leaf->find(key);
-
-	    #ifdef BREAKDOWN
-            end = _rdtsc();
-            time_node += (end - start);
-            start = _rdtsc();
-            #endif
 
 	    auto leaf_vend = leaf->get_version(need_restart);
   	    #ifdef UPDATE_LOCK
@@ -979,12 +625,6 @@ class btree_t{
 	    #else
 	    if(need_restart || (leaf_vstart != leaf_vend)){
 	    #endif
-		#ifdef BREAKDOWN
-		end = _rdtsc();
-		if(abort) time_abort += (end - start);
-		else time_traversal += (end - start);
-		abort = true;
-                #endif
 		goto restart;
 	    }
 
@@ -1057,24 +697,11 @@ class btree_t{
 	    
 
 	int range_lookup(Key_t min_key, int range, Value_t* buf){
-	    #ifdef BREAKDOWN
-            uint64_t start, end;
-            abort = false;
-            #endif
 	restart:
-	    #ifdef BREAKDOWN
-            start = _rdtsc();
-            #endif
 	    auto cur = root;
 	    bool need_restart = false;
 	    auto cur_vstart = cur->try_readlock(need_restart);
 	    if(need_restart){
-		#ifdef BREAKDOWN
-                end = _rdtsc();
-                if(abort) time_abort += (end - start);
-                else time_traversal += (end - start);
-		abort = true;
-                #endif
 		goto restart;
 	    }
 
@@ -1083,12 +710,6 @@ class btree_t{
 		auto child = (static_cast<inode_t<Key_t>*>(cur))->scan_node(min_key);
 		auto child_vstart = child->try_readlock(need_restart);
 		if(need_restart){
-		    #ifdef BREAKDOWN
-		    end = _rdtsc();
-		    if(abort) time_abort += (end - start);
-		    else time_traversal += (end - start);
-		    abort = true;
-                    #endif
 		    goto restart;
 		}
 
@@ -1098,12 +719,6 @@ class btree_t{
                 #else
 		if(need_restart || (cur_vstart != cur_vend)){ 
 		#endif
-		    #ifdef BREAKDOWN
-		    end = _rdtsc();
-		    if(abort) time_abort += (end - start);
-		    else time_traversal += (end - start);
-		    abort = true;
-                    #endif
 		    goto restart;
 		}
 
@@ -1122,12 +737,6 @@ class btree_t{
 
 		auto sibling_v = sibling->try_readlock(need_restart);
 		if(need_restart){
-		    #ifdef BREAKDOWN
-		    end = _rdtsc();
-		    if(abort) time_abort += (end - start);
-		    else time_traversal += (end - start);
-		    abort = true;
-                    #endif
 		    goto restart;
 		}
 
@@ -1137,12 +746,6 @@ class btree_t{
                 #else
 		if(need_restart || (leaf_vstart != leaf_vend)){
 		#endif
-		    #ifdef BREAKDOWN
-		    end = _rdtsc();
-		    if(abort) time_abort += (end - start);
-		    else time_traversal += (end - start);
-		    abort = true;
-                    #endif
 		    goto restart;
 		}
 
@@ -1150,22 +753,11 @@ class btree_t{
 		leaf_vstart = sibling_v;
 	    }
 
-	    #ifdef BREAKDOWN
-	    end = _rdtsc();
-	    if(abort) time_abort += (end - start);
-	    else time_traversal += (end - start);
-	    start = _rdtsc();
-            #endif
 
 	    auto idx = leaf->find_lowerbound(min_key);
 	    while(count < range){
 		auto ret = leaf->range_lookup(idx, buf, count, range);
 		auto sibling = leaf->sibling_ptr;
-		#ifdef BREAKDOWN
-                end = _rdtsc();
-                time_node += (end - start);
-                start = _rdtsc();
-                #endif
 		// collected all keys within range or reaches the rightmost leaf
 		if((ret == range) || !sibling){
 		    auto leaf_vend = leaf->get_version(need_restart);
@@ -1174,24 +766,12 @@ class btree_t{
                     #else
 		    if(need_restart || (leaf_vstart != leaf_vend)){
 		    #endif
-			#ifdef BREAKDOWN
-			end = _rdtsc();
-			if(abort) time_abort += (end - start);
-			else time_traversal += (end - start);
-			abort = true;
-                        #endif
 			goto restart;
 		    }
 		    return ret;
 		}
 		auto sibling_vstart = sibling->try_readlock(need_restart);
 		if(need_restart){
-		    #ifdef BREAKDOWN
-                    end = _rdtsc();
-                    if(abort) time_abort += (end - start);
-                    else time_traversal += (end - start);
-                    abort = true;
-                    #endif
 		    goto restart;
 		}
 
@@ -1201,12 +781,6 @@ class btree_t{
                 #else
 		if(need_restart || (leaf_vstart != leaf_vend)){
 		#endif
-		    #ifdef BREAKDOWN
-                    end = _rdtsc();
-                    if(abort) time_abort += (end - start);
-                    else time_traversal += (end - start);
-                    abort = true;
-                    #endif
 		    goto restart;
 		}
 
@@ -1214,9 +788,6 @@ class btree_t{
 		leaf_vstart = sibling_vstart;
 		count = ret;
 		idx = 0;
-		#ifdef BREAKDOWN
-                start = _rdtsc();
-                #endif
 	    }
 	    return count;
 	}
