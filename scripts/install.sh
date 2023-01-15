@@ -1,21 +1,18 @@
-sudo apt-get update
+apt-get update
 
 ## make extra fs space - specific to Cloudlab
-sudo mkdir /hk
-sudo /usr/local/etc/emulab/mkextrafs.pl /hk
-sudo chown hcha /hk
+mkdir /hk
+/usr/local/etc/emulab/mkextrafs.pl /hk
+chown hcha /hk
 
 ## GCC - compiler
-sudo apt-get install gcc
-sudo apt-get install g++
-sudo apt-get install gdb
+apt install -y gcc g++ gdb
 
 ## make - for compilation
-sudo apt-get install make
+apt install -y make
 
 ## openssl - for cmake build
-sudo apt-get install openssl
-sudo apt-get install libssl-dev
+apt install -y openssl libssl-dev
 
 ## CMAKE - for compilation
 cd /hk
@@ -23,13 +20,13 @@ cd /hk
 #cd ~/cmake
 git clone https://github.com/Kitware/CMake.git
 cd CMake
-./bootstrap && make -j64 && sudo make install -j64
+./bootstrap && make -j && make install -j
 
 ## JAVA - for YCSB build
-sudo apt-get install default-jre openjdk-11-jre-headless openjdk-8-jre-headless
+apt install -y default-jre openjdk-11-jre-headless openjdk-8-jre-headless
 
 ## maven - for YCSB compilation
-sudo apt-get install maven
+apt install -y maven
 
 ## YCSB - for workload generation
 cd ~/
@@ -37,22 +34,22 @@ git clone https://github.com/brianfrankcooper/YCSB.git
 cd -
 
 ## rar decompression - for workload decompression
-sudo apt-get install unrar
+apt install -y unrar
 
 ## perf - for performance analysis
-sudo apt-get install linux-tools-common linux-tools-generic linux-tools-$(uname -r)
+apt install -y linux-tools-common linux-tools-generic linux-tools-$(uname -r)
 #sudo apt-get install google-perftools
 
 ## TBB - for multi-threaded runs
-sudo apt-get install libtbb-dev libtbb2
+apt install -y libtbb-dev libtbb2
 
 ## PAPI - for performance analysis
-sudo apt-get install libpapi5 libpapi-dev
+apt install -y libpapi5 libpapi-dev
 
 ## TCMALLOC - for faster allocator
-sudo apt-get install libtcmalloc-minimal4
-#sudo ln -s /usr/lib/aarch64-linux-gnu/libtcmalloc_minimal.so.4.3.0 /usr/lib/libtcmalloc_minimal.so 	# arm
-sudo ln -s /usr/lib/x86_64-linux-gnu/libtcmalloc_minimal.so.4.3.0 /usr/lib/libtcmalloc_minimal.so	# x86
+apt install -y libtcmalloc-minimal4
+#ln -s /usr/lib/aarch64-linux-gnu/libtcmalloc_minimal.so.4.3.0 /usr/lib/libtcmalloc_minimal.so 	# arm
+ln -s /usr/lib/x86_64-linux-gnu/libtcmalloc_minimal.so.4.3.0 /usr/lib/libtcmalloc_minimal.so	# x86
 
 ## likwid - for measuring memory bandwidth
-sudo apt-get install likwid
+apt install -y likwid

@@ -128,8 +128,10 @@ class run_t{
 	    // find table
 	    for(int i=0; i<BATCH_TABLE_NUM; i++){
 		auto ret = table[i]->find(key, value, need_restart);
-		if(need_restart)
+		if(need_restart){
+		    std::cout << "restart table " << i << std::endl;
 		    goto restart;
+		}
 
 		if(ret)
 		    return value;

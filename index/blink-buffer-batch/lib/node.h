@@ -196,7 +196,7 @@ class inode_t: public node_t{
     public:
 	static constexpr size_t cardinality = (PAGE_SIZE - sizeof(node_t) - sizeof(Key_t)) / sizeof(entry_t<Key_t, node_t*>);
 	Key_t high_key;
-    private:
+//    private:
         entry_t<Key_t, node_t*> entry[cardinality];
     
     public:
@@ -224,6 +224,16 @@ class inode_t: public node_t{
 
 	int find_lowerbound(Key_t& key){
 	    return lowerbound_linear(key);
+	}
+
+	node_t* scan_node(Key_t key, bool& right){
+	    if(sibling_ptr && (high_key < key)){
+		right = true;
+		return sibling_ptr;
+	    }
+	    else{
+		return entry[find_lowerbound(key)].value;
+	    } 
 	}
 
 	node_t* scan_node(Key_t key){
@@ -284,7 +294,7 @@ class inode_t: public node_t{
 	void batch_insert_root(Key_t* key, node_t** value, int batch_size, int& from, int to, node_t* leftmost_ptr=nullptr){
 	    if(leftmost_ptr){ // leftmost node
 		entry[cnt].value = leftmost_ptr;
-		for(int i=from; i<batch_size; i++){
+		for(int i=from; i<from+batch_size; i++){
 		    entry[cnt++].key = key[i];
 		    entry[cnt].value = value[i];
 		}
@@ -300,6 +310,8 @@ class inode_t: public node_t{
 		    }
 		    from += batch_size;
 		    high_key = key[from];
+		    if(from >= to)
+			std::cout << "it's over the size (from " << from << ", to " << to << ")" << std::endl;
 		}
 		else{ // rightmost node
 		    entry[cnt].value = value[from++];
@@ -312,7 +324,7 @@ class inode_t: public node_t{
 	    }
 	}
 
-	void batch_insert_last_level(entry_t<Key_t, node_t*>* migrate, int& migrate_idx, int migrate_num, Key_t* key,         node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num){
+	void batch_insert_last_level(entry_t<Key_t, node_t*>* migrate, int& migrate_idx, int migrate_num, Key_t* key, node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num){
 	    bool from_start = true;
 	    if(migrate_idx < migrate_num){
 		from_start = false;
@@ -368,6 +380,7 @@ class inode_t: public node_t{
 		    entry[cnt++].key = buf[buf_idx].key;
 		    entry[cnt].value = buf[buf_idx].value;
 		    buf_idx++;
+		    high_key = buf[buf_idx].key;
 		}
 	    }
 	}
@@ -415,6 +428,7 @@ class inode_t: public node_t{
 		    entry[cnt++].key = buf[buf_idx].key;
 		    entry[cnt].value = buf[buf_idx].value;
 		    buf_idx++;
+		    high_key = buf[buf_idx].key;
 		}
 	    }
 	}
@@ -568,7 +582,7 @@ class inode_t: public node_t{
 	    }
 	}
 
-	void batch_insert(entry_t<Key_t, node_t*>* migrate, int& migrate_idx, int migrate_num, Key_t* key, node_t** value,    int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num){
+	void batch_insert(entry_t<Key_t, node_t*>* migrate, int& migrate_idx, int migrate_num, Key_t* key, node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num){
 	    bool from_start = true;
 	    if(migrate_idx < migrate_num){
 		from_start = false;
@@ -623,6 +637,7 @@ class inode_t: public node_t{
 		    entry[cnt++].key = buf[buf_idx].key;
 		    entry[cnt].value = buf[buf_idx].value;
 		    buf_idx++;
+		    high_key = buf[buf_idx].key;
 		}
 	    }
 	}
@@ -669,6 +684,7 @@ class inode_t: public node_t{
 		    entry[cnt++].key = buf[buf_idx].key;
 		    entry[cnt].value = buf[buf_idx].value;
 		    buf_idx++;
+		    high_key = buf[buf_idx].key;
 		}
 	    }
 	}

@@ -10,7 +10,8 @@ namespace BLINK_BUFFER_BATCH{
 
 #define HASH_FUNCS_NUM (2)
 #define NUM_SLOT (4)
-#define BATCH_TABLE_SIZE (256*1024*4)
+#define BATCH_TABLE_SIZE (256*1024)
+//#define BATCH_TABLE_SIZE (256*1024*4)
 
 template <typename Key_t, typename Value_t>
 class table_t{
