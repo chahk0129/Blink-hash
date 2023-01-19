@@ -313,11 +313,13 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	    _outoforder += outoforder[i];
 	}
 	std::cout << "Processed " << _num << " / " << num << " (" << (double)_num/num*100 << " \%)" << std::endl;
-	std::cout << "Out-of-order keys: " << _outoforder << " / " <<  _num << " (" << (double)_outoforder/_num*100 << " \%)" << std::endl;
-	for(int i=0; i<num_thread; i++){
-	    outoforder[i] = 0;
-	    inserted_num[i] = 0;
+	if(index_type == TYPE_BLINKBUFFERBATCH){
+	    std::cout << "Out-of-order keys: " << (double)_outoforder/_num*100 << " \%" << std::endl;
+	    for(int i=0; i<num_thread; i++)
+	        outoforder[i] = 0;
 	}
+	for(int i=0; i<num_thread; i++)
+	    inserted_num[i] = 0;
 	num = _num;
     }
     double tput = num / (end_time - start_time) / 1000000; //Mops/sec
@@ -938,7 +940,8 @@ inline void run(int index_type, int wl, int num_thread, int num){
 	    _outoforder += outoforder[i];
 	}
 	std::cout << "Processed " << _num << " / " << num << " (" << (double)_num/num*100 << " \%)" << std::endl;
-	std::cout << "Out-of-order keys: " << _outoforder << " / " << _num << " (" << (double)_outoforder/_inserted_num*100 << " \%)" << std::endl;
+	if(index_type == TYPE_BLINKBUFFERBATCH)
+	    std::cout << "Out-of-order keys: " << (double)_outoforder/_inserted_num*100 << " \%" << std::endl;
 	num = _num;
     }
 

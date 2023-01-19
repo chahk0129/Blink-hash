@@ -192,11 +192,6 @@ int main(int argc, char* argv[]){
 	elapsed = end.tv_nsec - start.tv_nsec + (end.tv_sec - start.tv_sec)*1000000000;
 	std::cout << "elapsed time: " << elapsed / 1000000000.0 << " sec" << std::endl;
 	std::cout << "throughput: " << num_data / (double)(elapsed/1000000000.0) / 1000000 << " mops/sec" << std::endl;
-
-	int not_found = 0;
-	for(int i=0; i<num_threads; i++)
-	    not_found += notfound_keys[i].size();
-	std::cout << "not found: " << not_found << std::endl;
     }
 
     return 0;

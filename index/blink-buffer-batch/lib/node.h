@@ -226,16 +226,6 @@ class inode_t: public node_t{
 	    return lowerbound_linear(key);
 	}
 
-	node_t* scan_node(Key_t key, bool& right){
-	    if(sibling_ptr && (high_key < key)){
-		right = true;
-		return sibling_ptr;
-	    }
-	    else{
-		return entry[find_lowerbound(key)].value;
-	    } 
-	}
-
 	node_t* scan_node(Key_t key){
 	    if(sibling_ptr && (high_key < key)){
 		return sibling_ptr;
@@ -310,8 +300,6 @@ class inode_t: public node_t{
 		    }
 		    from += batch_size;
 		    high_key = key[from];
-		    if(from >= to)
-			std::cout << "it's over the size (from " << from << ", to " << to << ")" << std::endl;
 		}
 		else{ // rightmost node
 		    entry[cnt].value = value[from++];
@@ -367,7 +355,33 @@ class inode_t: public node_t{
 	    if(buf_idx < buf_num && cnt < batch_size){
 		if(from_start){
 		    entry[cnt].value = buf[buf_idx++].value;
+		    for(; cnt<batch_size && buf_idx<buf_num-1;){
+			entry[cnt++].key = buf[buf_idx++].key;
+			entry[cnt].value = buf[buf_idx].value;
+		    }
+		    if(cnt == batch_size){ // insert in next node
+			high_key = buf[buf_idx++].key;
+		    }
+		    else{
+			entry[cnt++].key = buf[buf_idx++].key;
+			entry[cnt].value = buf[buf_idx].value;
+			high_key = buf[buf_idx].key;
+		    }
 		}
+		else{
+		    for(; cnt<batch_size && buf_idx<buf_num-1; buf_idx++){
+			entry[cnt++].key = buf[buf_idx].key;
+			entry[cnt].value = buf[buf_idx].value;
+		    }
+		    if(cnt == batch_size){ // insert in next node
+			high_key = buf[buf_idx].key;
+		    }
+		    else{
+			entry[cnt++].key = buf[buf_idx].key;
+			entry[cnt].value = buf[buf_idx].value;
+		    }
+		}
+		/*
 		for(; cnt<batch_size && buf_idx<buf_num-1; buf_idx++){
 		    entry[cnt++].key = buf[buf_idx].key;
 		    entry[cnt].value = buf[buf_idx].value;
@@ -381,7 +395,7 @@ class inode_t: public node_t{
 		    entry[cnt].value = buf[buf_idx].value;
 		    buf_idx++;
 		    high_key = buf[buf_idx].key;
-		}
+		}*/
 	    }
 	}
 
@@ -415,6 +429,35 @@ class inode_t: public node_t{
 	    if(buf_idx < buf_num && cnt < batch_size){
 		if(from_start){
 		    entry[cnt].value = buf[buf_idx++].value;
+		    for(; cnt<batch_size && buf_idx<buf_num-1;){
+			entry[cnt++].key = buf[buf_idx++].key;
+			entry[cnt].value = buf[buf_idx].value;
+		    }
+		    if(cnt == batch_size){ // insert in next node
+			high_key = buf[buf_idx++].key;
+		    }
+		    else{
+			entry[cnt++].key = buf[buf_idx++].key;
+			entry[cnt].value = buf[buf_idx].value;
+			high_key = buf[buf_idx].key;
+		    }
+		}
+		else{
+		    for(; cnt<batch_size && buf_idx<buf_num-1; buf_idx++){
+			entry[cnt++].key = buf[buf_idx].key;
+			entry[cnt].value = buf[buf_idx].value;
+		    }
+		    if(cnt == batch_size){ // insert in next node
+			high_key = buf[buf_idx].key;
+		    }
+		    else{
+			entry[cnt++].key = buf[buf_idx].key;
+			entry[cnt].value = buf[buf_idx].value;
+		    }
+		}
+/*
+		if(from_start){
+		    entry[cnt].value = buf[buf_idx++].value;
 		}
 
 		for(; cnt<batch_size && buf_idx<buf_num-1; buf_idx++){
@@ -430,6 +473,7 @@ class inode_t: public node_t{
 		    buf_idx++;
 		    high_key = buf[buf_idx].key;
 		}
+*/
 	    }
 	}
 
@@ -624,6 +668,35 @@ class inode_t: public node_t{
 	    if(buf_idx < buf_num && cnt < batch_size){
 		if(from_start){
 		    entry[cnt].value = buf[buf_idx++].value;
+		    for(; cnt<batch_size && buf_idx<buf_num-1;){
+			entry[cnt++].key = buf[buf_idx++].key;
+			entry[cnt].value = buf[buf_idx].value;
+		    }
+		    if(cnt == batch_size){ // insert in next node
+			high_key = buf[buf_idx++].key;
+		    }
+		    else{
+			entry[cnt++].key = buf[buf_idx++].key;
+			entry[cnt].value = buf[buf_idx].value;
+			high_key = buf[buf_idx].key;
+		    }
+		}
+		else{
+		    for(; cnt<batch_size && buf_idx<buf_num-1; buf_idx++){
+			entry[cnt++].key = buf[buf_idx].key;
+			entry[cnt].value = buf[buf_idx].value;
+		    }
+		    if(cnt == batch_size){ // insert in next node
+			high_key = buf[buf_idx].key;
+		    }
+		    else{
+			entry[cnt++].key = buf[buf_idx].key;
+			entry[cnt].value = buf[buf_idx].value;
+		    }
+		}
+/*
+		if(from_start){
+		    entry[cnt].value = buf[buf_idx++].value;
 		}
 		for(; cnt<batch_size && buf_idx<buf_num-1; buf_idx++){
 		    entry[cnt++].key = buf[buf_idx].key;
@@ -639,6 +712,7 @@ class inode_t: public node_t{
 		    buf_idx++;
 		    high_key = buf[buf_idx].key;
 		}
+*/		
 	    }
 	}
 
@@ -671,6 +745,35 @@ class inode_t: public node_t{
 	    if(buf_idx < buf_num && cnt < batch_size){
 		if(from_start){
 		    entry[cnt].value = buf[buf_idx++].value;
+		    for(; cnt<batch_size && buf_idx<buf_num-1;){
+			entry[cnt++].key = buf[buf_idx++].key;
+			entry[cnt].value = buf[buf_idx].value;
+		    }
+		    if(cnt == batch_size){ // insert in next node
+			high_key = buf[buf_idx++].key;
+		    }
+		    else{
+			entry[cnt++].key = buf[buf_idx++].key;
+			entry[cnt].value = buf[buf_idx].value;
+			high_key = buf[buf_idx].key;
+		    }
+		}
+		else{
+		    for(; cnt<batch_size && buf_idx<buf_num-1; buf_idx++){
+			entry[cnt++].key = buf[buf_idx].key;
+			entry[cnt].value = buf[buf_idx].value;
+		    }
+		    if(cnt == batch_size){ // insert in next node
+			high_key = buf[buf_idx].key;
+		    }
+		    else{
+			entry[cnt++].key = buf[buf_idx].key;
+			entry[cnt].value = buf[buf_idx].value;
+		    }
+		}
+/*
+		if(from_start){
+		    entry[cnt].value = buf[buf_idx++].value;
 		}
 
 		for(; cnt<batch_size && buf_idx<buf_num-1; buf_idx++){
@@ -686,6 +789,7 @@ class inode_t: public node_t{
 		    buf_idx++;
 		    high_key = buf[buf_idx].key;
 		}
+*/
 	    }
 	}
 
