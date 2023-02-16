@@ -781,7 +781,7 @@ int main(int argc, char *argv[]) {
 	    ("input", "Absolute path to workload directory", cxxopts::value<std::string>())
 	    ("workload", "Workload type (a,b,c,e)", cxxopts::value<std::string>())
 	    ("key_type", "Key type (url)", cxxopts::value<std::string>())
-	    ("index", "Index type (artolc, artrowex, hot, masstree, btreeolc, bepsilon, blink, blinkhash, bwtree)", cxxopts::value<std::string>())
+	    ("index", "Index type (artolc, artrowex, hot, masstree, btreeolc, blink, blinkhash, bwtree)", cxxopts::value<std::string>())
 	    ("mem", "Measure memory bandwidth", cxxopts::value<bool>()->default_value((opt.mem ? "true" : "false")))
 	    ("profile", "Enable CPU profiling", cxxopts::value<bool>()->default_value((opt.profile ? "true" : "false")))
 	    ("threads", "Number of threads to run", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.threads)))
@@ -901,8 +901,6 @@ int main(int argc, char *argv[]) {
 	index_type = TYPE_BLINKTREE;
     else if(opt.index == "btreeolc")
 	index_type = TYPE_BTREEOLC;
-    else if(opt.index == "bepsilon")
-	index_type = TYPE_BEPSILONTREE;
     else if(opt.index == "blinkhash")
 	index_type = TYPE_BLINKHASH;
     else{

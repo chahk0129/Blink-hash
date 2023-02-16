@@ -157,7 +157,6 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
 	return nullptr;
     }
 
-    
     /*
     #ifndef LINKED
     if(!this->sibling_ptr){ // print out utilization of rightmost node
@@ -401,12 +400,10 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
 		}
 	    }
 	    #endif
-
 	    if(!need_insert) // if new key/value is inserted, proceed to next steps
 		goto PROCEED;
 	}
     }
-
     #else
     // migrate keys
     for(int j=0; j<cardinality; j++){
@@ -529,7 +526,6 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
 	}
     }
     #endif
-    
 
     PROCEED:
     auto sibling = static_cast<lnode_t<Key_t, Value_t>*>(this->sibling_ptr);
@@ -539,11 +535,9 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
 	    (static_cast<lnode_hash_t<Key_t, Value_t>*>(sibling))->left_sibling_ptr = new_right;
     }
     // update current node's right sibling pointer
-
     if(need_insert){
 	blink_printf("insert after split failed -- key: %llu\n", key);
     }
-
     /*
     #ifndef LINKED
     if(!new_right->sibling_ptr){ // print out utilization of rightmost node
@@ -552,7 +546,6 @@ lnode_hash_t<Key_t, Value_t>* lnode_hash_t<Key_t, Value_t>::split(Key_t& split_k
     }
     #endif
     */
-
     return new_right;
 }
 
@@ -581,7 +574,6 @@ int lnode_hash_t<Key_t, Value_t>::update(Key_t key, Value_t value, uint64_t vsta
 		bucket[loc].unlock();
 		return -1;
 	    }
-
 	    #ifdef LINKED
 	    if(bucket[loc].state != bucket_t<Key_t, Value_t>::STABLE){
 		auto ret = stabilize_bucket(loc);
@@ -635,7 +627,6 @@ int lnode_hash_t<Key_t, Value_t>::remove(Key_t key, uint64_t vstart){
 		bucket[loc].unlock();
 		return -1;
 	    }
-
 	    #ifdef LINKED
 	    if(bucket[loc].state != bucket_t<Key_t, Value_t>::STABLE){
 		auto ret = stabilize_bucket(loc);
@@ -791,9 +782,8 @@ int lnode_hash_t<Key_t, Value_t>::range_lookup(Key_t key, Value_t* buf, int coun
     bool lower_bound = true;
     for(int i=0; i<idx; i++){
 	buf[_count++] = _buf[i].value;
-	if(_count == range){
+	if(_count == range)
 	    return _count;
-	}
     }
     return _count;
 }
@@ -806,9 +796,8 @@ lnode_btree_t<Key_t, Value_t>** lnode_hash_t<Key_t, Value_t>::convert(int& num, 
     entry_t<Key_t, Value_t> buf[cardinality * entry_num];
 
     #ifdef LINKED
-    if(!stabilize_all(version)){
+    if(!stabilize_all(version))
 	return nullptr;
-    }
     #endif
 
     if(!try_convertlock(version))
@@ -872,7 +861,6 @@ lnode_btree_t<Key_t, Value_t>** lnode_hash_t<Key_t, Value_t>::convert(int& num, 
 	if(right->type == lnode_t<Key_t, Value_t>::HASH_NODE)
 	    (static_cast<lnode_hash_t<Key_t, Value_t>*>(right))->left_sibling_ptr = reinterpret_cast<lnode_hash_t<Key_t, Value_t>*>(leaf[num-1]);
     }
-
     return leaf;
 }
 
@@ -1267,12 +1255,10 @@ inline void lnode_hash_t<Key_t, Value_t>::median_util(Key_t* keys, int left, int
 		return;
 	}
 
-	if(partition_idx >= k){
+	if(partition_idx >= k)
 	    return median_util(keys, left, partition_idx-1, k, a, b);
-	}
-	else{
+	else
 	    return median_util(keys, partition_idx+1, right, k, a, b);
-	}
     }
 }
 

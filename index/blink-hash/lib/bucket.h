@@ -212,9 +212,8 @@ struct bucket_t{
 	for(int i=0; i<32; i++){
 	    auto bit = (bitfield >> i);
 	    if((bit & 0x1) == 0){
-		if(entry[i].key >= key){
+		if(entry[i].key >= key)
 		    memcpy(&buf[num++], &entry[i], sizeof(entry_t<Key_t, Value_t>));
-		}
 	    }
 	}
     }
@@ -228,9 +227,8 @@ struct bucket_t{
 		auto bit = (bitfield >> i);
 		if((bit & 0x1) == 0){
 		    auto idx = m*16 + i;
-		    if(key <= entry[idx].key){
+		    if(key <= entry[idx].key)
 			memcpy(&buf[num++], &entry[idx], sizeof(entry_t<Key_t, Value_t>));
-		    }
 		}
 	    }
 	}
@@ -239,9 +237,8 @@ struct bucket_t{
     void collect(Key_t key, entry_t<Key_t, Value_t>* buf, int& num, uint8_t empty){
 	for(int i=0; i<entry_num; i++){
 	    if(fingerprints[i] != empty){
-		if(entry[i].key >= key){
+		if(entry[i].key >= key)
 		    memcpy(&buf[num++], &entry[i], sizeof(entry_t<Key_t, Value_t>));
-		}
 	    }
 	}
     }
@@ -250,9 +247,8 @@ struct bucket_t{
     void collect(Key_t key, entry_t<Key_t, Value_t>* buf, int& num){
 	for(int i=0; i<entry_num; i++){
 	    if(entry[i].key != EMPTY<Key_t>){
-		if(entry[i].key >= key){
+		if(entry[i].key >= key)
 		    memcpy(&buf[num++], &entry[i], sizeof(entry_t<Key_t, Value_t>));
-		}
 	    }
 	}
     }
@@ -266,9 +262,8 @@ struct bucket_t{
 	uint32_t bitfield = _mm256_movemask_epi8(cmp);
 	for(int i=0; i<32; i++){
 	    auto bit = (bitfield >> i);
-	    if((bit & 0x1) == 0){
+	    if((bit & 0x1) == 0)
 		memcpy(&buf[num++], &entry[i], sizeof(entry_t<Key_t, Value_t>));
-	    }
 	}
     }
     #elif defined AVX_128
@@ -289,18 +284,16 @@ struct bucket_t{
     #else
     void collect(entry_t<Key_t, Value_t>* buf, int& num, uint8_t empty){
 	for(int i=0; i<entry_num; i++){
-	    if(fingerprints[i] != empty){
+	    if(fingerprints[i] != empty)
 		memcpy(&buf[num++], &entry[i], sizeof(entry_t<Key_t, Value_t>));
-	    }
 	}
     }
     #endif
 #else
     void collect(entry_t<Key_t, Value_t>* buf, int& num){
 	for(int i=0; i<entry_num; i++){
-	    if(entry[i].key != EMPTY<Key_t>){
+	    if(entry[i].key != EMPTY<Key_t>)
 		memcpy(&buf[num++], &entry[i], sizeof(entry_t<Key_t, Value_t>));
-	    }
 	}
     }
 #endif
@@ -518,18 +511,16 @@ struct bucket_t{
     #else
     void collect_all_keys(Key_t* keys, int& num, uint8_t empty){
 	for(int i=0; i<entry_num; i++){
-	    if(fingerprints[i] != empty){
+	    if(fingerprints[i] != empty)
 		keys[num++] = entry[i].key;
-	    }
 	}
     }
     #endif
 #else
     void collect_all_keys(Key_t* keys, int& num){
 	for(int i=0; i<entry_num; i++){
-	    if(entry[i].key != EMPTY<Key_t>){
+	    if(entry[i].key != EMPTY<Key_t>)
 		keys[num++] = entry[i].key;
-	    }
 	}
     }
 #endif
@@ -579,7 +570,5 @@ struct bucket_t{
     }
 
 };
-
 }
-
 #endif

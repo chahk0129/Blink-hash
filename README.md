@@ -10,11 +10,13 @@ All the dependency installations for benchmark setup and index compilation such 
 ./scripts/install.sh
 ```
 
-## Generate Workloads ## 
+## Workload Generation ## 
 
 Scripts to generate YCSB-Integer, YCSB-Email workloads are written in scripts/generate_all_workloads.sh.
 
 The script receives a directory path as a parameter where those workloads are stored.
+
+Time-series workload uses timestamp keys that are generated with `rdtsc()` instruction inside the benchmark.
 
 ```sh
 ./scripts/generate_all_workloads.sh ${workload_directory_path}
@@ -22,27 +24,27 @@ The script receives a directory path as a parameter where those workloads are st
 
 ## Directories ##
 
-* include/: includes a warpper for indexes, defines structures, flags, and options used in benchmark
+* include/: includes a warpper for indexes, defines structures, flags, and options used in the benchmark
 * src/: includes benchmark implementations
-* workloads/: includes source codes to generate workloads
+* workloads/: includes source codes to generate workloads for YCSB-Integer and YCSB-Email
 * index/: includes the evaluated indexes
 * scripts/: includes scripts to run experiments
-* adms/: includes benchmark used in index locality paper (ADMS'20) --- (https://adms-conf.org/2020-camera-ready/ADMS20_03.pdf)
+* adms/: includes a benchmark used in a previous index study (ADMS'20) --- (https://adms-conf.org/2020-camera-ready/ADMS20_03.pdf)
 
 
 ## Indexes ##
 
 This repository includes various in-memory index types such as tries, B+-trees, hybrid structures, and hash table.
 * Tries include Adaptive Radix Tree (ART), and Height Optimized Tree (HOT).
-* B+-trees include OpenBw-tree, top-down latching B+-tree, Blink-tree, and Bepsilon-tree.
-* Hybrid structures include Masstree and Blink-hash.
-* Hash table includes cuckoo hashing.
+* B+-trees include OpenBw-tree, top-down latching B+-tree, and Blink-tree.
+* Hybrid structures include Masstree, and Blink-hash.
+* Hash table includes cuckoo hashing (libcuckoo).
 
 
 ## Compilation ##
 
-Some indexes such as Blink-hash, Masstree and HOT require explicit compilation separately.
-Other indexes such as ART, Bw-tree and Blink-tree are compiled during benchmark compilation.
+Some indexes such as Blink-hash, Masstree, and HOT require explicit compilation separate from the benchmark.
+Other indexes such as ART, Bw-tree, and Blink-tree are compiled during the benchmark compilation.
 
 ```sh
 # pwd = Blink-hsah/
@@ -62,11 +64,6 @@ cd index/Masstree
 
 ## HOT
 cd index/HOT
-mkdir build && cd build
-cmake .. && make -j
-
-## libcuckoo
-cd index/libcuckoo
 mkdir build && cd build
 cmake .. && make -j
 

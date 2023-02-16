@@ -6,7 +6,6 @@
 #include "index/blink/tree_optimized.h"
 #include "index/libcuckoo/libcuckoo/cuckoohash_map.hh"
 #include "index/BTreeOLC/BTreeOLC_adjacent_layout.h"
-//#include "index/b-epsilon-tree/lib/tree_optimized.h"
 #include "index/BwTree/bwtree.h"
 #include "index/masstree/mtIndexAPI.hh"
 #include "index/hot/src/wrapper.h"
@@ -14,9 +13,9 @@
 #include "index/blink-hash-str/lib/tree.h"
 #else
 #include "index/blink-hash/lib/tree.h"
-#endif
 #include "index/blink-buffer/lib/run.h"
 #include "index/blink-buffer-batch/lib/run.h"
+#endif
 
 #ifndef _INDEX_H
 #define _INDEX_H
@@ -28,15 +27,13 @@ template<typename KeyType, class KeyComparator>
 class Index
 {
     public:
-
 	virtual bool insert(KeyType key, uint64_t value, threadinfo *ti) = 0;
 	virtual uint64_t find(KeyType key, std::vector<uint64_t> *v, threadinfo *ti) = 0;
 	virtual bool upsert(KeyType key, uint64_t value, threadinfo *ti) = 0;
 	virtual uint64_t scan(KeyType key, int range, threadinfo *ti) = 0;
 
-	virtual uint64_t find_bwtree_fast(KeyType key, std::vector<uint64_t> *v) {};
-
 	// Used for bwtree only
+	virtual uint64_t find_bwtree_fast(KeyType key, std::vector<uint64_t> *v) {};
 	virtual bool insert_bwtree_fast(KeyType key, uint64_t value) {};
 
 	virtual void getMemory() = 0;
@@ -867,6 +864,7 @@ class BlinkIndex: public Index<KeyType, KeyComparator>
 	BLINK_OPTIMIZED::btree_t<KeyType>* idx;
 };
 
+#ifndef STRING_KEY
 ////////////////////
 /// Blink-buffer ///
 ////////////////////
@@ -971,80 +969,7 @@ class BlinkBufferBatchIndex: public Index<KeyType, KeyComparator>
     private:
 	BLINK_BUFFER_BATCH::run_t<KeyType, uint64_t>* idx;
 };
-
-////////////////////////
-//// B epsilon tree ////
-////////////////////////
-
-/*
-template<typename KeyType, class KeyComparator>
-class BEIndex: public Index<KeyType, KeyComparator>
-{
-    public:
-
-	bool insert(KeyType key, uint64_t value, threadinfo *ti) {
-	    idx->insert(key, value);
-	    return 0;
-	}
-
-	uint64_t find(KeyType key, std::vector<uint64_t> *v, threadinfo *ti) {
-	    auto ret = idx->lookup(key);
-	    v->clear();
-	    v->push_back(ret);
-	    return 0;
-	}
-
-	bool upsert(KeyType key, uint64_t value, threadinfo *ti) {
-	    idx->update(key, value);
-	    return true;
-	}
-
-	uint64_t scan(KeyType key, int range, threadinfo *ti) {
-	    uint64_t buf[range];
-	    auto ret = idx->range_lookup(key, range, buf);
-	    return ret;
-	}
-
-	BEIndex(uint64_t kt){
-	    idx = new B_EPSILON_TREE::betree_t<KeyType, uint64_t>();
-	}
-
-	void getMemory() {
-	/*
-	    uint64_t meta_size, structural_data_occupied, structural_data_unoccupied, key_data_occupied, key_data_unoccupied;
-	    meta_size = structural_data_occupied = structural_data_unoccupied = key_data_occupied = key_data_unoccupied = 0;
-
-	    std::cout << "[Memory Footprint]" << std::endl;
-	    std::cout << "Metadata: \t" << meta_size << std::endl;
-	    std::cout << "Structural_data_occupied: \t" << structural_data_occupied << std::endl;
-	    std::cout << "Structural_data_unoccupied: \t" << structural_data_unoccupied << std::endl;
-	    std::cout << "Key_data_occupied: \t" << key_data_occupied << std::endl;
-	    std::cout << "Key_data_unoccupied: \t" << key_data_unoccupied << std::endl;
- */
-/*
-	}
-	void find_depth(){
-	    //auto ret = idx->check_height();
-	    //std::cout << "height of blink-tree: \t" << ret << std::endl;
-	}
-	void convert(){ }
-
-	#ifdef BREAKDOWN
-	void get_breakdown(uint64_t& time_traversal, uint64_t& time_abort, uint64_t& time_latch, uint64_t& time_node, uint64_t& time_split, uint64_t& time_consolidation){
-	    //time_consolidation = 0;
-	    //idx->get_breakdown(time_traversal, time_abort, time_latch, time_node, time_split);
-	}
-	#endif
-
-	void UpdateThreadLocal(size_t thread_num){ }
-	void AssignGCID(size_t thread_id){ }
-	void UnregisterThread(size_t thread_id) { }
-
-    private:
-	B_EPSILON_TREE::betree_t<KeyType, uint64_t>* idx;
-};
-*/
-
+#endif // ndef STRING_KEY
 
 //////////////////
 /// BTree-OLC  ///

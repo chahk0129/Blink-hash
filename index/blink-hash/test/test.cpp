@@ -118,25 +118,6 @@ int main(int argc, char* argv[]){
     std::cout << "elapsed time: " << elapsed/1000.0 << " usec" << std::endl;
     std::cout << "throughput: " << num_data / (double)(elapsed/1000000000.0) / 1000000 << " mops/sec" << std::endl;
 
-    #ifdef CONVERT
-    uint64_t convert_threads = 64;
-    auto range = [&tree, keys, num_data, convert_threads](uint64_t tid, bool){
-	size_t chunk = num_data / convert_threads;
-	int from = chunk * tid;
-	int to = chunk * (tid + 1);
-	int num = 5;
-	uint64_t buf[num];
-	for(int i=from; i<to; i++){
-	    auto t = tree->getThreadInfo();
-	    auto ret = tree->range_lookup(keys[i], num, buf, t);
-	}
-    };
-    std::cout << "Converting ... " << std::endl;
-    start_threads(tree, convert_threads, range, false);
-    //tree->convert_all();
-    //tree->print();
-    #endif
-
     if(insert_only){
 	std::cout << "Search starts" << std::endl;
 	clock_gettime(CLOCK_MONOTONIC, &start);
@@ -145,27 +126,6 @@ int main(int argc, char* argv[]){
 	elapsed = end.tv_nsec - start.tv_nsec + (end.tv_sec - start.tv_sec)*1000000000;
 	std::cout << "elapsed time: " << elapsed/1000.0 << " usec" << std::endl;
 	std::cout << "throughput: " << num_data / (double)(elapsed/1000000000.0) / 1000000 << " mops/sec" << std::endl;
-
-	bool not_found = false;
-	uint64_t not_found_num = 0;
-	for(int i=0; i<num_threads; i++){
-	    for(auto& it: notfound_keys[i]){
-		not_found_num++;
-		auto t = tree->getThreadInfo();
-		auto ret = tree->lookup(keys[it], t);
-		if(ret != (Value_t)&keys[it]){
-		    not_found = true;
-//		    std::cout << "key " << keys[it] << " not found" << std::endl;
-//		    std::cout << "returned " << ret << "\toriginal " << (Value_t)&keys[it] << std::endl;
-		}
-	    }
-	}
-	std::cout << "# of not found keys: " << not_found_num << std::endl;
-/*
-	if(not_found){
-	    tree->print();
-	}
-	*/
     }
 
     tree->sanity_check();

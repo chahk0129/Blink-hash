@@ -31,8 +31,6 @@ class btree_t{
 	}
 	~btree_t(){ }
 
-	inline void yield(int count);
-
 	int check_height();
 
 	void insert(Key_t key, Value_t value, ThreadInfo& threadEpocheInfo);
@@ -45,14 +43,8 @@ class btree_t{
 
 	Value_t lookup(Key_t key, ThreadInfo& threadEpocheInfo);
 
-	inode_t<Key_t>** new_root_for_adjustment(Key_t* key, node_t** value, int num, int& new_num);
-
-	void batch_insert(Key_t* key, node_t** value, int num, node_t* prev, ThreadInfo& threadEpocheInfo);
-
 	int range_lookup(Key_t min_key, int range, Value_t* buf, ThreadInfo& threadEpocheInfo);
 
-	bool convert(lnode_t<Key_t, Value_t>* leaf, uint64_t version, ThreadInfo& threadEpocheInfo);
-	
 	void convert_all(ThreadInfo& threadEpocheInfo);
 
 	void print_leaf();
@@ -75,9 +67,13 @@ class btree_t{
 
     private:
 	node_t* root;
-
 	Epoche epoche{256};
 
+	bool convert(lnode_t<Key_t, Value_t>* leaf, uint64_t version, ThreadInfo& threadEpocheInfo);
+
+	void batch_insert(Key_t* key, node_t** value, int num, node_t* prev, ThreadInfo& threadEpocheInfo);
+	
+	inode_t<Key_t>** new_root_for_adjustment(Key_t* key, node_t** value, int num, int& new_num);
 };
 }
 #endif

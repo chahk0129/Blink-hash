@@ -51,9 +51,7 @@ int lnode_btree_t<Key_t, Value_t>::insert(Key_t key, Value_t value, uint64_t ver
 	this->write_unlock();
 	return 0;
     }
-    else{ // need split
-	return 1;
-    }
+    return 1; // need split
 }
 
 template <typename Key_t, typename Value_t>
@@ -213,15 +211,7 @@ template <typename Key_t, typename Value_t>
 bool lnode_btree_t<Key_t, Value_t>::update_linear(Key_t key, uint64_t value){
     for(int i=0; i<this->cnt; i++){
 	if(key == entry[i].key){
-	    #ifdef UPDATE_LOCK
-	    auto _value = entry[i].value;
-	    while(!CAS(&entry[i].value, &_value, value)){
-		_mm_pause();
-		_value = entry[i].value;
-	    }
-	    #else
 	    entry[i].value = value;
-	    #endif
 	    return true;
 	}
     }
@@ -258,9 +248,8 @@ Value_t lnode_btree_t<Key_t, Value_t>::find_binary(Key_t key){
 template <typename Key_t, typename Value_t>
 int lnode_btree_t<Key_t, Value_t>::find_pos_linear(Key_t key){
     for(int i=0; i<this->cnt; i++){
-	if(key == entry[i].key){
+	if(key == entry[i].key)
 	    return i;
-	}
     }
     return -1;
 }
@@ -280,7 +269,6 @@ int lnode_btree_t<Key_t, Value_t>::find_pos_binary(Key_t key){
     }while(lower < upper);
     return lower;
 }
-
 
 template class lnode_btree_t<StringKey, value64_t>;
 }

@@ -56,10 +56,6 @@ int main(int argc, char* argv[]){
 		int range = rand() % 100;
 		uint64_t buf[range];
 		auto ret = tree->range_lookup(keys[i], range, buf, t);
-		/*
-		for(int j=0; j<ret; j++){
-		    std::cout << j << ":\tlookup key: " << keys[i] << "\tfound value: " << buf[j] << std::endl;
-		}*/
 	    }
 	}
     };
@@ -88,16 +84,5 @@ int main(int argc, char* argv[]){
     std::cout << "elapsed time: " << elapsed/1000.0 << " usec" << std::endl;
     std::cout << "throughput: " << half / (double)(elapsed/1000000000.0) / 1000000 << " mops/sec" << std::endl;
 
-    uint64_t not_found = 0;
-    for(int i=0; i<half; i++){
-	auto t = tree->getThreadInfo();
-	auto ret = tree->lookup(keys[i], t);
-	if(ret != keys[i])
-	    not_found++;
-    }
-    std::cout << "Not found keys: " << not_found << std::endl;
-
-//tree->print_internal();
-//tree->print_leaf();
     return 0;
 }

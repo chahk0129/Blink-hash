@@ -983,7 +983,7 @@ int main(int argc, char *argv[]) {
 	    ("workload", "Workload type (load,update,read,scan)", cxxopts::value<std::string>())
 	    ("init_num", "Size of workload to load in million records", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.num)))
 	    ("run_num", "Size of workload to run in million records", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.num)))
-	    ("index", "Index type (artolc, artrowex, hot, masstree, btreeolc, blink, bwtree, cuckoo)", cxxopts::value<std::string>())
+	    ("index", "Index type (artolc, artrowex, hot, masstree, btreeolc, blink, bwtree, cuckoo, blinkhash)", cxxopts::value<std::string>())
 	    ("threads", "Number of threads to run", cxxopts::value<uint32_t>()->default_value(std::to_string(opt.threads)))
 	    ("mem", "Measure memory bandwidth", cxxopts::value<bool>()->default_value((opt.mem ? "true" : "false")))
 	    ("profile", "Enable CPU profiling", cxxopts::value<bool>()->default_value((opt.profile? "true" : "false")))
@@ -1087,8 +1087,6 @@ int main(int argc, char *argv[]) {
 	index_type = TYPE_BWTREE;
     else if(opt.index == "btreeolc")
 	index_type = TYPE_BTREEOLC;
-    else if(opt.index == "bepsilon")
-	index_type = TYPE_BEPSILONTREE;
     else if(opt.index == "blink")
 	index_type = TYPE_BLINKTREE;
     else if(opt.index == "blinkhash")

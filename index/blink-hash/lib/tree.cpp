@@ -3,12 +3,6 @@
 namespace BLINK_HASH{
 
 template <typename Key_t, typename Value_t>
-inline void btree_t<Key_t, Value_t>::yield(int count){
-    if(count > 3)
-	sched_yield();
-}
-
-template <typename Key_t, typename Value_t>
 int btree_t<Key_t, Value_t>::check_height(){
     auto ret = utilization();
     return root->level;
@@ -24,9 +18,8 @@ void btree_t<Key_t, Value_t>::insert(Key_t key, Value_t value, ThreadInfo& epoch
 
     bool need_restart = false;
     auto cur_vstart = cur->try_readlock(need_restart);
-    if(need_restart){
+    if(need_restart)
 	goto restart;
-    }
 
     // tree traversal
     while(cur->level != 0){
@@ -82,13 +75,11 @@ void btree_t<Key_t, Value_t>::insert(Key_t key, Value_t value, ThreadInfo& epoch
 	    auto new_node = static_cast<node_t*>(new_leaf);
 	    while(stack_idx > -1){ // backtrack parent nodes
 		old_parent = stack[stack_idx];
-
 	    	parent_restart:
 		need_restart = false;
 		auto parent_vstart = old_parent->try_readlock(need_restart);
-		if(need_restart){
+		if(need_restart)
 		    goto parent_restart;
-		}
 
 		while(old_parent->sibling_ptr && (old_parent->high_key < split_key)){
 		    auto p_sibling = old_parent->sibling_ptr;
@@ -139,12 +130,10 @@ void btree_t<Key_t, Value_t>::insert(Key_t key, Value_t value, ThreadInfo& epoch
 			auto new_root = new inode_t<Key_t>(_split_key, old_parent, new_parent, nullptr, old_parent->level+1, new_parent->high_key);
 			root = static_cast<node_t*>(new_root);
 			old_parent->write_unlock();
-			return;
 		    }
-		    else{ // other thread has already created a new root
+		    else // other thread has already created a new root
 			insert_key(_split_key, new_parent, old_parent);
-			return;
-		    }
+		    return;
 		}
 	    }
 	}
@@ -153,12 +142,9 @@ void btree_t<Key_t, Value_t>::insert(Key_t key, Value_t value, ThreadInfo& epoch
 		auto new_root = new inode_t<Key_t>(split_key, leaf, new_leaf, nullptr, root->level+1, (static_cast<lnode_t<Key_t, Value_t>*>(new_leaf))->high_key);
 		root = static_cast<node_t*>(new_root);
 		leaf->write_unlock();
-		return;
 	    }
-	    else{ // other thread has already created a new root
+	    else // other thread has already created a new root
 		insert_key(split_key, new_leaf, leaf);
-		return;
-	    }
 	}
     }
 }
@@ -217,7 +203,6 @@ void btree_t<Key_t, Value_t>::insert_key(Key_t key, node_t* value, node_t* prev)
     if(!node->is_full()){
 	node->insert(key, value);
 	node->write_unlock();
-	return;
     }
     else{
 	Key_t split_key;
@@ -231,15 +216,11 @@ void btree_t<Key_t, Value_t>::insert_key(Key_t key, node_t* value, node_t* prev)
 	    auto new_root = new inode_t<Key_t>(split_key, node, new_node, nullptr, node->level+1, new_node->high_key);
 	    root = static_cast<node_t*>(new_root);
 	    node->write_unlock();
-	    return;
 	}
-	else{ // other thread has already created a new root
+	else // other thread has already created a new root
 	    insert_key(split_key, new_node, node);
-	    return;
-	}
     }
 }
-
 
 template <typename Key_t, typename Value_t>
 bool btree_t<Key_t, Value_t>::update(Key_t key, Value_t value, ThreadInfo& threadEpocheInfo){
@@ -392,7 +373,6 @@ Value_t btree_t<Key_t, Value_t>::lookup(Key_t key, ThreadInfo& threadEpocheInfo)
     auto leaf_vend = leaf->get_version(need_restart);
     if(need_restart || (leaf_vstart != leaf_vend))
 	goto restart;
-
     return ret;
 }
 
@@ -463,9 +443,8 @@ void btree_t<Key_t, Value_t>::batch_insert(Key_t* key, node_t** value, int num, 
 	(static_cast<lnode_t<Key_t, Value_t>*>(prev))->convert_unlock_obsolete();
 	threadEpocheInfo.getEpoche().markNodeForDeletion(prev, threadEpocheInfo);
     }
-    else{
+    else
 	prev->write_unlock();
-    }
 
     auto parent = static_cast<inode_t<Key_t>*>(cur);
     int new_num = 0;
@@ -486,10 +465,8 @@ void btree_t<Key_t, Value_t>::batch_insert(Key_t* key, node_t** value, int num, 
     for(int i=1; i<new_num; i++)
 	split_key[i] = new_nodes[i-1]->high_key;
 
-    if(parent != root){ // update non-root parent
+    if(parent != root) // update non-root parent
 	batch_insert(split_key, reinterpret_cast<node_t**>(new_nodes), new_num, static_cast<node_t*>(parent), threadEpocheInfo);
-	return;
-    }
     else{ // create new root
 	// TODO: recursive roots
 	while(inode_t<Key_t>::cardinality < new_num){
@@ -503,10 +480,8 @@ void btree_t<Key_t, Value_t>::batch_insert(Key_t* key, node_t** value, int num, 
 	new_root->insert_for_root(split_key, reinterpret_cast<node_t**>(new_nodes), static_cast<node_t*>(parent), new_num);
 	root = new_root;
 	parent->write_unlock();
-	return;
     }
 }
-
 
 template <typename Key_t, typename Value_t>
 int btree_t<Key_t, Value_t>::range_lookup(Key_t min_key, int range, Value_t* buf, ThreadInfo& threadEpocheInfo){
@@ -592,9 +567,8 @@ template <typename Key_t, typename Value_t>
 bool btree_t<Key_t, Value_t>::convert(lnode_t<Key_t, Value_t>* leaf, uint64_t leaf_version, ThreadInfo& threadEpocheInfo){
     int num = 0;
     auto nodes = (static_cast<lnode_hash_t<Key_t, Value_t>*>(leaf))->convert(num, leaf_version);
-    if(nodes == nullptr){
+    if(nodes == nullptr)
 	return false;
-    }
 
     Key_t split_key[num];
     split_key[0] = nodes[0]->high_key;
@@ -610,9 +584,8 @@ template <typename Key_t, typename Value_t>
 void btree_t<Key_t, Value_t>::convert_all(ThreadInfo& threadEpocheInfo){
     EpocheGuard epocheGuard(threadEpocheInfo);
     auto cur = root;
-    while(cur->level != 0){
+    while(cur->level != 0)
 	cur = cur->leftmost_ptr;
-    }
 
     auto leaf = static_cast<lnode_t<Key_t, Value_t>*>(cur);
     bool need_restart = false;
@@ -638,9 +611,8 @@ void btree_t<Key_t, Value_t>::convert_all(ThreadInfo& threadEpocheInfo){
 template <typename Key_t, typename Value_t>
 void btree_t<Key_t, Value_t>::print_leaf(){
     auto cur = root;
-    while(cur->level != 0){
+    while(cur->level != 0)
 	cur = cur->leftmost_ptr;
-    }
     auto leaf = static_cast<lnode_t<Key_t, Value_t>*>(cur);
     int cnt = 1;
     do{
@@ -693,9 +665,8 @@ void btree_t<Key_t, Value_t>::sanity_check(){
 template <typename Key_t, typename Value_t>
 Value_t btree_t<Key_t, Value_t>::find_anyway(Key_t key){
     auto cur = root;
-    while(cur->level != 0){
+    while(cur->level != 0)
 	cur = cur->leftmost_ptr;
-    }
 
     auto leaf = static_cast<lnode_t<Key_t, Value_t>*>(cur);
     lnode_t<Key_t, Value_t>* before;
@@ -750,9 +721,8 @@ template <typename Key_t, typename Value_t>
 double btree_t<Key_t, Value_t>::rightmost_utilization(){
     auto cur = root;
     auto node = cur;
-    while(cur->level != 0){
+    while(cur->level != 0)
 	cur = (static_cast<inode_t<Key_t>*>(cur))->rightmost_ptr();
-    }
 
     auto leaf = static_cast<lnode_t<Key_t, Value_t>*>(cur);
     if(leaf->type == lnode_t<Key_t, Value_t>::HASH_NODE){
@@ -807,9 +777,7 @@ void btree_t<Key_t, Value_t>::footprint(uint64_t& meta, uint64_t& structural_dat
 
 template <typename Key_t, typename Value_t>
 inline int btree_t<Key_t, Value_t>::height(){
-    auto cur = root;
-    return cur->level;
-
+    return root->level;
 }
 
 template <typename Key_t, typename Value_t>

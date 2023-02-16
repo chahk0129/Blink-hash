@@ -779,9 +779,8 @@ int lnode_hash_t<Key_t, Value_t>::range_lookup(Key_t key, Value_t* buf, int coun
     bool lower_bound = true;
     for(int i=0; i<idx; i++){
 	buf[_count++] = _buf[i].value;
-	if(_count == range){
+	if(_count == range)
 	    return _count;
-	}
     }
     return _count;
 }
@@ -1244,12 +1243,10 @@ inline void lnode_hash_t<Key_t, Value_t>::median_util(Key_t* keys, int left, int
 		return;
 	}
 
-	if(partition_idx >= k){
+	if(partition_idx >= k)
 	    return median_util(keys, left, partition_idx-1, k, a, b);
-	}
-	else{
+	else
 	    return median_util(keys, partition_idx+1, right, k, a, b);
-	}
     }
 }
 

@@ -4,16 +4,16 @@ CXX = g++
 CFLAGS = -std=c++17 -g -O3 -march=native
 DEPSDIR := index/masstree/.deps
 DEPCFLAGS = -MD -MF $(DEPSDIR)/$*.d -MP
-MEMMGR = -lpapi -latomic -ltcmalloc_minimal 
+MEMMGR = -lpapi -latomic -ltcmalloc_minimal
 LDFLAGS = -Wno-invalid-offsetof -Wno-deprecated-declarations -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -faligned-new $(DEPCFLAGS) -include index/masstree/config.h -I./
 LDFLAGS += -DBWTREE_NODEBUG -DNDEBUG -mavx -mavx2 -mbmi2 -mlzcnt -mcx16 
 
 INDEX_LIB = obj/artolc.o obj/artrowex.o index/hot/build/src/libhot-rowex.a index/masstree/mtIndexAPI.a obj/bwtree.o index/blink-hash/build/lib/libblinkhash.a index/blink-buffer/build/lib/libblink_buffer.a index/blink-buffer-batch/build/lib/libblink_buffer_batch.a
 INDEX_LIB_SHARED = index/hot/build/src/libhot-rowex.a index/masstree/mtIndexAPI.a index/blink-hash/build/lib/libblinkhash.a index/blink-buffer/build/lib/libblink_buffer.a index/blink-buffer-batch/build/lib/libblink_buffer_batch.a
 INDEX_LIB_HEADER = index/ARTOLC/Tree.h index/ARTROWEX/Tree.h index/masstree/mtIndexAPI.hh index/BwTree/bwtree.h index/hot/src/wrapper.h index/BTreeOLC/BTreeOLC_adjacent_layout.h index/blink/tree_optimized.h index/blink-hash/lib/tree.h index/blink-buffer/lib/run.h index/blink-buffer-batch/lib/run.h
-INDEX_LIB_STRING = obj/artolc.o obj/artrowex.o index/hot/build/src/libhot-rowex-str.a index/masstree/mtIndexAPI.a obj/bwtree.o index/blink-hash-str/build/lib/libblinkhash.a index/blink-buffer/build/lib/libblink_buffer.a index/blink-buffer-batch/build/lib/libblink_buffer_batch.a
-INDEX_LIB_SHARED_STRING = index/hot/build/src/libhot-rowex-str.a index/masstree/mtIndexAPI.a index/blink-hash-str/build/lib/libblinkhash.a index/blink-buffer/build/lib/libblink_buffer.a index/blink-buffer-batch/build/lib/libblink_buffer_batch.a
-INDEX_LIB_HEADER_STRING = index/ARTOLC/Tree.h index/ARTROWEX/Tree.h index/masstree/mtIndexAPI.hh index/BwTree/bwtree.h index/hot/src/wrapper.h index/BTreeOLC/BTreeOLC_adjacent_layout.h index/blink/tree_optimized.h index/blink-hash-str/lib/tree.h index/blink-buffer/lib/run.h index/blink-buffer-batch/lib/run.h
+INDEX_LIB_STRING = obj/artolc.o obj/artrowex.o index/hot/build/src/libhot-rowex-str.a index/masstree/mtIndexAPI.a obj/bwtree.o index/blink-hash-str/build/lib/libblinkhash.a
+INDEX_LIB_SHARED_STRING = index/hot/build/src/libhot-rowex-str.a index/masstree/mtIndexAPI.a index/blink-hash-str/build/lib/libblinkhash.a
+INDEX_LIB_HEADER_STRING = index/ARTOLC/Tree.h index/ARTROWEX/Tree.h index/masstree/mtIndexAPI.hh index/BwTree/bwtree.h index/hot/src/wrapper.h index/BTreeOLC/BTreeOLC_adjacent_layout.h index/blink/tree_optimized.h index/blink-hash-str/lib/tree.h
 INDEX_LIB_FLUSH = obj/artolc.o obj/artrowex.o index/hot/build/src/libhot-rowex.a index/masstree/mtIndexAPI.a obj/bwtree.o index/blink-hash/build/lib/libblinkhash.a index/blink-buffer/build/lib/libblink_buffer_flush.a index/blink-buffer-batch/build/lib/libblink_buffer_batch_flush.a
 INDEX_LIB_BREAKDOWN = obj/artolc_breakdown.o obj/artrowex_breakdown.o index/hot/build/src/libhot-rowex-breakdown.a index/masstree/mtIndexAPI.a obj/bwtree_breakdown.o index/blink-hash/build/lib/libblinkhash.a index/blink-buffer/build/lib/libblink_buffer.a index/blink-buffer-batch/build/lib/libblink_buffer_batch.a
 INDEX_LIB_SHARED_BREAKDOWN = index/hot/build/src/libhot-rowex-breakdown.a index/masstree/mtIndexAPI.a index/blink-hash/build/lib/libblinkhash.a index/blink-buffer/build/lib/libblink_buffer.a index/blink-buffer-batch/build/lib/libblink_buffer_batch.a

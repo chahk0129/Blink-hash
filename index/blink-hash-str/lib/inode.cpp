@@ -14,17 +14,14 @@ inline int inode_t<Key_t>::find_lowerbound(Key_t& key){
 
 template <typename Key_t>
 inline node_t* inode_t<Key_t>::scan_node(Key_t key){
-    if(sibling_ptr && (high_key < key)){
+    if(sibling_ptr && (high_key < key))
 	return sibling_ptr;
-    }
     else{
 	int idx = find_lowerbound(key);
-	if(idx > -1){
+	if(idx > -1)
 	    return entry[idx].value;
-	}
-	else{
+	else
 	    return leftmost_ptr;
-	}
     }
 }
 
@@ -62,68 +59,81 @@ inode_t<Key_t>* inode_t<Key_t>::split(Key_t& split_key){
     return new_node;
 }
 
+template <typename Key_t>
+void inode_t<Key_t>::batch_migrate(entry_t<Key_t, node_t*>* migrate, int& migrate_idx, int migrate_num){
+    leftmost_ptr = migrate[migrate_idx++].value;
+    int copy_num = migrate_num - migrate_idx;
+    memcpy(entry, &migrate[migrate_idx], sizeof(entry_t<Key_t, node_t*>) * copy_num);
+    cnt += copy_num;
+    migrate_idx += copy_num;
+}
+
+template <typename Key_t>
+bool inode_t<Key_t>::batch_kvpair(Key_t* key, node_t** value, int& idx, int num, int batch_size){
+    for(; cnt<batch_size && idx<num-1; cnt++, idx++){
+        entry[cnt].key = key[idx];
+        entry[cnt].value = value[idx];
+    }
+
+    if(cnt == batch_size){ // insert in the next node
+        high_key = key[idx];
+        return true;
+    }
+
+    entry[cnt].key = key[idx];
+    entry[cnt].value = value[idx];
+    cnt++, idx++;
+    return false;
+}
+
+template <typename Key_t>
+void inode_t<Key_t>::batch_buffer(entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num, int batch_size){
+    for(; cnt<batch_size && buf_idx<buf_num-1; cnt++, buf_idx++){
+        entry[cnt].key = buf[buf_idx].key;
+        entry[cnt].value = buf[buf_idx].value;
+    }
+
+    if(cnt == batch_size){ // insert in the next node
+        high_key = buf[buf_idx].key;
+        return;
+    }
+
+    entry[cnt].key = buf[buf_idx].key;
+    entry[cnt].value = buf[buf_idx].value;
+    cnt++, buf_idx++;
+}
+
+
 // batch insert with migration and movement
 template <typename Key_t>
 void inode_t<Key_t>::batch_insert_last_level(entry_t<Key_t, node_t*>* migrate, int& migrate_idx, int migrate_num, Key_t* key, node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num){
     bool from_start = true;
     if(migrate_idx < migrate_num){
 	from_start = false;
-	leftmost_ptr = migrate[migrate_idx++].value;
-	int copy_num = migrate_num - migrate_idx;
-	memcpy(entry, &migrate[migrate_idx], sizeof(entry_t<Key_t, node_t*>) * copy_num);
-	cnt += copy_num;
-	migrate_idx += copy_num;
+	batch_migrate(migrate, migrate_idx, migrate_num);
     }
 
     if(idx < num && cnt < batch_size){
-	if(from_start){
+	if(from_start)
 	    leftmost_ptr = value[idx++];
-	}
 	from_start = false;
 	if(idx < num){
-	    for(; cnt<batch_size && idx<num-1; cnt++, idx++){
-		entry[cnt].key = key[idx];
-		entry[cnt].value = value[idx];
-	    }
+	    if(batch_kvpair(key, value, idx, num, batch_size))
+                return;
 
-	    if(cnt == batch_size){ // insert in next node
-		high_key = key[idx];
-		return;
-	    }
-	    else{
-		entry[cnt].key = key[idx];
-		entry[cnt].value = value[idx];
-		cnt++, idx++;
-		if(idx == num && cnt == batch_size && buf_num != 0){
-		    high_key = buf[buf_idx].key;
-		    return;
-		}
-	    }
+            if(idx == num && cnt == batch_size && buf_num != 0){
+                high_key = buf[buf_idx].key;
+                return;
+            }
 	}
     }
 
     if(buf_idx < buf_num && cnt < batch_size){
-	if(from_start){
+	if(from_start)
 	    leftmost_ptr = buf[buf_idx++].value;
-	}
-	for(; cnt<batch_size && buf_idx<buf_num-1; cnt++, buf_idx++){
-	    entry[cnt].key = buf[buf_idx].key;
-	    entry[cnt].value = buf[buf_idx].value;
-	}
-
-	if(cnt == batch_size){ // insert in next node
-	    high_key = buf[buf_idx].key;
-	    return;
-	}
-	else{
-	    entry[cnt].key = buf[buf_idx].key;
-	    entry[cnt].value = buf[buf_idx].value;
-	    cnt++, buf_idx++;
-	}
+	batch_buffer(buf, buf_idx, buf_num, batch_size);
     }
 }
-
-
 
 // batch insert with and movement
 template <typename Key_t>
@@ -133,48 +143,46 @@ void inode_t<Key_t>::batch_insert_last_level(Key_t* key, node_t** value, int& id
 	leftmost_ptr = value[idx++];
 	from_start = false;
 	if(idx < num){
-	    for(; cnt<batch_size && idx<num-1; cnt++, idx++){
-		entry[cnt].key = key[idx];
-		entry[cnt].value = value[idx];
-	    }
+	    if(batch_kvpair(key, value, idx, num, batch_size))
+                return;
 
-	    if(cnt == batch_size){ // insert in next node
-		high_key = key[idx];
-		return;
-	    }
-	    else{
-		entry[cnt].key = key[idx];
-		entry[cnt].value = value[idx];
-		idx++, cnt++;
-		if(idx == num && cnt == batch_size && buf_num != 0){
-		    high_key = buf[buf_idx].key;
-		    return;
-		}
-	    }
+            if(idx == num && cnt == batch_size && buf_num != 0){
+                high_key = buf[buf_idx].key;
+                return;
+            }
 	}
     }
 
     if(buf_idx < buf_num && cnt < batch_size){
-	if(from_start){
+	if(from_start)
 	    leftmost_ptr = buf[buf_idx++].value;
-	}
-
-	for(; cnt<batch_size && buf_idx<buf_num-1; cnt++, buf_idx++){
-	    entry[cnt].key = buf[buf_idx].key;
-	    entry[cnt].value = buf[buf_idx].value;
-	}
-	if(cnt == batch_size){ // insert in next node
-	    high_key = buf[buf_idx].key;
-	    return;
-	}
-	else{
-	    entry[cnt].key = buf[buf_idx].key;
-	    entry[cnt].value = buf[buf_idx].value;
-	    cnt++, buf_idx++;
-	}
+	batch_buffer(buf, buf_idx, buf_num, batch_size);
     }
 }
 
+template <typename Key_t>
+void inode_t<Key_t>::calculate_node_num(int total_num, int& numerator, int& remains, int& last_chunk, int& new_num, int batch_size){
+    if(numerator == 0){ // need only one new node
+        new_num = 1;
+        last_chunk = remains;
+        return;
+    }
+    // multiple new nodes
+    if(remains == 0){ // exact match
+        new_num = numerator;
+        last_chunk = batch_size;
+    }
+    else{
+        if(remains < cardinality - batch_size){ // can be squeezed into the last new node
+            new_num = numerator;
+            last_chunk = batch_size + remains;
+        }
+        else{ // need extra new node
+            new_num = numerator + 1;
+            last_chunk = remains;
+        }
+    }
+}
 
 template <typename Key_t>
 inode_t<Key_t>** inode_t<Key_t>::batch_insert_last_level(Key_t* key, node_t** value, int num, int& new_num){
@@ -190,29 +198,24 @@ inode_t<Key_t>** inode_t<Key_t>::batch_insert_last_level(Key_t* key, node_t** va
 
     if(inplace){ // normal insertion
 	move_normal_insertion(pos, num, move_num);
-	if(pos < 0){ // leftmost ptr
+	if(pos < 0) // leftmost ptr
 	    leftmost_ptr = value[idx++];
-	}
-	else{
+	else
 	    entry[pos].value = value[idx++];
-	}
 
 	for(int i=pos+1; i<pos+num+1; i++, idx++){
 	    entry[i].key = key[idx];
 	    entry[i].value = value[idx];
 	}
-
 	cnt += num-1;
 	return nullptr;
     }
     else{
 	auto prev_high_key = high_key;
-	if(pos < 0){ // leftmost ptr
+	if(pos < 0) // leftmost ptr
 	    leftmost_ptr = value[idx++];
-	}
-	else{
+	else
 	    entry[pos].value = value[idx++];
-	}
 
 	if(batch_size < pos){ // need insert in the middle (migrated + new kvs + moved)
 	    int migrate_num = pos - batch_size;
@@ -227,26 +230,7 @@ inode_t<Key_t>** inode_t<Key_t>::batch_insert_last_level(Key_t* key, node_t** va
 	    int last_chunk = 0;
 	    int numerator = total_num / (batch_size+1);
 	    int remains = total_num % (batch_size+1);
-	    if(numerator == 0){ // need only one new node
-		new_num = 1;
-		last_chunk = remains;
-	    }
-	    else{ // multiple new nodes
-		if(remains == 0){ // exact match
-		    new_num = numerator;
-		    last_chunk = batch_size;
-		}
-		else{
-		    if(remains < cardinality - batch_size){ // can be squeezed into the last new node
-			new_num = numerator;
-			last_chunk = batch_size + remains;
-		    }
-		    else{ // need extra new node
-			new_num = numerator + 1;
-			last_chunk = remains;
-		    }
-		}
-	    }
+	    calculate_node_num(total_num, numerator, remains, last_chunk, new_num, batch_size);
 
 	    auto new_nodes = new inode_t<Key_t>*[new_num];
 	    for(int i=0; i<new_num; i++)
@@ -266,7 +250,6 @@ inode_t<Key_t>** inode_t<Key_t>::batch_insert_last_level(Key_t* key, node_t** va
 	    new_nodes[new_num-1]->sibling_ptr = old_sibling;
 	    new_nodes[new_num-1]->batch_insert_last_level(migrate, migrate_idx, migrate_num, key, value, idx, num, last_chunk, buf, move_idx, move_num);
 	    new_nodes[new_num-1]->high_key = prev_high_key;
-
 	    return new_nodes;
 	}
 	else{ // need insert in the middle (new_kvs + moved)
@@ -285,37 +268,16 @@ inode_t<Key_t>** inode_t<Key_t>::batch_insert_last_level(Key_t* key, node_t** va
 		entry[cnt].value = buf[move_idx].value;
 	    }
 
-	    if(idx < num){
+	    if(idx < num)
 		high_key = key[idx];
-	    }
-	    else{
+	    else
 		high_key = buf[move_idx].key;
-	    }
 
 	    int total_num = num - idx + move_num - move_idx;
 	    int last_chunk = 0;
 	    int numerator = total_num / (batch_size+1);
 	    int remains = total_num % (batch_size+1);
-	    if(numerator == 0){ // need only one new node
-		new_num = 1;
-		last_chunk = remains;
-	    }
-	    else{ // multiple new nodes
-		if(remains == 0){ // exact match
-		    new_num = numerator;
-		    last_chunk = batch_size;
-		}
-		else{
-		    if(remains < cardinality - batch_size){ // can be squeezed into the last new node
-			new_num = numerator;
-			last_chunk = batch_size + remains;
-		    }
-		    else{ // need extra new node
-			new_num = numerator + 1;
-			last_chunk = remains;
-		    }
-		}
-	    }
+	    calculate_node_num(total_num, numerator, remains, last_chunk, new_num, batch_size);
 
 	    auto new_nodes = new inode_t<Key_t>*[new_num];
 	    for(int i=0; i<new_num; i++)
@@ -331,7 +293,6 @@ inode_t<Key_t>** inode_t<Key_t>::batch_insert_last_level(Key_t* key, node_t** va
 	    new_nodes[new_num-1]->sibling_ptr = old_sibling;
 	    new_nodes[new_num-1]->batch_insert_last_level(key, value, idx, num, last_chunk, buf, move_idx, move_num);
 	    new_nodes[new_num-1]->high_key = prev_high_key;
-
 	    return new_nodes;
 	}
     }
@@ -343,57 +304,25 @@ void inode_t<Key_t>::batch_insert(entry_t<Key_t, node_t*>* migrate, int& migrate
     bool from_start = true;
     if(migrate_idx < migrate_num){
 	from_start = false;
-	leftmost_ptr = migrate[migrate_idx++].value;
-	int copy_num = migrate_num - migrate_idx;
-	memcpy(entry, &migrate[migrate_idx], sizeof(entry_t<Key_t, node_t*>) * copy_num);
-	cnt += copy_num;
-	migrate_idx += copy_num;
+	batch_migrate(migrate, migrate_idx, migrate_num);
     }
 
     if(idx < num && cnt < batch_size){
-	if(from_start){
+	if(from_start)
 	    leftmost_ptr = value[idx++];
-	}
 	from_start = false;
 	if(idx < num){
-	    for(; cnt<batch_size && idx<num-1; cnt++, idx++){
-		entry[cnt].key = key[idx];
-		entry[cnt].value = value[idx];
-	    }
-
-	    if(cnt == batch_size){ // insert in next node
-		high_key = key[idx];
-		return;
-	    }
-	    else{
-		entry[cnt].key = key[idx];
-		entry[cnt].value = value[idx];
-		idx++, cnt++;
-		if(idx == num && cnt == batch_size && buf_num != 0){
-		    high_key = buf[buf_idx].key;
-		}
-	    }
-	}
+	    if(batch_kvpair(key, value, idx, num, batch_size))
+                return;
+            if(idx == num && cnt == batch_size && buf_num != 0)
+                high_key = buf[buf_idx].key;
+        }
     }
 
     if(buf_idx < buf_num && cnt < batch_size){
-	if(from_start){
+	if(from_start)
 	    leftmost_ptr = buf[buf_idx++].value;
-	}
-	for(; cnt<batch_size && buf_idx<buf_num-1; cnt++, buf_idx++){
-	    entry[cnt].key = buf[buf_idx].key;
-	    entry[cnt].value = buf[buf_idx].value;
-	}
-
-	if(cnt == batch_size){ // insert in next node
-	    high_key = buf[buf_idx].key;
-	    return;
-	}
-	else{
-	    entry[cnt].key = buf[buf_idx].key;
-	    entry[cnt].value = buf[buf_idx].value;
-	    cnt++, buf_idx++;
-	}
+ 	batch_buffer(buf, buf_idx, buf_num, batch_size);
     }
 }
 
@@ -402,47 +331,21 @@ template <typename Key_t>
 void inode_t<Key_t>::batch_insert(Key_t* key, node_t** value, int& idx, int num, int batch_size, entry_t<Key_t, node_t*>* buf, int& buf_idx, int buf_num){
     bool from_start = true;
     if(idx < num){
-	leftmost_ptr = value[idx++];
 	from_start = false;
+	leftmost_ptr = value[idx++];
 	if(idx < num){
-	    for(; cnt<batch_size && idx<num-1; cnt++, idx++){
-		entry[cnt].key = key[idx];
-		entry[cnt].value = value[idx];
-	    }
+	    if(batch_kvpair(key, value, idx, num, batch_size))
+                return;
 
-	    if(cnt == batch_size){ // insert in next node
-		high_key = key[idx];
-		return;
-	    }
-	    else{
-		entry[cnt].key = key[idx];
-		entry[cnt].value = value[idx];
-		idx++, cnt++;
-		if(idx == num && cnt == batch_size && buf_num != 0){
-		    high_key = buf[buf_idx].key;
-		}
-	    }
+            if(idx == num && cnt == batch_size && buf_num != 0)
+                high_key = buf[buf_idx].key;
 	}
     }
 
     if(buf_idx < buf_num && cnt < batch_size){
-	if(from_start){
+	if(from_start)
 	    leftmost_ptr = buf[buf_idx++].value;
-	}
-
-	for(; cnt<batch_size && buf_idx<buf_num-1; cnt++, buf_idx++){
-	    entry[cnt].key = buf[buf_idx].key;
-	    entry[cnt].value = buf[buf_idx].value;
-	}
-	if(cnt == batch_size){ // insert in next node
-	    high_key = buf[buf_idx].key;
-	    return;
-	}
-	else{
-	    entry[cnt].key = buf[buf_idx].key;
-	    entry[cnt].value = buf[buf_idx].value;
-	    cnt++, buf_idx++;
-	}
+	batch_buffer(buf, buf_idx, buf_num, batch_size);
     }
 }
 
@@ -481,26 +384,7 @@ inode_t<Key_t>** inode_t<Key_t>::batch_insert(Key_t* key, node_t** value, int nu
 	    int last_chunk = 0;
 	    int numerator = total_num / (batch_size+1);
 	    int remains = total_num % (batch_size+1);
-	    if(numerator == 0){ // need only one new node
-		new_num = 1;
-		last_chunk = remains;
-	    }
-	    else{ // multiple new nodes
-		if(remains == 0){ // exact match
-		    new_num = numerator;
-		    last_chunk = batch_size;
-		}
-		else{
-		    if(remains < cardinality - batch_size){ // can be squeezed into the last new node
-			new_num = numerator;
-			last_chunk = batch_size + remains;
-		    }
-		    else{ // need extra new node
-			new_num = numerator + 1;
-			last_chunk = remains;
-		    }
-		}
-	    }
+	    calculate_node_num(total_num, numerator, remains, last_chunk, new_num, batch_size);
 
 	    auto new_nodes = new inode_t<Key_t>*[new_num];
 	    for(int i=0; i<new_num; i++)
@@ -521,7 +405,6 @@ inode_t<Key_t>** inode_t<Key_t>::batch_insert(Key_t* key, node_t** value, int nu
 	    new_nodes[new_num-1]->sibling_ptr = old_sibling;
 	    new_nodes[new_num-1]->high_key = prev_high_key;
 	    new_nodes[new_num-1]->batch_insert(migrate, migrate_idx, migrate_num, key, value, idx, num, last_chunk, buf, move_idx, move_num);
-
 	    return new_nodes;
 	}
 	else{ // need insert in the middle (new_kvs + moved)
@@ -541,37 +424,16 @@ inode_t<Key_t>** inode_t<Key_t>::batch_insert(Key_t* key, node_t** value, int nu
 	    }
 	    auto prev_high_key = high_key;
 
-	    if(idx < num){
+	    if(idx < num)
 		high_key = key[idx];
-	    }
-	    else{
+	    else
 		high_key = buf[move_idx].key;
-	    }
 
 	    int total_num = num - idx + move_num - move_idx;
 	    int last_chunk = 0;
 	    int numerator = total_num / (batch_size+1);
 	    int remains = total_num % (batch_size+1);
-	    if(numerator == 0){ // need only one new node
-		new_num = 1;
-		last_chunk = remains;
-	    }
-	    else{ // multiple new nodes
-		if(remains == 0){ // exact match
-		    new_num = numerator;
-		    last_chunk = batch_size;
-		}
-		else{
-		    if(remains < cardinality - batch_size){ // can be squeezed into the last new node
-			new_num = numerator;
-			last_chunk = batch_size + remains;
-		    }
-		    else{ // need extra new node
-			new_num = numerator + 1;
-			last_chunk = remains;
-		    }
-		}
-	    }
+	    calculate_node_num(total_num, numerator, remains, last_chunk, new_num, batch_size);
 
 	    auto new_nodes = new inode_t<Key_t>*[new_num];
 	    for(int i=0; i<new_num; i++)
@@ -587,7 +449,6 @@ inode_t<Key_t>** inode_t<Key_t>::batch_insert(Key_t* key, node_t** value, int nu
 	    new_nodes[new_num-1]->sibling_ptr = old_sibling;
 	    new_nodes[new_num-1]->high_key = prev_high_key;
 	    new_nodes[new_num-1]->batch_insert(key, value, idx, num, last_chunk, buf, move_idx, move_num);
-
 	    return new_nodes;
 	}
     }
@@ -619,9 +480,8 @@ template <typename Key_t>
 inline int inode_t<Key_t>::lowerbound_linear(Key_t key){
     int count = cnt;
     for(int i=0; i<count; i++){
-	if(key <= entry[i].key){
+	if(key <= entry[i].key)
 	    return i-1;
-	}
     }
     return count-1;
 }

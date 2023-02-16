@@ -65,7 +65,6 @@ class node_t{
 	int cnt;
 	int level;
 
-
 	node_t(): lock(0b0), sibling_ptr(nullptr), leftmost_ptr(nullptr), cnt(0), level(0){ }
 	node_t(node_t* sibling, node_t* left, int count, int _level): lock(0b0), sibling_ptr(sibling), leftmost_ptr(left), cnt(count), level(_level) { }
 	node_t(node_t* sibling, node_t* left, int count, int _level, bool): lock(0b0), sibling_ptr(sibling), leftmost_ptr(left), cnt(count), level(_level) { }
@@ -151,8 +150,6 @@ class node_t{
 	void write_unlock_obsolete(){
 	    lock.fetch_sub(0b11);
 	}
-
 };
-
 }
 #endif
