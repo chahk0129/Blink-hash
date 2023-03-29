@@ -8,6 +8,7 @@ For more details, please refer to our [paper](https://www.vldb.org/pvldb/vol16/p
 ## Benchmark ##
 
 The evaluation benchmark of $B^{link}$-hash extends the [index-microbench](https://github.com/wangziqi2016/index-microbench) that is used to evaluate [OpenBw-tree](https://doi.org/10.1145/3183713.3196895).
+The extension includes adding benchmarks for other workload type, utility functions for latency and cache statistics measurement, and additional index support.
 
 
 ## Dependencies ##
