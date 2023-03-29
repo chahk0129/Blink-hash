@@ -3,7 +3,7 @@ $B^{link}$-hash
 
 $B^{link}$-hash is an in-memory hybrid index for time-series databases.
 It enhances a tree-based index with hash leaf nodes to mitigate high contention of monotonic insertions in time-series workload by distributing thread accesses to multiple buckets within a hash node.
-For more details, please refer to our paper [$B^{link}$-hash](https://www.vldb.org/pvldb/vol16/p1235-cha.pdf) in VLDB 2023.
+For more details, please refer to our [paper](https://www.vldb.org/pvldb/vol16/p1235-cha.pdf) in VLDB 2023.
 
 ## Benchmark ##
 
@@ -40,7 +40,7 @@ Time-series workload uses timestamp keys that are generated with `rdtsc()` instr
 
 This repository includes various in-memory index types such as tries, B+-trees, hybrid structures, and a hash table.
 * Tries include [Adaptive Radix Tree (ART)](https://ieeexplore.ieee.org/document/6544812), and [Height Optimized Tree (HOT)](https://dl.acm.org/doi/10.1145/3183713.3196896).
-* B+-trees include [OpenBw-tree](https://dl.acm.org/doi/10.1145/3183713.3196895), top-down latching B+-tree, and [$B^{link}$-tree](https://dl.acm.org/doi/10.1145/319628.319663).
+* B+-trees include [OpenBw-tree](https://dl.acm.org/doi/10.1145/3183713.3196895), top-down latching B+-tree, and [Blink-tree](https://dl.acm.org/doi/10.1145/319628.319663).
 * Hybrid structures include [Masstree](https://dl.acm.org/doi/10.1145/2168836.2168855), and $B^{link}$-hash.
 * Hash table includes [cuckoo hashing (libcuckoo)](https://dl.acm.org/doi/10.1145/2592798.2592820).
 
