@@ -1,0 +1,2 @@
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar qc libblinkhash_async.a CMakeFiles/blinkhash_async.dir/Epoche.cpp.o CMakeFiles/blinkhash_async.dir/hash.cpp.o CMakeFiles/blinkhash_async.dir/inode.cpp.o CMakeFiles/blinkhash_async.dir/lnode.cpp.o CMakeFiles/blinkhash_async.dir/lnode_btree.cpp.o CMakeFiles/blinkhash_async.dir/lnode_hash.cpp.o CMakeFiles/blinkhash_async.dir/tree.cpp.o
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ranlib libblinkhash_async.a

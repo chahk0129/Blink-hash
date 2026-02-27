@@ -5,6 +5,9 @@
 #include "lnode.h"
 #include "Epoche.h"
 #include "Epoche.cpp"
+#include <queue>
+#include <mutex>
+#include <condition_variable>
 
 namespace BLINK_HASH{
 
@@ -28,8 +31,15 @@ class btree_t{
 	    #ifndef FINGERPRINT
 	    memset(&EMPTY<Key_t>, 0, sizeof(EMPTY<Key_t>));
 	    #endif
+		#ifdef ASYNC_ADAPT
+		start_convert_workers();
+		#endif
 	}
-	~btree_t(){ }
+	~btree_t(){ 
+    #ifdef ASYNC_ADAPT
+    stop_convert_workers();
+    #endif
+	}
 
 	int check_height();
 
@@ -68,6 +78,28 @@ class btree_t{
     private:
 	node_t* root;
 	Epoche epoche{256};
+	#ifdef ASYNC_ADAPT
+
+	
+		struct ConvertRequest {
+			node_t* node;            // the hash leaf to convert
+			uint64_t version_hint;   // snapshot version 
+		};
+
+		std::mutex convert_mu;
+		std::condition_variable convert_cv;
+		std::queue<ConvertRequest> convert_queue;
+		std::vector<std::thread> convert_workers;
+		std::atomic<bool> convert_shutdown{false};
+
+		static constexpr int CONVERT_WORKERS = 2;  // tunable
+
+		void convert_worker_loop();
+		void signal_convert(node_t* node, uint64_t version);
+		void start_convert_workers();
+		void stop_convert_workers();
+
+	#endif
 
 	bool convert(lnode_t<Key_t, Value_t>* leaf, uint64_t version, ThreadInfo& threadEpocheInfo);
 

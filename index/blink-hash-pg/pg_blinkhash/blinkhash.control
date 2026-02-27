@@ -1,0 +1,5 @@
+# blinkhash extension
+comment = 'B^link-hash: adaptive hybrid index (hash + btree) access method'
+default_version = '1.0'
+module_pathname = '$libdir/blinkhash'
+relocatable = true

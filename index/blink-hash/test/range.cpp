@@ -12,9 +12,15 @@ using Value_t = uint64_t;
 using namespace BLINK_HASH;
 
 inline uint64_t _Rdtsc(){
+#if defined(__x86_64__) || defined(_M_X64)
     uint32_t lo, hi;
     asm volatile("rdtsc" : "=a" (lo), "=d" (hi));
     return (((uint64_t)hi << 32 ) | lo);
+#else
+    uint64_t val;
+    asm volatile("mrs %0, cntvct_el0" : "=r" (val));
+    return val;
+#endif
 }
 
 static int core_alloc_map_hyper[] = {
@@ -31,18 +37,19 @@ static int core_alloc_map_hyper[] = {
 constexpr static size_t MAX_CORE_NUM = 64;
 
 inline void pin_to_core(size_t thread_id){
+#ifdef __linux__
     cpu_set_t cpu_set;
     CPU_ZERO(&cpu_set);
-
     size_t core_id = thread_id % MAX_CORE_NUM;
-    //size_t core_id = thread_id % max_core_count;
     CPU_SET(core_alloc_map_hyper[core_id], &cpu_set);
-
     int ret = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set), &cpu_set);
     if(ret != 0){
         std::cerr << __func__ << ": pthread_set_affinity_np returns non-zero" << std::endl;
         exit(0);
     }
+#else
+    (void)thread_id;
+#endif
 }
 
 template <typename Fn, typename... Args>
@@ -74,7 +81,7 @@ int main(int argc, char* argv[]){
     for(int i=0; i<num_data; i++){
 	keys[i] = i+1;
     }
-    std::random_shuffle(keys, keys+num_data);
+    std::shuffle(keys, keys+num_data, std::mt19937{std::random_device{}()});
 
     btree_t<Key_t, Value_t>* tree = new btree_t<Key_t, Value_t>();
     std::cout << "inode_size(" << inode_t<Key_t>::cardinality << "), lnode_btree_size(" << lnode_btree_t<Key_t, Value_t>::cardinality << "), lnode_hash_size(" << lnode_hash_t<Key_t, Value_t>::cardinality << ")" << std::endl;
