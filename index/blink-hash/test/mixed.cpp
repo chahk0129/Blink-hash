@@ -12,9 +12,15 @@ using Value_t = uint64_t;
 using namespace BLINK_HASH;
 
 inline uint64_t _Rdtsc(){
+#if defined(__x86_64__) || defined(_M_X64)
     uint32_t lo, hi;
     asm volatile("rdtsc" : "=a" (lo), "=d" (hi));
     return (((uint64_t)hi << 32 ) | lo);
+#else
+    uint64_t val;
+    asm volatile("mrs %0, cntvct_el0" : "=r" (val));
+    return val;
+#endif
 }
 
 int main(int argc, char* argv[]){
@@ -25,7 +31,7 @@ int main(int argc, char* argv[]){
     for(int i=0; i<num_data; i++){
 	keys[i] = i+1;
     }
-    std::random_shuffle(keys, keys+num_data);
+    std::shuffle(keys, keys+num_data, std::mt19937{std::random_device{}()});
 
     std::vector<std::thread> warmup_threads;
     std::vector<std::thread> mixed_threads;

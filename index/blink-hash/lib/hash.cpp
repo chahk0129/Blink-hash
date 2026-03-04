@@ -3,7 +3,14 @@
 namespace BLINK_HASH{
 
 inline size_t standard(const void* _ptr, size_t _len, size_t _seed){
-    return std::_Hash_bytes(_ptr, _len, _seed);
+    // FNV-1a: portable replacement for std::_Hash_bytes (GCC/libstdc++ internal)
+    size_t hash = _seed ^ size_t(14695981039346656037ULL);
+    const uint8_t* p = static_cast<const uint8_t*>(_ptr);
+    for (size_t i = 0; i < _len; i++) {
+        hash ^= static_cast<size_t>(p[i]);
+        hash *= size_t(1099511628211ULL);
+    }
+    return hash;
 }
 
 // JENKINS HASH FUNCTION
@@ -216,12 +223,15 @@ uint64_t xxhash(const void *data, size_t length, size_t seed)
     return hash_compute(data, length, seed, 0);
 }
 
-static size_t
-(*hash_funcs[4])(const void* key, size_t len, size_t seed) = {
+// xxhash returns uint64_t; on macOS uint64_t != size_t (different integer types)
+// cast explicitly to keep the function-pointer array homogeneous.
+typedef size_t (*hash_func_t)(const void*, size_t, size_t);
+
+static hash_func_t hash_funcs[4] = {
     standard,
     murmur2,
     jenkins,
-    xxhash
+    reinterpret_cast<hash_func_t>(xxhash)
 };
 
 size_t h(const void* key, size_t len, int func_num, size_t seed) {

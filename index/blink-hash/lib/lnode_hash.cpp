@@ -11,7 +11,7 @@ inline bool lnode_hash_t<Key_t, Value_t>::try_splitlock(uint64_t version){
     if(need_restart) return false;
     for(int i=0; i<cardinality; i++){
 	while(!bucket[i].try_lock())
-	    _mm_pause();
+	    cpu_pause();
     }
     return true;
 }
@@ -23,7 +23,7 @@ inline bool lnode_hash_t<Key_t, Value_t>::try_convertlock(uint64_t version){
     if(need_restart) return false;
     for(int i=0; i<cardinality; i++){
 	while(!bucket[i].try_lock())
-	    _mm_pause();
+	    cpu_pause();
     }
     return true;
 }

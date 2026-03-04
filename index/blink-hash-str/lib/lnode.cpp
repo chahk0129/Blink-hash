@@ -153,11 +153,25 @@ int lnode_t<Key_t, Value_t>::range_lookup(Key_t key, Value_t* buf, int count, in
 	case BTREE_NODE:
 	    return (static_cast<lnode_btree_t<Key_t, Value_t>*>(this))->range_lookup(key, buf, count, range, continued);
 	case HASH_NODE:
-	    #ifdef ADAPTATION
-	    if(sibling_ptr != nullptr) // convert flag
-		return -2;
-	    #endif
-	    return (static_cast<lnode_hash_t<Key_t, Value_t>*>(this))->range_lookup(key, buf, count, range);
+		#ifdef ADAPTATION
+		#ifdef ASYNC_ADAPT
+		// Signal background conversion but DO NOT block — let the hash node's range_lookup proceed and return results.
+		if(sibling_ptr != nullptr){
+			auto hash_node = static_cast<lnode_hash_t<Key_t, Value_t>*>(this);
+			uint8_t expected = lnode_hash_t<Key_t, Value_t>::CONVERT_NONE;
+			hash_node->convert_state.compare_exchange_strong(
+				expected,
+				lnode_hash_t<Key_t, Value_t>::CONVERT_PENDING,
+				std::memory_order_acq_rel,
+				std::memory_order_relaxed);
+			// Flag is set; tree::range_lookup will check and enqueue. Fall through to scan the hash node normally.
+		}
+		#else
+		if(sibling_ptr != nullptr) 
+			return -2;
+		#endif
+		#endif
+		return (static_cast<lnode_hash_t<Key_t, Value_t>*>(this))->range_lookup(key, buf, count, range);									
 	default:
 	    std::cerr << __func__ << ": node type error: " << type << std::endl;
 	    return 0;

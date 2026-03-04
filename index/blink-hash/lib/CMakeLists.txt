@@ -38,8 +38,15 @@ file(GLOB Blinkhash_SRC "*.h" "*.cpp")
 #INSTALL(TARGETS linked
 #	ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR})
 
+# Only enable AVX_128 on x86_64; ARM (Apple Silicon) uses the scalar path
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    set(BLINKHASH_EXTRA_DEFS -DAVX_128)
+else()
+    set(BLINKHASH_EXTRA_DEFS)
+endif()
+
 add_library(adapt STATIC ${Blinkhash_SRC})
-target_compile_definitions(adapt PUBLIC -DAVX_128 -DFINGERPRINT -DSAMPLING -DLINKED -DADAPTATION)
+target_compile_definitions(adapt PUBLIC ${BLINKHASH_EXTRA_DEFS} -DFINGERPRINT -DSAMPLING -DLINKED -DADAPTATION)
 target_link_libraries(adapt TBB::tbb)
 INSTALL(TARGETS adapt 
 	ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR})
@@ -47,7 +54,7 @@ INSTALL(TARGETS adapt
 
 
 add_library(blinkhash STATIC ${Blinkhash_SRC})
-target_compile_definitions(blinkhash PUBLIC -DAVX_128 -DFINGERPRINT -DSAMPLING -DLINKED -DADAPTATION)
+target_compile_definitions(blinkhash PUBLIC ${BLINKHASH_EXTRA_DEFS} -DFINGERPRINT -DSAMPLING -DLINKED -DADAPTATION)
 target_link_libraries(blinkhash TBB::tbb)
 INSTALL(TARGETS blinkhash 
 	ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR})
