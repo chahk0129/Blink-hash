@@ -13,8 +13,10 @@
 #include <thread>
 #include "common.h"
 
-#include <x86intrin.h>
-#include <immintrin.h>
+#ifdef __x86_64__
+#  include <x86intrin.h>
+#  include <immintrin.h>
+#endif
 
 namespace BLINK_HASH{
 
@@ -53,8 +55,25 @@ static void dummy(const char*, ...) {}
 
 extern bool print_flag;
 
+// Portable spin-hint: on x86 this is PAUSE; on ARM this is YIELD.
+inline void cpu_pause() noexcept {
+#if defined(__x86_64__) || defined(_M_X64)
+    _mm_pause();
+#elif defined(__aarch64__) || defined(__arm__)
+    __asm__ volatile("yield" ::: "memory");
+#else
+    /* nothing */
+#endif
+}
+
 inline void mfence(void){
+#if defined(__x86_64__) || defined(_M_X64)
     asm volatile("mfence" ::: "memory");
+#elif defined(__aarch64__) || defined(__arm__)
+    __asm__ volatile("dmb ish" ::: "memory");
+#else
+    std::atomic_thread_fence(std::memory_order_seq_cst);
+#endif
 }
 
 class node_t{
@@ -93,7 +112,7 @@ class node_t{
 	uint64_t get_version(bool& need_restart){
 	    uint64_t version = lock.load();
 	    if(is_locked(version) || is_obsolete(version)){
-		_mm_pause();
+		cpu_pause();
 		need_restart = true;
 	    }
 	    return version;
@@ -102,7 +121,7 @@ class node_t{
 	uint64_t try_readlock(bool& need_restart){
 	    uint64_t version = lock.load();
 	    if(is_locked(version) || is_obsolete(version)){
-		_mm_pause();
+		cpu_pause();
 		need_restart = true;
 	    }
 	    return version;
@@ -119,12 +138,12 @@ class node_t{
 	bool try_writelock(){
 	    uint64_t version = lock.load();
 	    if(is_locked(version) || is_obsolete(version)){
-		_mm_pause();
+		cpu_pause();
 		return false;
 	    }
 
 	    if(!lock.compare_exchange_strong(version, version + 0b10)){
-		_mm_pause();
+		cpu_pause();
 		return false;
 	    }
 	    return true;
@@ -138,7 +157,7 @@ class node_t{
 	    }
 
 	    if(!lock.compare_exchange_strong(version, version + 0b10)){
-		_mm_pause();
+		cpu_pause();
 		need_restart = true;
 	    }
 	}

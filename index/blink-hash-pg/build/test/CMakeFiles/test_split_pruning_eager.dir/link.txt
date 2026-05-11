@@ -1,0 +1,1 @@
+/usr/bin/c++ -std=c++17 -fPIC -pthread -march=native -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -faligned-new=64 -g CMakeFiles/test_split_pruning_eager.dir/test_split_pruning.cpp.o -o test_split_pruning_eager  ../lib/libblinkhash_eager.a -lpthread ../wal/libblinkhash_wal_eager.a /usr/lib/x86_64-linux-gnu/libtbb.so.12.11 -luring 

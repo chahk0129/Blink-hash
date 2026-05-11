@@ -1,0 +1,56 @@
+
+[1;36m>>> Creating benchmark database  db=blinkhash_bench  scale=1000[0m
+
+[1;36m>>> 1. Loading 1000 timeseries rows (monotonic bigint ts)[0m
+    Loaded 1000 rows  (ts range 1000000001 .. 1000001000)
+
+[1;36m>>> 2. Index Build (single-column on ts)[0m
+    Index                   Build (ms)          Size
+    ────────────────────────────────────────────────
+    idx_blinkhash_ts             79 ms       0 bytes
+    idx_btree_ts                 70 ms         40 kB
+
+
+[1;36m>>> 3. Point Lookup — 1 000 random  ts = X  queries[0m
+    === blinkhash ===
+                                                        QUERY PLAN                                                         
+---------------------------------------------------------------------------------------------------------------------------
+ Hash Join  (cost=42.75..69.94 rows=500 width=34) (actual time=0.016..0.017 rows=0 loops=1)
+   Hash Cond: (ts_data.ts = lookup_keys.ts)
+   Buffers: shared hit=1
+   ->  Seq Scan on ts_data  (cost=0.00..19.00 rows=1000 width=34) (actual time=0.005..0.005 rows=1 loops=1)
+         Buffers: shared hit=1
+   ->  Hash  (cost=40.25..40.25 rows=200 width=8) (actual time=0.002..0.003 rows=0 loops=1)
+         Buckets: 1024  Batches: 1  Memory Usage: 8kB
+         ->  HashAggregate  (cost=38.25..40.25 rows=200 width=8) (actual time=0.002..0.002 rows=0 loops=1)
+               Group Key: lookup_keys.ts
+               Batches: 1  Memory Usage: 40kB
+               ->  Seq Scan on lookup_keys  (cost=0.00..32.60 rows=2260 width=8) (actual time=0.001..0.001 rows=0 loops=1)
+ Planning:
+   Buffers: shared hit=9
+ Planning Time: 0.118 ms
+ Execution Time: 0.038 ms
+(15 rows)
+
+
+    === btree ===
+                                                        QUERY PLAN                                                         
+---------------------------------------------------------------------------------------------------------------------------
+ Hash Join  (cost=42.75..69.94 rows=500 width=34) (actual time=0.017..0.018 rows=0 loops=1)
+   Hash Cond: (ts_data.ts = lookup_keys.ts)
+   Buffers: shared hit=1
+   ->  Seq Scan on ts_data  (cost=0.00..19.00 rows=1000 width=34) (actual time=0.004..0.004 rows=1 loops=1)
+         Buffers: shared hit=1
+   ->  Hash  (cost=40.25..40.25 rows=200 width=8) (actual time=0.002..0.002 rows=0 loops=1)
+         Buckets: 1024  Batches: 1  Memory Usage: 8kB
+         ->  HashAggregate  (cost=38.25..40.25 rows=200 width=8) (actual time=0.002..0.002 rows=0 loops=1)
+               Group Key: lookup_keys.ts
+               Batches: 1  Memory Usage: 40kB
+               ->  Seq Scan on lookup_keys  (cost=0.00..32.60 rows=2260 width=8) (actual time=0.001..0.001 rows=0 loops=1)
+ Planning:
+   Buffers: shared hit=9
+ Planning Time: 0.098 ms
+ Execution Time: 0.036 ms
+(15 rows)
+
+

@@ -1,0 +1,10 @@
+
+[1;36m>>> Creating benchmark database  db=blinkhash_bench  scale=1000000[0m
+NOTICE:  database "blinkhash_bench" does not exist, skipping
+
+[1;36m>>> 1. Loading 1000000 timeseries rows (monotonic bigint ts)[0m
+    Loaded 1000000 rows  (ts range 1000000001 .. 1001000000)
+
+[1;36m>>> 2. Index Build (single-column on ts)[0m
+    Index                   Build (ms)          Size
+    ────────────────────────────────────────────────

@@ -27,18 +27,20 @@ static int core_alloc_map_hyper[] = {
 
 constexpr static size_t MAX_CORE_NUM = 64;
 inline void pin_to_core(size_t thread_id){
+#ifdef __linux__
     cpu_set_t cpu_set;
     CPU_ZERO(&cpu_set);
-
     size_t core_id = thread_id % MAX_CORE_NUM;
     //size_t core_id = thread_id % max_core_count;
     CPU_SET(core_alloc_map_hyper[core_id], &cpu_set);
-
     int ret = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set), &cpu_set);
     if(ret != 0){
         std::cerr << __func__ << ": pthread_set_affinity_np returns non-zero" << std::endl;
         exit(0);
     }
+#else
+    (void)thread_id;
+#endif
 }
 
 
@@ -59,9 +61,15 @@ void start_threads(btree_t<Key_t, Value_t>* tree, uint64_t num_threads, Fn&& fn,
 }
 
 inline uint64_t Rdtsc(){
+#if defined(__x86_64__) || defined(_M_X64)
     uint32_t lo, hi;
     asm volatile("rdtsc" : "=a" (lo), "=d" (hi));
     return (((uint64_t) hi << 32) | lo);
+#else
+    uint64_t val;
+    asm volatile("mrs %0, cntvct_el0" : "=r" (val));
+    return val;
+#endif
 }
 
 int main(int argc, char* argv[]){

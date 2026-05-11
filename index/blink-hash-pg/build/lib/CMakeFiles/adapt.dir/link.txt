@@ -1,0 +1,2 @@
+/usr/bin/ar qc libadapt.a CMakeFiles/adapt.dir/Epoche.cpp.o CMakeFiles/adapt.dir/hash.cpp.o CMakeFiles/adapt.dir/inode.cpp.o CMakeFiles/adapt.dir/lnode.cpp.o CMakeFiles/adapt.dir/lnode_btree.cpp.o CMakeFiles/adapt.dir/lnode_hash.cpp.o CMakeFiles/adapt.dir/tree.cpp.o
+/usr/bin/ranlib libadapt.a

@@ -1,0 +1,14 @@
+
+[1;36m>>> Creating benchmark database  db=blinkhash_bench  scale=1000000[0m
+
+[1;36m>>> 1. Loading 1000000 timeseries rows (monotonic bigint ts)[0m
+    Loaded 1000000 rows  (ts range 1000000001 .. 1001000000)
+
+[1;36m>>> 2. Index Build (single-column on ts)[0m
+    Index                   Build (ms)          Size
+    ────────────────────────────────────────────────
+    idx_blinkhash_ts            360 ms       0 bytes
+    idx_btree_ts                667 ms         21 MB
+
+
+[1;36m>>> 3. Point Lookup — 1 000 random  ts = X  queries[0m

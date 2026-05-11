@@ -1,0 +1,1 @@
+/usr/bin/c++ -std=c++17 -fPIC -pthread -march=native -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -faligned-new=64 -g CMakeFiles/bench_range_latency_sync.dir/bench_range_latency.cpp.o -o bench_range_latency_sync  ../lib/libadapt.a -lpthread ../wal/libblinkhash_wal.a /usr/lib/x86_64-linux-gnu/libtbb.so.12.11 -luring 

@@ -1,0 +1,2 @@
+/usr/bin/ar qc libblinkhash.a CMakeFiles/blinkhash.dir/Epoche.cpp.o CMakeFiles/blinkhash.dir/hash.cpp.o CMakeFiles/blinkhash.dir/inode.cpp.o CMakeFiles/blinkhash.dir/lnode.cpp.o CMakeFiles/blinkhash.dir/lnode_btree.cpp.o CMakeFiles/blinkhash.dir/lnode_hash.cpp.o CMakeFiles/blinkhash.dir/tree.cpp.o
+/usr/bin/ranlib libblinkhash.a

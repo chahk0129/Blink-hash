@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "entry.h"
+#include "node.h"  // for cpu_pause()
 
 namespace BLINK_HASH{
 
@@ -46,7 +47,7 @@ struct bucket_t{
 	    return false;
 
 	if(!lock.compare_exchange_strong(version, version + 0b10)){
-	    _mm_pause();
+	    cpu_pause();
 	    return false;
 	}
 
@@ -59,7 +60,7 @@ struct bucket_t{
 	    return false;
 
 	if(!lock.compare_exchange_strong(_version, _version + 0b10)){
-	    _mm_pause();
+	    cpu_pause();
 	    return false;
 	}
 

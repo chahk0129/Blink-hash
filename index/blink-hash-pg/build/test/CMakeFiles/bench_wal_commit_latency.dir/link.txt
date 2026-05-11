@@ -1,0 +1,1 @@
+/usr/bin/c++ -std=c++17 -fPIC -pthread -march=native -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -faligned-new=64 -g CMakeFiles/bench_wal_commit_latency.dir/bench_wal_commit_latency.cpp.o -o bench_wal_commit_latency  ../wal/libblinkhash_wal.a -lpthread /usr/lib/x86_64-linux-gnu/libtbb.so.12.11 -luring 

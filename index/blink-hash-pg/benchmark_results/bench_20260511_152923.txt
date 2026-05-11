@@ -1,0 +1,5 @@
+
+[1;36m>>> Creating benchmark database  db=blinkhash_bench  scale=1000[0m
+ERROR:  database "blinkhash_bench" is being accessed by other users
+DETAIL:  There is 1 other session using the database.
+ERROR:  database "blinkhash_bench" already exists

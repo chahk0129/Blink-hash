@@ -1,0 +1,206 @@
+
+[1;36m>>> Creating benchmark database  db=blinkhash_bench  scale=1000000[0m
+
+[1;36m>>> 1. Loading 1000000 timeseries rows (monotonic bigint ts)[0m
+    Loaded 1000000 rows  (ts range 1000000001 .. 1001000000)
+
+[1;36m>>> 2. Index Build (single-column on ts)[0m
+    Index                   Build (ms)          Size
+    ────────────────────────────────────────────────
+    idx_blinkhash_ts            239 ms       0 bytes
+    idx_btree_ts                397 ms         21 MB
+
+
+[1;36m>>> 3. Point Lookup — 1 000 random  ts = X  queries[0m
+    === blinkhash ===
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop  (cost=38.25..837.25 rows=2260 width=34) (actual time=86.546..87.338 rows=1000 loops=1)
+   Buffers: shared hit=9342
+   ->  HashAggregate  (cost=38.25..40.25 rows=200 width=8) (actual time=0.168..0.275 rows=1000 loops=1)
+         Group Key: lookup_keys.ts
+         Batches: 1  Memory Usage: 145kB
+         Buffers: shared hit=8
+         ->  Seq Scan on lookup_keys  (cost=0.00..32.60 rows=2260 width=8) (actual time=0.008..0.044 rows=1000 loops=1)
+               Buffers: shared hit=8
+   ->  Index Scan using idx_blinkhash_ts on ts_data  (cost=0.00..3.97 rows=1 width=34) (actual time=0.087..0.087 rows=1 loops=1000)
+         Index Cond: (ts = lookup_keys.ts)
+         Buffers: shared hit=9334
+ Planning:
+   Buffers: shared hit=168
+ Planning Time: 0.350 ms
+ Execution Time: 87.404 ms
+(15 rows)
+
+
+    === btree ===
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop  (cost=38.67..1694.75 rows=2260 width=34) (actual time=0.164..1.084 rows=1000 loops=1)
+   Buffers: shared hit=4008
+   ->  HashAggregate  (cost=38.25..40.25 rows=200 width=8) (actual time=0.155..0.206 rows=1000 loops=1)
+         Group Key: lookup_keys.ts
+         Batches: 1  Memory Usage: 145kB
+         Buffers: shared hit=8
+         ->  Seq Scan on lookup_keys  (cost=0.00..32.60 rows=2260 width=8) (actual time=0.004..0.038 rows=1000 loops=1)
+               Buffers: shared hit=8
+   ->  Index Scan using idx_btree_ts on ts_data  (cost=0.42..8.26 rows=1 width=34) (actual time=0.001..0.001 rows=1 loops=1000)
+         Index Cond: (ts = lookup_keys.ts)
+         Buffers: shared hit=4000
+ Planning:
+   Buffers: shared hit=154
+ Planning Time: 0.265 ms
+ Execution Time: 1.141 ms
+(15 rows)
+
+
+
+[1;36m>>> 4. Range Scan — recent 1% window  (ts >= 1000990000)[0m
+    === blinkhash ===
+                                                              QUERY PLAN                                                              
+--------------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using idx_blinkhash_ts on ts_data  (cost=0.00..212.79 rows=8986 width=34) (actual time=85.348..85.931 rows=10000 loops=1)
+   Index Cond: ((ts >= 1000990000) AND (ts <= 1001000000))
+   Buffers: shared hit=8418
+ Planning:
+   Buffers: shared hit=91
+ Planning Time: 0.212 ms
+ Execution Time: 86.151 ms
+(7 rows)
+
+
+    === btree ===
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using idx_btree_ts on ts_data  (cost=0.42..361.27 rows=9092 width=34) (actual time=0.010..0.667 rows=10001 loops=1)
+   Index Cond: ((ts >= 1000990000) AND (ts <= 1001000000))
+   Buffers: shared hit=119
+ Planning:
+   Buffers: shared hit=88
+ Planning Time: 0.184 ms
+ Execution Time: 0.899 ms
+(7 rows)
+
+
+
+[1;36m>>> 5. Append Throughput — 100 000 monotonic rows (ts index only)[0m
+    === blinkhash ===
+    Append 100000 rows:  260 ms   (~384615 rows/s)
+
+    === btree ===
+    Append 100000 rows:  291 ms   (~343642 rows/s)
+
+
+[1;36m>>> 6. WAL Generation (50 000 rows, single ts index)[0m
+    Method         Insert (ms)     WAL total     WAL/row (B)  Overhead vs heap
+    ────────────────────────────────────────────────
+    heap-only           135 ms       4663 kB            95.4        baseline
+    blinkhash           186 ms       7804 kB           159.8           67.3%
+    btree               185 ms       7898 kB           161.7           69.3%
+
+
+[1;36m>>> 7. Crash Recovery Simulation (200 000 un-checkpointed rows, both indexes)[0m
+    WAL at crash:        0/4465DE50
+    Rows pending replay: 200000
+    Stopping PostgreSQL (immediate mode)...
+waiting for server to shut down............. failed
+pg_ctl: server does not shut down
+    (pg_ctl stop timed out — killing postmaster)
+    Starting PostgreSQL (WAL replay)...
+pg_ctl: another server might be running; trying to start server anyway
+waiting for server to start.... stopped waiting
+pg_ctl: could not start server
+Examine the log output.
+    Recovery time:   204 ms
+    Rows after:      200000  (expected 200000)
+    Redo log:        (not found)
+
+
+[1;36m>>> 8. Mixed Workload — 10 batches × (5 000 inserts + range scan on ts)[0m
+    === blinkhash ===
+    50k inserts + 10 range scans:  463 ms   (final rows: 150000)
+
+    === btree ===
+    50k inserts + 10 range scans:  169 ms   (final rows: 150000)
+
+
+[1;36m>>> 9. EXPLAIN Plans (both indexes present on ts_data.ts)[0m
+    --- Point lookup: WHERE ts = 1000500000 ---
+                                                          QUERY PLAN                                                           
+-------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using idx_blinkhash_ts on ts_data  (cost=0.00..4.01 rows=1 width=34) (actual time=109.811..109.812 rows=1 loops=1)
+   Index Cond: (ts = 1000500000)
+   Buffers: shared read=8335
+ Planning:
+   Buffers: shared hit=99 read=4
+ Planning Time: 0.309 ms
+ Execution Time: 109.831 ms
+(7 rows)
+
+
+    --- Recent 0.1% window: WHERE ts >= 1000999000 ---
+                                                            QUERY PLAN                                                             
+-----------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using idx_blinkhash_ts on ts_data  (cost=0.00..24.65 rows=910 width=34) (actual time=85.660..85.714 rows=1001 loops=1)
+   Index Cond: (ts >= 1000999000)
+   Buffers: shared hit=43 read=8301
+ Planning:
+   Buffers: shared hit=107 read=3
+ Planning Time: 0.259 ms
+ Execution Time: 85.753 ms
+(7 rows)
+
+
+    --- Aggregation over recent window (GROUP BY device_id) ---
+                                                               QUERY PLAN                                                                
+-----------------------------------------------------------------------------------------------------------------------------------------
+ HashAggregate  (cost=29.20..36.67 rows=598 width=12) (actual time=84.959..85.021 rows=1000 loops=1)
+   Group Key: device_id
+   Batches: 1  Memory Usage: 321kB
+   Buffers: shared hit=75 read=8269
+   ->  Index Scan using idx_blinkhash_ts on ts_data  (cost=0.00..24.65 rows=910 width=12) (actual time=84.728..84.790 rows=1001 loops=1)
+         Index Cond: (ts >= 1000999000)
+         Buffers: shared hit=75 read=8269
+ Planning:
+   Buffers: shared hit=137 read=2 dirtied=1
+ Planning Time: 0.587 ms
+ Execution Time: 85.076 ms
+(11 rows)
+
+
+    --- Latest row per device (DISTINCT ON + ORDER BY ts DESC) ---
+                                                                    QUERY PLAN                                                                    
+--------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=60940.50..63319.83 rows=20 width=20) (actual time=103.485..108.287 rows=20 loops=1)
+   Buffers: shared hit=227 read=8237, temp read=1384 written=4179
+   ->  Unique  (cost=60940.50..179906.98 rows=1000 width=20) (actual time=103.485..108.285 rows=20 loops=1)
+         Buffers: shared hit=227 read=8237, temp read=1384 written=4179
+         ->  Gather Merge  (cost=60940.50..177406.98 rows=1000000 width=20) (actual time=103.484..107.791 rows=19001 loops=1)
+               Workers Planned: 2
+               Workers Launched: 2
+               Buffers: shared hit=227 read=8237, temp read=1384 written=4179
+               ->  Sort  (cost=59940.48..60982.15 rows=416667 width=20) (actual time=98.462..98.878 rows=7089 loops=3)
+                     Sort Key: device_id, ts DESC
+                     Sort Method: external merge  Disk: 10584kB
+                     Buffers: shared hit=227 read=8237, temp read=1384 written=4179
+                     Worker 0:  Sort Method: external merge  Disk: 11000kB
+                     Worker 1:  Sort Method: external merge  Disk: 11728kB
+                     ->  Parallel Seq Scan on ts_data  (cost=0.00..12500.67 rows=416667 width=20) (actual time=0.019..18.870 rows=333333 loops=3)
+                           Buffers: shared hit=97 read=8237
+ Planning:
+   Buffers: shared hit=111
+ Planning Time: 0.220 ms
+ Execution Time: 109.042 ms
+(20 rows)
+
+
+
+[1;36m>>> 10. Summary — index sizes & scan stats (ts_data)[0m
+    index_name    |  method   |  size   | scans | tup_read | tup_fetch 
+------------------+-----------+---------+-------+----------+-----------
+ idx_blinkhash_ts | blinkhash | 0 bytes |     0 |     2003 |      2003
+ idx_btree_ts     | btree     | 21 MB   |     2 |        2 |         2
+(2 rows)
+
+
+[1;36m>>> DONE — report saved to /Users/shakir/Desktop/blinkhash/Blink-hash/index/blink-hash-pg/benchmark_results/bench_20260308_154536.txt[0m

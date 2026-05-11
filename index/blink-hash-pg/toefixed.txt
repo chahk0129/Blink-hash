@@ -1,0 +1,28 @@
+Critical — Data Loss Risk
+#	Location	What's Missing	Difficulty	Impact
+1	blinkhash_wal.c	8 WAL redo handlers are all no-ops — INSERT, DELETE, UPDATE, SPLIT_LEAF, SPLIT_INTERNAL, CONVERT, NEW_ROOT, STABILIZE redo stubs set LSN and mark dirty but never write actual data. After crash recovery, pages are empty/stale.	Hard	Critical — crash = data loss
+2	blinkhash_insert.c	WAL emit uses hardcoded node_id=0, bucket_idx=0 — even if redo is implemented, it can't target the correct leaf/bucket	Medium	Critical — WAL replay goes to wrong page
+3	blinkhash_wal.c	No XLogRegisterBuffer in emission helpers — no full-page images (FPIs) are ever written for blinkhash pages	Hard	Critical — partial-write torn pages unrecoverable
+High — Correctness Issues
+#	Location	What's Missing	Difficulty	Impact
+4	blinkhash_scan.c	Range scan silently truncates at 128K entries (BH_RANGE_BUF_SIZE); amgetbitmap caps at 1024 TIDs — large ranges return incomplete results with no error	Medium	High — wrong query results
+5	blinkhash_utils.c	bh_classify_type silently treats unknown types as integer — NUMERIC, UUID, TIMESTAMPTZ etc. produce wrong key ordering	Easy	High — silent wrong results for unsupported types
+6	blinkhash_insert.c	checkUnique parameter ignored, always returns false — unique constraints on blinkhash indexes silently pass duplicates	Medium	High — constraint violation goes undetected
+Medium — Performance / Operational
+#	Location	What's Missing	Difficulty	Impact
+7	blinkhash_build.c	bh_lazy_rebuild O(N) heap scan per backend — no shared memory (DSM) tree; each new connection rebuilds the whole index	Very Hard	High — 85ms+ penalty per new connection for 1M rows
+8	blinkhash_am.c	Index-only scans disabled (amcanreturn = false) — comment says the infrastructure exists but needs visibility-map integration	Medium	Medium — forces heap-fetch for every result row
+9	blinkhash_scan.c	xs_recheck = true on all range scans — executor rechecks every row, negating index-filter benefit	Easy	Medium — doubles CPU cost on ranges
+10	blinkhash_cost.c	Synthetic page count (Max(1, ceil(tuples/100))) — arbitrary; can mislead planner for large tables	Easy	Medium — planner may pick wrong plan
+11	blinkhash_cost.c	indexCorrelation = 1.0 always — only valid for append-only workloads; updates break this	Easy	Medium — planner overestimates bitmap scan benefit
+Low — Feature Gaps
+#	Location	What's Missing	Difficulty	Impact
+12	blinkhash_handler.c	amcanbackward = false — no backward scans	Medium	Low — ORDER BY DESC can't use the index
+13	blinkhash_handler.c	ampredlocks = false — serializable isolation can't use the index	Medium	Low — limits isolation level support
+14	blinkhash_handler.c	amcanparallel = false — no parallel scans	Hard	Low — large table scans can't parallelize
+15	blinkhash_scan.c	ammarkpos/amrestrpos → elog(ERROR) — merge joins fail at runtime	Medium	Low — planner avoids merge joins anyway
+16	blinkhash_wal.c	rm_desc = NULL — pg_waldump can't decode blinkhash records	Easy	Low — debugging/observability only
+17	blinkhash_vacuum.c	amvacuumcleanup is a near-stub — no page-level cleanup, no FSM	Medium	Low — bloat accumulates over time
+18	blinkhash_validate.c	Operator validation is a stub — only checks type OID, doesn't verify pg_amop/pg_amproc entries	Easy	Low — bad opclass definitions pass silently
+19	lib/tree.cpp	// TODO: recursive roots — root splitting may not handle deep trees correctly	Medium	Low — only matters at extreme scale
+20	blinkhash_build.c	ambuildempty is empty — REINDEX on an empty index produces nothing	Easy	Low — edge case

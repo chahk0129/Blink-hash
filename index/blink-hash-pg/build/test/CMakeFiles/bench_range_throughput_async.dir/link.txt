@@ -1,0 +1,1 @@
+/usr/bin/c++ -std=c++17 -fPIC -pthread -march=native -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -faligned-new=64 -g CMakeFiles/bench_range_throughput_async.dir/bench_range_throughput.cpp.o -o bench_range_throughput_async  ../lib/libblinkhash_async.a -lpthread ../wal/libblinkhash_wal.a /usr/lib/x86_64-linux-gnu/libtbb.so.12.11 -luring 

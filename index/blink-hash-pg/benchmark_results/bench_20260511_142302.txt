@@ -1,0 +1,3 @@
+
+[1;36m>>> Creating benchmark database  db=blinkhash_bench  scale=1000[0m
+psql: error: connection to server at "localhost" (::1), port 5432 failed: FATAL:  password authentication failed for user "codespace"

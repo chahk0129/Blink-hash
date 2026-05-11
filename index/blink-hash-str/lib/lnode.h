@@ -12,6 +12,8 @@ namespace BLINK_HASH{
 #define HASH_FUNCS_NUM (2)
 #define NUM_SLOT (4)
 
+
+
 template <typename Key_t, typename Value_t>
 class lnode_t : public node_t{
     public:
@@ -130,6 +132,13 @@ class lnode_hash_t : public lnode_t<Key_t, Value_t>{
 	static constexpr size_t cardinality = (LEAF_HASH_SIZE - sizeof(lnode_t<Key_t, Value_t>) - sizeof(lnode_t<Key_t, Value_t>*)) / sizeof(bucket_t<Key_t, Value_t>);
 
 	lnode_hash_t<Key_t, Value_t>* left_sibling_ptr;
+	// --- Async conversion state ---
+enum convert_state_t : uint8_t {
+        CONVERT_NONE    = 0,
+        CONVERT_PENDING = 1,
+        CONVERT_ACTIVE  = 2,
+    };
+std::atomic<uint8_t> convert_state{CONVERT_NONE};
 
     private:
 	bucket_t<Key_t, Value_t> bucket[cardinality];
